@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { roleThatCan } from "../../catalog/kit.ts";
 import { configFault } from "../../core/config-file.ts";
 import { errorText } from "../../core/errors.ts";
-import { branchExists, currentBranch, isAncestor, landLane, mergeBranch } from "../../core/git.ts";
+import { LAND_AS, branchExists, currentBranch, isAncestor, landLane, landedRef, mergeBranch } from "../../core/git.ts";
 import { blockUncommitted } from "../../catalog/project-files.ts";
 import { type Args, type Caller, given, no, ok, str, strs } from "../context.ts";
 import { laneGate } from "../gates.ts";
@@ -129,6 +129,12 @@ async function bringBaseIn(roster: Roster, ledger: Ledger, lane: Lane): Promise<
   return { why: `${lane.base} has moved on and does not merge into ${lane.branch}: ${why}. Nothing was changed. Message its Lead to merge ${lane.base} into the lane and settle it, or close it with land false.` };
 }
 
+/** What a lane lands under as one commit or a merge: its title, its outcome and the tasks that went into it. */
+function landMessage(ledger: Ledger, lane: Lane): string {
+  const tasks = tasksOf(ledger, lane.id).filter((task) => task.kind === "code" && task.status === "merged");
+  return [`${lane.title} (${lane.id})`, "", lane.outcome, ...(tasks.length > 0 ? ["", ...tasks.map((task) => `- ${task.id} ${task.title}`)] : [])].join("\n");
+}
+
 export const closeLane: Tool = async (desk, caller, args) => {
   const { ctx, roster, slots, agents, merges } = desk;
   const { project } = caller;
@@ -163,7 +169,8 @@ export const closeLane: Tool = async (desk, caller, args) => {
     if (!gate.ok && args.overGate !== true) {
       return no(`Lane ${lane.id} was not closed: ${gate.text}\nMessage its Lead, close it with land false, or land it over the gate with overGate true — that is your call.`);
     }
-    const result = lane.onBranch ? { landed: true, how: `the work stays on ${lane.branch}, the branch it carried on; nothing was merged anywhere` } : await landLane(project.root, lane.base, lane.branch);
+    const how = { as: loadConfig(project.state).landAs, message: landMessage(ledger, lane), keep: landedRef(lane.id) };
+    const result = lane.onBranch ? { landed: true, how: `the work stays on ${lane.branch}, the branch it carried on; nothing was merged anywhere` } : await landLane(project.root, lane.base, lane.branch, how);
     if (!result.landed) return no(`Lane ${lane.id} was not closed: it could not land, because ${result.how}. Close it again once that is cleared, or close it with land false.`);
     if (!gate.ok) ctx.event(project, { kind: "gate.overridden", lane: lane.id, by: caller.id });
     landing = `${result.how}${gate.ok ? "" : ", over a red gate"}`;
@@ -190,7 +197,7 @@ export const closeLane: Tool = async (desk, caller, args) => {
   );
   // A branch carried on is the Human's: nothing switches the copy off it or deletes it.
   if (!lane.onBranch) {
-    const drop = args.land === true ? { dropBranch: lane.branch, into: lane.base } : {};
+    const drop = args.land === true ? { dropBranch: lane.branch, into: landedRef(lane.id) } : {};
     const branch = await slots.putAway({ project, slot: lane.slot, restore: lane.base, lane: lane.id, branch: lane.branch, ...drop }, writers);
     if (branch) kept.push(branch);
   }
@@ -312,7 +319,8 @@ export const setProject: Tool = async (_desk, caller, args) => {
     gateTimeoutMinutes: Number.isFinite(minutes) && minutes > 0 ? minutes : config.gateTimeoutMinutes,
     gateOn: args.gateOn === "task" ? "task" : args.gateOn === "lane" ? "lane" : config.gateOn,
     serialOnly: Array.isArray(args.serialOnly) ? strs(args.serialOnly) : config.serialOnly,
+    landAs: LAND_AS.find((as) => as === args.landAs) ?? config.landAs,
   };
   saveConfig(caller.project.state, next);
-  return ok(`Base ${next.base ?? "unset"}; gate ${next.gate || "none"}, run per ${next.gateOn}; gate timeout ${next.gateTimeoutMinutes} minutes.`);
+  return ok(`Base ${next.base ?? "unset"}; gate ${next.gate || "none"}, run per ${next.gateOn}; gate timeout ${next.gateTimeoutMinutes} minutes; lanes land as ${next.landAs}.`);
 };

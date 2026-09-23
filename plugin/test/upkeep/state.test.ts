@@ -101,6 +101,15 @@ test("a plan held for the Human, who approves plans, and which plan a task came 
   assert.equal(carriedTo("v5").lanes.L1!.approval, undefined);
 });
 
+test("how a project's lanes land reads back from format 7, and a project from before lands squashed", () => {
+  const { root, shop } = machineAt("v7");
+  upgradeState(root, undefined, undefined, NOW);
+  assert.equal(loadConfig(shop).landAs, "merge");
+  const before = machineAt("v6");
+  upgradeState(before.root, undefined, undefined, NOW);
+  assert.equal(loadConfig(before.shop).landAs, "squash");
+});
+
 test("a step carries every project and the machine, keeps a copy of the files first, and runs once", () => {
   const { root, shop } = machineAt("v1");
   const steps = [

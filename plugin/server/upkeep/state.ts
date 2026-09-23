@@ -18,6 +18,9 @@ export const STEPS: StateStep[] = [
   { to: 5 },
   // 6 only adds who approves plans, a lane's plan held for approval, and which plan a task came from; state 5 has none of them.
   { to: 6 },
+  // 7 only adds how a project's lanes land; a project without it lands as squash, the new default, since landing is not
+  // a record to carry but the next close to happen.
+  { to: 7 },
 ];
 
 const MACHINE_FILES = ["state.json", "settings.json", "outbox.json", "content.json"];

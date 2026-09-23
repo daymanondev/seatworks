@@ -286,6 +286,15 @@
               "type": "string"
             },
             "description": "Globs no parallel lane or task may write: lockfiles, migrations, registries, project settings, scenes and assets."
+          },
+          "landAs": {
+            "type": "string",
+            "enum": [
+              "squash",
+              "merge",
+              "ff"
+            ],
+            "description": "How a landed lane goes onto its base, as the Human's repository does it. squash (default): one commit per lane. merge: a merge commit keeping the lane's commits. ff: every commit of the lane, fast-forwarded."
           }
         }
       }

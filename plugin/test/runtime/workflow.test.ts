@@ -128,6 +128,8 @@ test("a lane works serially in the project's own copy and hands it back on its b
   h.agents.get(lane.lead!)!.status = "idle";
   await h.endTurn(lane.lead!, "closing up");
   assert.equal(h.git(h.root, "branch", "--show-current").trim(), "main", "once the Lead stops, the project's copy is back on its base branch");
+  assert.equal(h.git(h.root, "branch", "--list", lane.branch).trim(), "", "and the landed branch goes, its commits kept under the lane's ref");
+  assert.equal(h.git(h.root, "log", "-1", "--format=%B", "main").trim(), [`${lane.title} (L1)`, "", lane.outcome, "", "- L1-T1 " + h.ledger().tasks["L1-T1"]!.title, "- L1-T3 Late break"].join("\n"), "one commit, naming the tasks that went in and not the one cut");
 
   const reopened = await h.call(sup, "supervisor", "open_lane", { title: "Next", outcome: "b.txt changes", acceptance: ["z"], outOfScope: ["anything else in the repository"] });
   assert.equal(reopened.ok, true, reopened.text);
@@ -432,15 +434,38 @@ test("a lane in the project's own copy lands after its base moved, once nobody i
   h.git(side, "commit", "-qm", "moved", "--allow-empty");
   h.git(h.project.root, "branch", "-f", "main", "side");
   h.git(h.project.root, "worktree", "remove", "--force", side);
+  const moved = h.git(h.root, "rev-parse", "main").trim();
 
-  // With the Lead stopped, main is merged into the lane where it stands and main moves up to it.
+  // With the Lead stopped, main is merged into the lane where it stands and lands on main as one commit.
   h.agents.get(lane.lead!)!.status = "idle";
   const closed = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true });
   assert.equal(closed.ok, true, closed.text);
   assert.match(h.git(h.root, "show", "main:a.txt"), /four/);
-  assert.equal(h.git(h.root, "log", "-1", "--format=%s", "main").trim(), `Bring main into ${lane.branch}`);
+  assert.equal(h.git(h.root, "rev-parse", "main^").trim(), moved);
+  assert.equal(h.git(h.root, "log", "-1", "--format=%s", "refs/seatworks/lanes/L1").trim(), `Bring main into ${lane.branch}`);
   assert.equal(h.git(h.root, "branch", "--show-current").trim(), "main");
-  assert.equal(h.git(h.root, "branch", "--list", lane.branch).trim(), "", "a landed branch is all in main, so it goes");
+  assert.equal(h.git(h.root, "branch", "--list", lane.branch).trim(), "", "a landed branch is all under its landed ref, so it goes");
+  h.runtime.dispose();
+});
+
+test("a project set to land by merge commit keeps the lane's commits on main under one merge", async () => {
+  const h = harness("outbox-land-merge.json");
+  const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
+  const set = await h.call(sup, "supervisor", "set_project", { landAs: "merge" });
+  assert.match(set.text, /land as merge/);
+  assert.equal(loadConfig(h.project.state).landAs, "merge");
+  assert.match((await h.call(sup, "supervisor", "status", {})).text, /Lanes land as merge\./);
+  await h.call(sup, "supervisor", "open_lane", { title: "Numbers", outcome: "a.txt gains words", acceptance: ["four"], outOfScope: ["anything else"] });
+  const lane = h.ledger().lanes.L1!;
+  const before = h.git(h.root, "rev-parse", "main").trim();
+  writeFileSync(join(h.project.root, "a.txt"), "one\nfour\n");
+  h.git(h.project.root, "commit", "-qam", "four");
+  const tip = h.git(h.root, "rev-parse", "HEAD").trim();
+  h.agents.get(lane.lead!)!.status = "idle";
+  const closed = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true });
+  assert.equal(closed.ok, true, closed.text);
+  assert.match(closed.text, /merged lane\/l1-numbers into main/);
+  assert.deepEqual(h.git(h.root, "log", "-1", "--format=%P", "main").trim().split(" "), [before, tip]);
   h.runtime.dispose();
 });
 

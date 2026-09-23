@@ -64,7 +64,7 @@ export function statusText(
   { laneId, waiting = [], held = [], copy, checks }: { laneId?: string; waiting?: SeatView[]; held?: { to: string; text: string; at: number }[]; copy?: OwnCopy; checks?: Team["checkpoints"] } = {},
 ): string {
   const gate = config.gate || (config.gate === "" ? "none, by this project's own choice" : "none");
-  const lines = [`# Status: ${project.root}`, "", `Updated ${new Date(now).toISOString()}. Base ${config.base ?? "unset"}. Gate ${gate}.`, ""];
+  const lines = [`# Status: ${project.root}`, "", `Updated ${new Date(now).toISOString()}. Base ${config.base ?? "unset"}. Gate ${gate}. Lanes land as ${config.landAs}.`, ""];
   if (copy) lines.push(...ownCopyLines(project, ledger, config, copy));
   if (checks) lines.push(...checkLines(project, checks));
   // One outbox holds every project's mail: a seated recipient belongs to its copy's project, a gone one to this project's record.
