@@ -209,3 +209,16 @@ test("a project's plan check follows the machine where it says nothing, starts i
   const view = describeTeam(kit, resolveTeam(kit)) as { checkpoints: unknown };
   assert.deepStrictEqual(JSON.parse(JSON.stringify(view)).checkpoints, { plan: "shadow", approve: "risky", approver: "human", risk: RISKY_PATHS, land: "shadow", landApprove: "risky", landLines: 1000, forced: null }, "Paseo refuses a reply with an undefined field in it");
 });
+
+test("the panel is shown who reads a new lane and, for a project, what each check's log says, as plain JSON", async () => {
+  const { describeTeam } = await import("../../server/runtime/control.ts");
+  const machine = JSON.parse(JSON.stringify(describeTeam(kit, resolveTeam(kit))));
+  assert.deepEqual([machine.critic, machine.digest], [{ by: "seat" }, null], "the machine's defaults have no log of their own");
+  assert.deepEqual(resolveTeam(kit, { critic: { by: "off" } }).critic, { by: "off" });
+  const state = tempDir("sw2-digest-view-");
+  const view = JSON.parse(JSON.stringify(describeTeam(kit, resolveTeam(kit), { root: "/work/shop", slug: "shop", state })));
+  assert.deepStrictEqual(view.digest, {
+    plan: { lines: ["Not enough yet to judge: 0 of the 30 runs it takes."], state: null },
+    land: { lines: ["Not enough yet to judge: 0 of the 30 runs it takes."], state: null },
+  });
+});

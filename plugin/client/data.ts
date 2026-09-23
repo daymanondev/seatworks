@@ -23,6 +23,9 @@ export type TeamView = {
   errors: string[];
   attention: Required<AttentionChoice>;
   checkpoints: { plan: CheckpointMode; approve: "risky" | "every"; approver: "human" | "supervisor"; risk: string; land: CheckpointMode; landApprove: "risky" | "every"; landLines: number; forced: string | null };
+  critic: { by: CriticBy };
+  /** A project's own checkpoint log, read for whoever chooses a check's mode; null on the machine's defaults. */
+  digest: { plan: Digest; land: Digest } | null;
   rules: string;
   mcp: Record<string, { label: string; enabled: boolean; roles: string[]; settings: Record<string, Scalar>; transport: string; template: boolean; connect: Connect | null; rule: string | null }>;
   roles: Record<string, { harness: string; provider: string; model: string | null; thinking: string | null; mcp: string[]; tools: Record<string, string[]>; skills: string[]; rules: string }>;
@@ -35,10 +38,12 @@ export type AttentionChoice = {
   by?: "seat" | "jev"; watcherQuietSeconds?: number; watcherEveryMinutes?: number; watcherChars?: number; watcherRotateAfter?: number; watcherJudgeMinutes?: number;
 };
 export type CheckpointMode = "off" | "shadow" | "on";
+export type CriticBy = "seat" | "off";
+export type Digest = { lines: string[]; state: "ready" | "stamped" | null };
 export type RoleChoice = { harness?: string; model?: string; thinking?: string; rules?: string };
 export type McpChoice = { enabled?: boolean; removed?: boolean; label?: string; connect?: Connect; roles?: string[]; tools?: Record<string, string[]>; rule?: string; settings?: Record<string, Scalar> };
 export type SensorChoice = { key?: string };
-export type Layer = { checkpoints?: { plan?: CheckpointMode; approve?: "risky" | "every"; approver?: "human" | "supervisor"; risk?: string; land?: CheckpointMode; landApprove?: "risky" | "every"; landLines?: number }; roles?: Record<string, RoleChoice>; mcp?: Record<string, McpChoice>; rules?: string; attention?: AttentionChoice; flow?: { live?: boolean; everySeconds?: number }; sensor?: SensorChoice };
+export type Layer = { critic?: { by?: CriticBy }; checkpoints?: { plan?: CheckpointMode; approve?: "risky" | "every"; approver?: "human" | "supervisor"; risk?: string; land?: CheckpointMode; landApprove?: "risky" | "every"; landLines?: number }; roles?: Record<string, RoleChoice>; mcp?: Record<string, McpChoice>; rules?: string; attention?: AttentionChoice; flow?: { live?: boolean; everySeconds?: number }; sensor?: SensorChoice };
 
 export type ProjectRow = { slug: string; root: string };
 export type PaseoProject = { name: string; root: string };
@@ -460,6 +465,10 @@ export function modelRow(model: string, models: { id: string; label: string }[])
 
 export function setAttention(values: Layer, choice: AttentionChoice): Layer {
   return { ...values, attention: { ...values.attention, ...choice } };
+}
+
+export function setCritic(values: Layer, by: CriticBy): Layer {
+  return { ...values, critic: { ...values.critic, by } };
 }
 
 export function setCheckpoint(values: Layer, choice: NonNullable<Layer["checkpoints"]>): Layer {

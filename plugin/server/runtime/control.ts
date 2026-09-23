@@ -9,6 +9,7 @@ import type { SeatView, Seats } from "../core/ports.ts";
 import { seatProblems } from "../catalog/seats.ts";
 import { guidesDir, home, stateRoot, worktreeRoot } from "../core/paths.ts";
 import { createHash } from "node:crypto";
+import { digestOf } from "../desk/checkpoints.ts";
 import { flowView } from "../desk/flow.ts";
 import type { CleanView, MigrateView, UpdateView, WatchView } from "../../shared/views.ts";
 import { removeGarbage, scanGarbage } from "../upkeep/clean.ts";
@@ -127,6 +128,16 @@ export function describeTeam(kit: Kit, team: Team, project?: Project): unknown {
     errors: team.errors,
     attention: team.attention,
     checkpoints: { ...team.checkpoints, forced: team.checkpoints.forced ?? null },
+    critic: team.critic,
+    // A project's own log, read where its mode is chosen; the machine's defaults have none.
+    digest: project
+      ? Object.fromEntries(
+          (["plan", "land"] as const).map((checkpoint) => {
+            const { lines, state } = digestOf(project, checkpoint, team.checkpoints.forced ? "on" : team.checkpoints[checkpoint]);
+            return [checkpoint, { lines, state: state ?? null }];
+          }),
+        )
+      : null,
     rules: team.rules,
     mcp: Object.fromEntries(
       Object.entries(team.mcp).map(([id, state]) => [

@@ -5,10 +5,11 @@ import { type ReactElement, useState } from "react";
 import { modelsRpc } from "../shared/rpc.ts";
 import { Text } from "react-native";
 import { sourceLabel } from "./bits.tsx";
-import type { Catalog, CheckpointMode, Layer, RoleChoice, TeamView } from "./data.ts";
+import type { Catalog, CheckpointMode, Digest, Layer, RoleChoice, TeamView } from "./data.ts";
 import { message, modelRow, setCheckpoint, setRole, sourceOf } from "./data.ts";
 import { ModelPicker } from "./model-picker.tsx";
 import { TabBar } from "./tabs.tsx";
+import { CriticSettings } from "./critic.tsx";
 import { WatcherSettings } from "./watch.tsx";
 
 type Props = {
@@ -128,6 +129,17 @@ const PLAN_CHECK: Record<CheckpointMode, string> = {
   on: "A plan the check finds fault with goes back to the Lead, and a lane's first task waits for a plan.",
 };
 
+/** What a project's own log says of one check, under its mode: none on the machine's defaults, none while it is off. */
+function logRow(digest: Digest | undefined, mode: CheckpointMode, theme: PluginTheme): ReactElement | null {
+  if (!digest || mode === "off") return null;
+  const badge = digest.state === "ready" ? { text: "Ready to turn on", color: theme.colors.statusSuccess } : digest.state === "stamped" ? { text: "May be approved out of habit", color: theme.colors.statusWarning } : undefined;
+  return (
+    <SettingsRow label="From its log" hint={digest.lines.join(" ")}>
+      {badge ? <Text style={{ color: badge.color, fontSize: 12, fontWeight: "600" }}>{badge.text}</Text> : null}
+    </SettingsRow>
+  );
+}
+
 /** On the Lead's chip, since the plan is the Lead's: how hard the desk checks it before the work starts. */
 function PlanCheckCard({ team, values, machine, layer, theme, disabled, save }: Props) {
   const mode = team.checkpoints.plan;
@@ -171,6 +183,7 @@ function PlanCheckCard({ team, values, machine, layer, theme, disabled, save }: 
           ]}
         />
       </SettingsRow>
+      {logRow(team.digest?.plan, team.checkpoints.forced ? "on" : mode, theme)}
     </SettingsCard>
   );
 }
@@ -214,6 +227,7 @@ function LandCheckCard({ team, values, machine, layer, theme, disabled, save }: 
           ]}
         />
       </SettingsRow>
+      {logRow(team.digest?.land, team.checkpoints.forced ? "on" : mode, theme)}
     </SettingsCard>
   );
 }
@@ -225,7 +239,13 @@ export function TeamSection(props: Props) {
   return (
     <SettingsSection title="Team" info={role.description}>
       <TabBar theme={theme} active={role.id} disabled={disabled} onPick={onActive} tabs={catalog.roles.map((entry) => ({ id: entry.id, label: entry.label }))} />
-      {role.can.includes("watch") ? <WatcherSettings {...props} role={role} rows={roleRows({ ...props, role })} /> : <SettingsCard>{roleRows({ ...props, role })}</SettingsCard>}
+      {role.can.includes("watch") ? (
+        <WatcherSettings {...props} role={role} rows={roleRows({ ...props, role })} />
+      ) : role.can.includes("critique") ? (
+        <CriticSettings {...props} rows={roleRows({ ...props, role })} />
+      ) : (
+        <SettingsCard>{roleRows({ ...props, role })}</SettingsCard>
+      )}
       {role.can.includes("lead") ? <PlanCheckCard {...props} /> : null}
       {role.can.includes("supervise") ? <LandCheckCard {...props} /> : null}
       <ModelsCard catalog={props.catalog} disabled={props.disabled} reload={props.reload} />
