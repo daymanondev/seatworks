@@ -29,7 +29,14 @@ test("the fixture of the current format exists, so the next change to a kept fil
 for (const version of readdirSync(FIXTURES).filter((name) => /^v\d+$/.test(name))) {
   test(`what was kept in state format ${version.slice(1)} is carried to this version and read in full`, () => {
     const { root, shop } = machineAt(version);
-    assert.deepEqual(upgradeState(root, undefined, undefined, NOW).failed, []);
+    const from = Number(version.slice(1));
+    const report = upgradeState(root, undefined, undefined, NOW);
+    assert.deepEqual(report.failed, []);
+    assert.deepEqual(report.upgraded, from === STATE_VERSION ? [] : [`machine: ${from} → ${STATE_VERSION}`, `shop-abc123: ${from} → ${STATE_VERSION}`]);
+    assert.equal(readJson<{ version?: number }>(join(root, "state.json"), {}).version, STATE_VERSION, "the machine now carries this version's number");
+    assert.equal(readJson<{ version?: number }>(join(shop, "ledger.json"), {}).version, STATE_VERSION, "and so does the ledger");
+    assert.deepEqual(readdirSync(shop).filter((name) => STATE_BACKUP.test(name)), from === STATE_VERSION ? [] : [`backup-state-${from}-20260922-071230`], "a copy of what was there is kept before anything moves");
+    assert.deepEqual(upgradeState(root, undefined, undefined, NOW), { upgraded: [], failed: [] }, "and a second start carries nothing again");
 
     assert.equal(ledgerFault(shop), undefined);
     const ledger = loadLedger(shop);
@@ -43,6 +50,14 @@ for (const version of readdirSync(FIXTURES).filter((name) => /^v\d+$/.test(name)
     assert.equal(readLayer(join(shop, "settings.json"), ProjectLayerSchema).status, "ready");
   });
 }
+
+test("a lane recorded as carrying on the Human's branch in format 2 reads back as one, and one from before has no such mark", () => {
+  const carried = loadLedger(machineAt("v2").shop).lanes.L1!;
+  assert.deepEqual([carried.onBranch, carried.branch, carried.base], [true, "fix/totals", "fix/totals"]);
+  const { root, shop } = machineAt("v1");
+  upgradeState(root, undefined, undefined, NOW);
+  assert.equal(loadLedger(shop).lanes.L1!.onBranch, undefined, "a lane from format 1 is the lane branch it always was");
+});
 
 test("a step carries every project and the machine, keeps a copy of the files first, and runs once", () => {
   const { root, shop } = machineAt("v1");

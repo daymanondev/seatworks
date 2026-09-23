@@ -7,7 +7,10 @@ import { readJson, writeJson } from "../core/store.ts";
 /** Steps run in order at plugin start, which an update only does once every seat has stopped. */
 export type StateStep = { to: number; machine?: (root: string) => void; project?: (state: string) => void };
 
-export const STEPS: StateStep[] = [];
+export const STEPS: StateStep[] = [
+  // 2 only adds `Lane.onBranch`; a lane without it is the lane branch it always was, so nothing is carried.
+  { to: 2 },
+];
 
 const MACHINE_FILES = ["state.json", "settings.json", "outbox.json", "content.json"];
 const PROJECT_FILES = ["ledger.json", "incidents.json", "project.json", "meta.json", "settings.json"];
