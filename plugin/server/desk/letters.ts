@@ -362,6 +362,11 @@ export const letters = {
     return `SENT BACK ${lane.id} (${lane.title}) by the Human: ${text || "no reason was given"}. The lane stays open, and its Lead has the note.`;
   },
 
+  checkDigest(checkpoint: string, state: "ready" | "stamped", lines: string[]): string {
+    const what = state === "ready" ? "the check running in shadow has run enough to judge." : "the check may be approved out of habit.";
+    return `CHECK DIGEST ${checkpoint}: ${what} ${lines.join(" ")} Tell the Human in two lines; turning it on, narrowing it or moving it back is theirs, on the Team tab of the panel.`;
+  },
+
   leadGone(lane: Lane): string {
     return `LEAD GONE ${lane.id} (${lane.title}): its Lead ${lane.lead} is no longer seated, so nothing on the lane moves. replace_lead puts a new Lead on it where it stands; close_lane ends it.`;
   },

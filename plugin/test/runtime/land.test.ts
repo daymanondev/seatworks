@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import { harness, laneWithPeer } from "./harness.ts";
 import { settle } from "./fake-timeline.ts";
 
@@ -191,5 +191,30 @@ test("a Peer that hands back complete after its last test run failed is named to
   assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /INCIDENT I\d+ \(claim-contradicted, attend\) on the Peer on L1-T1[^]*handed back as complete, but `npm test` failed the last time it ran, after the last edit/);
   const held = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true, overGate: true });
   assert.match(held.text, /Incident I\d+ on this lane is still open: claim-contradicted\./);
+  h.runtime.dispose();
+});
+
+test("once a shadow check has run enough to judge, the Supervisor is told once, and status shows it", async () => {
+  const h = harness("outbox-digest.json");
+  const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
+  const day = 86_400_000;
+  const lines = Array.from({ length: 30 }, (_, index) =>
+    JSON.stringify({ at: new Date(Date.now() - (30 - index) * day / 3).toISOString(), checkpoint: "land", mode: "shadow", lane: `L${index}`, by: sup, decision: index % 10 === 0 ? "ask" : "pass", findings: index % 10 === 0 ? [`src/auth/f${index}.ts is a path this project counts as risky.`] : [] }),
+  );
+  mkdirSync(h.project.state, { recursive: true });
+  writeFileSync(join(h.project.state, "checkpoints.log"), `${lines.join("\n")}\n`);
+  await h.tick();
+  // Past the outbox's own half hour of keeping a letter from being posted twice.
+  mock.timers.enable({ apis: ["Date"], now: Date.now() + 31 * 60_000 });
+  try {
+    await h.tick(Date.now());
+  } finally {
+    mock.timers.reset();
+  }
+  await h.idle(sup);
+  const told = h.agents.get(sup)!.sent.join("\n");
+  assert.equal(told.match(/CHECK DIGEST/g)?.length, 1, "once, not every round");
+  assert.match(told, /CHECK DIGEST land: the check running in shadow has run enough to judge\. Turned on, it would have stopped work 3 times in 30 runs over 10 days \(0\.3 a day\)\.[^]*L20: src\/auth\/f20\.ts is a path[^]*Tell the Human in two lines/);
+  assert.match((await h.call(sup, "supervisor", "status", {})).text, /- land: shadow\.[^\n]*\n  Turned on, it would have stopped work 3 times/);
   h.runtime.dispose();
 });
