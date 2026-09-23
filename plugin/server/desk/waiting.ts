@@ -68,7 +68,7 @@ export async function startWaiting(desk: DeskServices, project: Project, retryHe
   const ledger = loadLedger(project.state);
   for (const waiting of Object.values(ledger.tasks).filter((task) => task.status === "waiting" && (retryHeld || !task.held?.tried))) {
     const lane = ledger.lanes[waiting.lane];
-    if (lane?.status !== "open" || !lane.lead) continue;
+    if (lane?.status !== "open" || !lane.lead || (waiting.plan !== undefined && lane.approval?.plan === waiting.plan)) continue;
     const pending = taskWaitsFor(ledger, lane.id, waiting.after ?? []);
     if (Array.isArray(pending) && pending.length > 0) continue;
     const held = typeof pending === "string" ? { why: `${pending} Cut this task to drop it, or cut it and start the work again without waiting.` } : await releaseTask(desk, project, lane, waiting);

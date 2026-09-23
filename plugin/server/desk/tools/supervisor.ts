@@ -15,6 +15,7 @@ import type { DeskServices, Tool } from "../services.ts";
 import { directiveFor, leadSeatOf, overlap, openedReply, placement, seatingKey, startLead } from "../opening.ts";
 import { openWaiting, waitsFor } from "../waiting.ts";
 import { namedOrNot } from "./shared.ts";
+import { decidePlan } from "../approval.ts";
 
 /** An unreadable issue ref is a note on the lane, never a reason to refuse opening it. */
 async function readIssue(args: Args, project: Project): Promise<{ issue?: Issue; unread?: string }> {
@@ -288,6 +289,12 @@ export const replaceLead: Tool = async ({ ctx, roster, agents }, caller, args) =
   } finally {
     ctx.seating.delete(key);
   }
+};
+
+/** A plan held for the Supervisor's approval; one held for the Human is refused, since only the panel speaks for them. */
+export const approvePlan: Tool = async (desk, caller, args) => {
+  const decided = await decidePlan(desk, caller.project, str(args.lane).trim().toUpperCase(), args.approve === true, caller.id, str(args.note).trim());
+  return decided.ok ? ok(decided.text) : no(decided.text);
 };
 
 export const setProject: Tool = async (_desk, caller, args) => {

@@ -3,7 +3,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { ProjectLayerSchema } from "../../server/catalog/settings.ts";
-import { resolveTeam, rulesFor, servingProject, serversFor, skillDirsFor, withHarness } from "../../server/catalog/team.ts";
+import { RISKY_PATHS, resolveTeam, rulesFor, servingProject, serversFor, skillDirsFor, withHarness } from "../../server/catalog/team.ts";
 import { makeKit } from "../kit.ts";
 import { tempDir } from "../tempdir.ts";
 
@@ -202,5 +202,5 @@ test("a project's plan check follows the machine where it says nothing, starts i
   assert.equal(resolveTeam(kit, { checkpoints: { plan: "on" } }, { checkpoints: { plan: "off" } }).checkpoints.plan, "off", "and the project's own choice wins");
   const { describeTeam } = await import("../../server/runtime/control.ts");
   const view = describeTeam(kit, resolveTeam(kit)) as { checkpoints: unknown };
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(view)).checkpoints, { plan: "shadow", forced: null }, "Paseo refuses a reply with an undefined field in it");
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(view)).checkpoints, { plan: "shadow", approve: "risky", approver: "human", risk: RISKY_PATHS, forced: null }, "Paseo refuses a reply with an undefined field in it");
 });

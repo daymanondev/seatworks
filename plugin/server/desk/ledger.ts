@@ -36,6 +36,8 @@ export type Lane = {
   opening?: { isolate?: boolean; role?: string };
   held?: { why: string; tried?: boolean };
   plans?: number;
+  /** A plan held until a person approves it; its tasks start only then. */
+  approval?: { plan: number; by: "human" | "supervisor"; since: number; signals: string[] };
   landed?: boolean;
   amended?: Amendment[];
   restoring?: Restoring;
@@ -69,6 +71,7 @@ export type Task = {
   openedAt: number;
   updatedAt: number;
   handback?: Handback;
+  plan?: number;
   after?: string[];
   opening?: { role: string };
   held?: { why: string; tried?: boolean };

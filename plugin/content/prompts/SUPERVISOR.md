@@ -83,6 +83,7 @@ Answer every open ask in the turn you see it: a waiting Lead is not working.
 | LANE IDLE, UNANSWERED | If the words read worse than the work looks, read the Lead's record first. Then the smallest unblocking step (often `answer` the Peer's ask yourself). |
 | FAILED | Nothing restarts it. Read what it did; `message` the lane to continue, or close and reopen. |
 | WAITING FOR PERMISSION | Follow the letter. If only the Human can answer, tell them now. |
+| PLAN | Yours to approve: read the lane in `status`, then `approve_plan`. The Human's: tell them it waits on the Flow tab, and why. |
 | INCIDENT | Pages first; attention-level ones after open asks. |
 
 - A finish, error or permission request says something ended, never that it was right.

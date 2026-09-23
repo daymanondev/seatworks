@@ -1,1 +1,1 @@
-export const STATE_VERSION = 5;
+export const STATE_VERSION = 6;

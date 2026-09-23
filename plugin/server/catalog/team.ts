@@ -39,13 +39,17 @@ export type Team = {
   mcp: Record<string, McpState>;
   attention: Attention;
   sensor?: { spec: SensorSpec; key: string };
-  /** `forced` says why a check runs on though nobody chose it: settings the desk could not read. */
-  checkpoints: { plan: CheckpointMode; forced?: string };
+  /** `forced` says why a check runs at its strictest though nobody chose it: settings the desk could not read. */
+  checkpoints: { plan: CheckpointMode; approve: "risky" | "every"; approver: "human" | "supervisor"; risk: string; forced?: string };
   rules: string;
   errors: string[];
 };
 
 export type CheckpointMode = (typeof CHECKPOINT_MODES)[number];
+
+/** Paths whose change is risky enough that a plan touching them waits for a person: access, money, data shape, and what ships. */
+export const RISKY_PATHS =
+  "(^|/)(auth|login|session|passwords?|secrets?|credentials?|tokens?|payments?|billing|migrations?|schema)(/|\\.|$)|\\.sql$|(^|/)\\.github/workflows(/|$)|(^|/)(Dockerfile|docker-compose[^/]*|\\.env[^/]*)$|(^|/)(infra|deploy|terraform|k8s|helm)(/|$)";
 
 export function templateRoles(entry: McpEntry): string[] {
   return entry.kind === "proxy" ? Object.keys(entry.tools ?? {}) : (entry.roles ?? []);
@@ -228,7 +232,15 @@ export function resolveTeam(kit: Kit, machine: Layer = {}, project: Layer = {}, 
     ...(spec && machine.sensor?.key ? { sensor: { spec, key: machine.sensor.key } } : {}),
     attention: { ...kit.attention, ...stripUndefined(machine.attention), ...stripUndefined(project.attention) },
     // A check the Human turned on must not fall silently to its default when the file that says so cannot be read.
-    checkpoints: unread.length > 0 ? { plan: "on", forced: unread.join("; ") } : { plan: project.checkpoints?.plan ?? machine.checkpoints?.plan ?? "shadow" },
+    checkpoints:
+      unread.length > 0
+        ? { plan: "on", approve: "every", approver: "human", risk: RISKY_PATHS, forced: unread.join("; ") }
+        : {
+            plan: project.checkpoints?.plan ?? machine.checkpoints?.plan ?? "shadow",
+            approve: project.checkpoints?.approve ?? machine.checkpoints?.approve ?? "risky",
+            approver: project.checkpoints?.approver ?? machine.checkpoints?.approver ?? "human",
+            risk: project.checkpoints?.risk ?? machine.checkpoints?.risk ?? RISKY_PATHS,
+          },
     rules: [machine.rules, project.rules].filter((text) => text && text.trim()).join("\n\n"),
     errors,
   };

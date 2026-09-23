@@ -126,7 +126,7 @@ export function describeTeam(kit: Kit, team: Team, project?: Project): unknown {
     project: project?.slug ?? null,
     errors: team.errors,
     attention: team.attention,
-    checkpoints: { plan: team.checkpoints.plan, forced: team.checkpoints.forced ?? null },
+    checkpoints: { ...team.checkpoints, forced: team.checkpoints.forced ?? null },
     rules: team.rules,
     mcp: Object.fromEntries(
       Object.entries(team.mcp).map(([id, state]) => [
@@ -171,6 +171,7 @@ export type ControlDeps = {
   seats: Seats;
   held: () => { to: string; text: string; at: number }[];
   watch: (project: Project, seats: Iterable<SeatView>) => WatchView;
+  decidePlan: (project: Project, lane: string, approve: boolean, note: string) => Promise<{ ok: boolean; text: string }>;
 };
 
 export class SettingsControl implements Control {
@@ -328,6 +329,14 @@ export class SettingsControl implements Control {
       (seat) => can(seatOf(this.deps.kit, seat.provider)?.role, "supervise") && projectOf(seat.cwd).slug === project.slug && (seat.pendingPermissions?.length ?? 0) > 0,
     );
     return { text: statusText(project, loadLedger(project.state), loadConfig(project.state), seats, Date.now(), { waiting, held: this.deps.held(), checks: this.deps.source.teamFor(project).checkpoints }) };
+  }
+
+  /** The Human's own word on a held plan: the panel is the one place it comes from, since no seat may give it for them. */
+  async decidePlan(slug: string, lane: string, approve: boolean, note: string): Promise<unknown> {
+    const project = this.deps.source.named(slug);
+    if (!project) return { error: unknownProject(slug) };
+    const decided = await this.deps.decidePlan(project, lane, approve, note.trim());
+    return decided.ok ? { decided: decided.text } : { error: decided.text };
   }
 
   async flow(slug: string, since?: string, open?: string[]): Promise<unknown> {

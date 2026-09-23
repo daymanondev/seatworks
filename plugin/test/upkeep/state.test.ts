@@ -91,6 +91,16 @@ test("a project's plan check and a lane's count of plans read back from format 5
   assert.equal(carriedTo("v4").lanes.L1!.plans, undefined);
 });
 
+test("a plan held for the Human, who approves plans, and which plan a task came from read back from format 6", () => {
+  const { root, shop } = machineAt("v6");
+  upgradeState(root, undefined, undefined, NOW);
+  const ledger = loadLedger(shop);
+  assert.deepEqual([ledger.lanes.L1!.approval?.plan, ledger.lanes.L1!.approval?.by, ledger.tasks["L1-T2"]!.plan], [2, "human", 1]);
+  const layer = readLayer(join(shop, "settings.json"), ProjectLayerSchema);
+  assert.deepEqual(layer.status === "ready" ? layer.values.checkpoints : undefined, { plan: "on", approve: "risky", approver: "human" });
+  assert.equal(carriedTo("v5").lanes.L1!.approval, undefined);
+});
+
 test("a step carries every project and the machine, keeps a copy of the files first, and runs once", () => {
   const { root, shop } = machineAt("v1");
   const steps = [

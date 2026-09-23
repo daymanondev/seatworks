@@ -73,7 +73,7 @@ test("in shadow the plan check names what would collide and records it, and the 
   assert.equal(Object.keys(h.ledger().tasks).length, 4, "shadow holds nothing back");
   const [run] = runs(h.project.state);
   assert.deepEqual([run!.mode, run!.decision, run!.findings.length], ["shadow", "hold", 4]);
-  assert.match((await h.call(h.ledger().lanes.L1!.opener, "supervisor", "status", {})).text, /- plan: shadow\. In checkpoints\.log: 1 checked, 1 would have been held; last held L1 at /);
+  assert.match((await h.call(h.ledger().lanes.L1!.opener, "supervisor", "status", {})).text, /- plan: shadow\. Plans are approved when they touch risky paths, by the Human on the panel\. In checkpoints\.log: 1 checked, 1 would have been held, 0 would have been sent for approval; last held L1 at /);
   h.runtime.dispose();
 });
 
@@ -95,7 +95,7 @@ test("with the plan check on, a plan it finds fault with goes back to the Lead a
   const fixed = await h.call(lead, "lead", "plan_tasks", { tasks: [task("left", ["src/x.ts"], { parallel: true }), task("right", ["src/x.ts"], { parallel: true, after: ["left"] })] });
   assert.equal(fixed.ok, true, fixed.text);
   assert.deepEqual(runs(h.project.state).map((run) => run.decision), ["hold", "hold", "pass"], "every run is kept, the pass as well");
-  assert.match((await h.call(sup, "supervisor", "status", {})).text, /## Checkpoints\n\n- plan: on\. In checkpoints\.log: 3 checked, 2 held; last held L1 at [^:]+:[^:]+:[^:]+: The owned paths|## Checkpoints\n\n- plan: on\. In checkpoints\.log: 3 checked, 2 held; last held L1/);
+  assert.match((await h.call(sup, "supervisor", "status", {})).text, /## Checkpoints\n\n- plan: on\. Plans are approved when they touch risky paths, by the Human on the panel\. In checkpoints\.log: 3 checked, 2 held, 0 sent for approval; last held L1/);
   h.runtime.dispose();
 });
 
@@ -104,6 +104,8 @@ test("settings the desk cannot read leave the plan check on, and say why, rather
   writeFileSync(join(h.project.state, "settings.json"), "{ not json");
   assert.match((await h.call(lead, "lead", "start_task", { title: "T", goal: "g", ...scope, owned: ["a.txt"] })).text, /checks a lane's plan before its first task/);
   assert.match((await h.call(sup, "supervisor", "status", {})).text, /- plan: on, because The project settings are not being used/);
+  assert.match((await h.call(lead, "lead", "plan_tasks", { tasks: [task("page", ["src/pages/p.ts"])] })).text, /waits for the owner's approval, because this project approves every plan/, "at its strictest: every plan, by the Human");
+  assert.equal(h.ledger().lanes.L1!.approval?.by, "human");
   h.runtime.dispose();
 });
 
@@ -134,4 +136,63 @@ test("a Lead changes what a task owns: the record and its Peer see the paths it 
   assert.equal((await amend("L1-T1", ["a.txt", "c.txt"])).ok, true, "a task in the lane's copy is one writer at a time, as it is at its start");
   assert.equal(peer, h.ledger().tasks["L1-T1"]!.peer);
   h.runtime.dispose();
+});
+
+const risky = () => [task("auth", ["src/auth/login.ts"]), task("page", ["src/pages/p.ts"], { parallel: true })];
+
+test("with the check on, a plan that owns risky paths waits for the Human: none of it starts, the Supervisor is told, and only the panel approves it", async () => {
+  const { h, sup, lead } = await lane("outbox-plan-human.json", { checkpoints: { plan: "on" } });
+  const planned = await h.call(lead, "lead", "plan_tasks", { tasks: risky() });
+  assert.equal(planned.ok, true, planned.text);
+  assert.match(planned.text, /waits for the owner's approval, because AUTH owns src\/auth\/login\.ts, which this project counts as risky\. Nothing of it starts until then/);
+  assert.doesNotMatch(planned.text, /supervisor/i, "a Lead is not shown the word its role hides");
+  assert.deepEqual(Object.values(h.ledger().tasks).map((entry) => entry.status), ["waiting", "waiting"]);
+  assert.match(h.agents.get(sup)!.sent.join("\n"), /PLAN 1 of L1 \(Cart\) waits for the Human's approval, on the Flow tab of the panel: AUTH owns src\/auth\/login\.ts[^]*You cannot approve it/);
+
+  assert.match((await h.call(sup, "supervisor", "approve_plan", { lane: "L1", approve: true })).text, /waits for the Human, on the panel's Flow tab; it is not yours to decide/);
+  await h.tick(Date.now());
+  assert.deepEqual(Object.values(h.ledger().tasks).map((entry) => entry.status), ["waiting", "waiting"], "a round does not start a plan that waits for approval");
+  const status = (await h.call(sup, "supervisor", "status", {})).text;
+  assert.match(status, /Plan 1 waits \d+ min for approval by the Human, on the panel: AUTH owns src\/auth\/login\.ts/);
+  assert.match(status, /- L1-T1 Task auth: waiting\n  Goal: do auth\n  Owns: src\/auth\/login\.ts\n- L1-T2 Task page: waiting\n  Goal: do page\n  Owns: src\/pages\/p\.ts, in parallel/, "what the plan is for and writes, since that is what approving it means reading");
+  const flow = (await h.runtime.control.flow(h.project.slug)) as { lanes: { id: string; approval?: { plan: number; by: string } }[] };
+  assert.deepEqual(flow.lanes.find((entry) => entry.id === "L1")!.approval, { plan: 1, by: "human", minutes: 0, signals: ["AUTH owns src/auth/login.ts, which this project counts as risky."] });
+
+  const decided = (await h.runtime.control.decidePlan(h.project.slug, "L1", true, "go ahead")) as { decided?: string };
+  assert.match(decided.decided ?? "", /Plan 1 of lane L1 is approved; 2 of its tasks started/);
+  assert.equal(h.ledger().lanes.L1!.approval, undefined);
+  await h.idle(lead);
+  assert.match(h.agents.get(lead)!.sent.join("\n"), /APPROVED plan 1 of L1 \(Cart\): go ahead Its tasks start/);
+  assert.deepEqual(runs(h.project.state).map((run) => run.decision), ["ask", "approved"]);
+  h.runtime.dispose();
+});
+
+test("a plan the Supervisor may approve and sends back has its tasks cut, and a plan with nothing risky then runs at once", async () => {
+  const { h, sup, lead } = await lane("outbox-plan-back.json", { checkpoints: { plan: "on", approver: "supervisor" } });
+  assert.match((await h.call(sup, "supervisor", "approve_plan", { lane: "L1", approve: true })).text, /No plan of lane L1 waits for approval/);
+  await h.call(lead, "lead", "plan_tasks", { tasks: risky() });
+  assert.match(h.agents.get(sup)!.sent.join("\n"), /PLAN 1 of L1 \(Cart\) waits for your approval: AUTH owns[^]*approve_plan with approve true, or false/);
+  const back = await h.call(sup, "supervisor", "approve_plan", { lane: "L1", approve: false, note: "keep auth out of this lane" });
+  assert.match(back.text, /Plan 1 of lane L1 is sent back; L1-T1, L1-T2 cut/);
+  assert.deepEqual(Object.values(h.ledger().tasks).map((entry) => entry.status), ["cut", "cut"]);
+  await h.idle(lead);
+  assert.match(h.agents.get(lead)!.sent.join("\n"), /SENT BACK plan 1 of L1 \(Cart\): keep auth out of this lane\. L1-T1, L1-T2 are cut\. Send a new plan with plan_tasks/);
+
+  const again = await h.call(lead, "lead", "plan_tasks", { tasks: [task("page", ["src/pages/p.ts"])] });
+  assert.match(again.text, /PAGE is L1-T3 Task page: running/, "nothing risky, so nobody is asked");
+  assert.deepEqual(runs(h.project.state).map((run) => run.decision), ["ask", "sent back", "pass"]);
+  h.runtime.dispose();
+});
+
+test("a project that approves every plan holds one with nothing risky too, and in shadow a risky plan runs and is only recorded", async () => {
+  const every = await lane("outbox-plan-every.json", { checkpoints: { plan: "on", approve: "every", approver: "supervisor" } });
+  assert.match((await every.h.call(every.lead, "lead", "plan_tasks", { tasks: [task("page", ["src/pages/p.ts"])] })).text, /waits for the owner's approval, because this project approves every plan before it runs/);
+  assert.match((await every.h.call(every.sup, "supervisor", "approve_plan", { lane: "L1", approve: true })).text, /is approved; 1 of its tasks started/);
+  every.h.runtime.dispose();
+
+  const shadow = await lane("outbox-plan-shadow-risky.json");
+  assert.match((await shadow.h.call(shadow.lead, "lead", "plan_tasks", { tasks: risky() })).text, /AUTH is L1-T1 Task auth: running/);
+  assert.deepEqual(runs(shadow.h.project.state).map((run) => [run.decision, run.findings[0]]), [["ask", "AUTH owns src/auth/login.ts, which this project counts as risky."]], "it would have been asked for");
+  assert.equal(shadow.h.ledger().lanes.L1!.approval, undefined);
+  shadow.h.runtime.dispose();
 });

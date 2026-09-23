@@ -39,10 +39,11 @@ function ownCopyLines(project: Project, ledger: Ledger, config: ProjectConfig, c
 
 /** What each checkpoint is set to and what its log holds, so a shadow period can be read before it is turned on. */
 function checkLines(project: Project, checks: Team["checkpoints"]): string[] {
-  const { runs, held, last } = runsOf(project, "plan");
+  const { runs, held, asked, last } = runsOf(project, "plan");
   const mode = checks.forced ? `on, because ${checks.forced}` : checks.plan;
-  const kept = runs === 0 ? "nothing checked yet" : `${runs} checked, ${held} ${checks.plan === "on" ? "held" : "would have been held"}${last ? `; last held ${last.lane} at ${last.at}: ${last.findings[0] ?? ""}` : ""}`;
-  return ["## Checkpoints", "", `- plan: ${mode}. ${checks.plan === "off" && !checks.forced ? "Nothing is checked." : `In checkpoints.log: ${kept}.`}`, ""];
+  const kept = runs === 0 ? "nothing checked yet" : `${runs} checked, ${held} ${checks.plan === "on" ? "held" : "would have been held"}, ${asked} ${checks.plan === "on" ? "sent for approval" : "would have been sent for approval"}${last ? `; last held ${last.lane} at ${last.at}: ${last.findings[0] ?? ""}` : ""}`;
+  const approval = `Plans are approved ${checks.approve === "every" ? "every time" : "when they touch risky paths"}, by ${checks.approver === "human" ? "the Human on the panel" : "the Supervisor"}`;
+  return ["## Checkpoints", "", `- plan: ${mode}. ${checks.plan === "off" && !checks.forced ? "Nothing is checked." : `${approval}. In checkpoints.log: ${kept}.`}`, ""];
 }
 
 function laneAim(lane: Lane): string[] {
@@ -100,18 +101,23 @@ export function statusText(
   if (open.length === 0) lines.push("No open lanes.", "");
   for (const lane of open) {
     const detour = lane.detourOf ? ` Clearing the way for ${lane.detourOf}.` : "";
-    lines.push(`## ${lane.id} ${lane.title}`, "", `Branch ${lane.branch}${lane.onBranch ? ", carried on in the project's own copy" : ` off ${lane.base}`}. Lead ${seatLine(seats, lane.lead, now)}.${detour}`, ...(copy ? laneAim(lane) : []), "");
+    const approval = lane.approval
+      ? [`Plan ${lane.approval.plan} waits ${minutes(now, lane.approval.since)} min for approval by ${lane.approval.by === "human" ? "the Human, on the panel" : "the owner"}: ${lane.approval.signals.join(" ") || "every plan here is approved first."} None of its tasks starts until then.`]
+      : [];
+    lines.push(`## ${lane.id} ${lane.title}`, "", `Branch ${lane.branch}${lane.onBranch ? ", carried on in the project's own copy" : ` off ${lane.base}`}. Lead ${seatLine(seats, lane.lead, now)}.${detour}`, ...approval, ...(copy ? laneAim(lane) : []), "");
     const tasks = Object.values(ledger.tasks).filter((task) => task.lane === lane.id);
     if (tasks.length === 0) lines.push("- no tasks yet");
     for (const task of tasks) {
       const detail = ["running", "rework"].includes(task.status)
         ? `, Peer ${seatLine(seats, task.peer, now)}`
         : task.status === "waiting"
-          ? `, after ${(task.after ?? []).join(", ")}${task.held ? `. Not started: ${task.held.why}` : ""}`
+          ? `${task.after?.length ? `, after ${task.after.join(", ")}` : ""}${task.held ? `. Not started: ${task.held.why}` : ""}`
           : task.handback
             ? `, hand-back ${minutes(now, task.handback.at)} min ago`
             : "";
-      lines.push(`- ${task.id} ${task.title}: ${task.status}${detail}`);
+      // A plan waiting for approval is judged on what each task is for and what it will write, not on its titles.
+      const judged = lane.approval && task.plan === lane.approval.plan ? [`  Goal: ${task.goal}`, `  Owns: ${task.owned.join(", ")}${task.mode === "parallel" ? ", in parallel" : ""}`] : [];
+      lines.push(`- ${task.id} ${task.title}: ${task.status}${detail}`, ...judged);
     }
     lines.push("");
   }

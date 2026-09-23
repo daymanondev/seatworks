@@ -332,6 +332,20 @@ export const letters = {
     ].join("\n");
   },
 
+  planHeld(lane: Lane, plan: number, reason: string, human: boolean): string {
+    return human
+      ? `PLAN ${plan} of ${lane.id} (${lane.title}) waits for the Human's approval, on the Flow tab of the panel: ${reason} You cannot approve it; tell them it is waiting, and why.`
+      : `PLAN ${plan} of ${lane.id} (${lane.title}) waits for your approval: ${reason} Read it in status, then approve_plan with approve true, or false with what the Lead should change.`;
+  },
+
+  planApproved(lane: Lane, plan: number, note: string): string {
+    return `APPROVED plan ${plan} of ${lane.id} (${lane.title})${note ? `: ${note}` : "."} Its tasks start as what each waits for is accepted.`;
+  },
+
+  planSentBack(lane: Lane, plan: number, note: string, cut: string[]): string {
+    return `SENT BACK plan ${plan} of ${lane.id} (${lane.title}): ${note || "no reason was given; ask the owner what to change"}. ${cut.length > 0 ? `${cut.join(", ")} ${cut.length === 1 ? "is" : "are"} cut. ` : ""}Send a new plan with plan_tasks.`;
+  },
+
   leadGone(lane: Lane): string {
     return `LEAD GONE ${lane.id} (${lane.title}): its Lead ${lane.lead} is no longer seated, so nothing on the lane moves. replace_lead puts a new Lead on it where it stands; close_lane ends it.`;
   },

@@ -147,6 +147,30 @@ function PlanCheckCard({ team, values, machine, layer, theme, disabled, save }: 
           ]}
         />
       </SettingsRow>
+      <SettingsRow label="Approve plans" hint={`${team.checkpoints.approve === "every" ? "Every plan waits for approval before it runs." : "Only a plan that owns risky paths waits: access, money, data shape, and what ships."} Held only while the check is on. ${sourceLabel(sourceOf(values, machine, (entry) => entry.checkpoints?.approve, layer), layer)}.`}>
+        <TabBar
+          theme={theme}
+          active={team.checkpoints.approve}
+          disabled={disabled}
+          onPick={(next) => void save((current) => setCheckpoint(current, { approve: next as "risky" | "every" }))}
+          tabs={[
+            { id: "risky", label: "Risky" },
+            { id: "every", label: "Every" },
+          ]}
+        />
+      </SettingsRow>
+      <SettingsRow label="Approved by" hint={`${team.checkpoints.approver === "human" ? "You, on the Flow tab; the Supervisor is told and cannot approve for you." : "The Supervisor, with approve_plan."} ${sourceLabel(sourceOf(values, machine, (entry) => entry.checkpoints?.approver, layer), layer)}.`}>
+        <TabBar
+          theme={theme}
+          active={team.checkpoints.approver}
+          disabled={disabled}
+          onPick={(next) => void save((current) => setCheckpoint(current, { approver: next as "human" | "supervisor" }))}
+          tabs={[
+            { id: "human", label: "You" },
+            { id: "supervisor", label: "Supervisor" },
+          ]}
+        />
+      </SettingsRow>
     </SettingsCard>
   );
 }

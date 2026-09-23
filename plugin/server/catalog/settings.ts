@@ -79,6 +79,9 @@ const FlowChoice = z.strictObject({
 export const CHECKPOINT_MODES = ["off", "shadow", "on"] as const;
 const CheckpointsChoice = z.strictObject({
   plan: z.enum(CHECKPOINT_MODES).optional(),
+  approve: z.enum(["risky", "every"]).optional(),
+  approver: z.enum(["human", "supervisor"]).optional(),
+  risk: Pattern.optional(),
 });
 
 const shared = {

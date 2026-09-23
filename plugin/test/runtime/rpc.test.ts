@@ -45,6 +45,7 @@ test("the plugin serves the catalog, settings, projects, team and status over RP
     "seatworks.mcp.parse",
     "seatworks.models.refresh",
     "seatworks.paths.list",
+    "seatworks.plan.decide",
     "seatworks.projects.add",
     "seatworks.projects.candidates",
     "seatworks.projects.list",

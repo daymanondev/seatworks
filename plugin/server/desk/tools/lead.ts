@@ -25,6 +25,7 @@ import {
 } from "../ledger.ts";
 import { clip, letters } from "../letters.ts";
 import { holderOf, parallelProblem, startPeer, taskPlacement } from "../opening.ts";
+import { riskSignals } from "../approval.ts";
 import { planFindings, readPlan } from "../plan.ts";
 import { type Project, loadConfig } from "../project.ts";
 import type { DeskServices, Tool } from "../services.ts";
@@ -47,7 +48,7 @@ function laneTask(ledger: Ledger, caller: Caller, id: string): { lane: Lane; tas
   return { lane, task };
 }
 
-function recordTask(desk: DeskServices, project: Project, lane: Lane, args: Args, parallel: boolean, startSha: string | undefined, waiting?: { after: string[]; role: string }): Promise<Task> {
+function recordTask(desk: DeskServices, project: Project, lane: Lane, args: Args, parallel: boolean, startSha: string | undefined, waiting?: { after: string[]; role: string; plan?: number }): Promise<Task> {
   const title = str(args.title);
   return desk.ctx.ledger(project, (current) => {
     const id = nextTaskId(current.lanes[lane.id]!, "code");
@@ -69,6 +70,7 @@ function recordTask(desk: DeskServices, project: Project, lane: Lane, args: Args
       slot: parallel ? undefined : lane.slot,
       startSha,
       status: waiting ? "waiting" : "running",
+      plan: waiting?.plan,
       after: waiting?.after,
       // Who takes it, kept for when it starts: the call that asked for it is long gone by then.
       opening: waiting && { role: waiting.role },
@@ -144,22 +146,35 @@ export const planTasks: Tool = async (desk, caller, args) => {
     if (typeof role === "string") return no(`${task.key}: ${role}`);
     roles.set(task.key, role.role);
   }
-  const mode = ctx.team(project).checkpoints.plan;
+  const checks = ctx.team(project).checkpoints;
+  const mode = checks.plan;
   const findings = mode === "off" ? [] : planFindings(ledger, lane, plan, serialPaths(await trackedFiles(lane.worktree), loadConfig(project.state).serialOnly));
-  if (mode !== "off") keepRun(project, { checkpoint: "plan", mode, lane: lane.id, by: caller.id, decision: findings.length > 0 ? "hold" : "pass", findings });
+  const signals = mode === "off" || findings.length > 0 ? [] : riskSignals(plan, checks.risk);
+  const asks = signals.length > 0 || (mode !== "off" && findings.length === 0 && checks.approve === "every");
+  if (mode !== "off") keepRun(project, { checkpoint: "plan", mode, lane: lane.id, by: caller.id, decision: findings.length > 0 ? "hold" : asks ? "ask" : "pass", findings: [...findings, ...signals] });
   const found = findings.map((finding) => `- ${finding}`).join("\n");
   if (mode === "on" && findings.length > 0) return no(`The plan was not taken: this project checks plans, and the check found\n${found}\nChange what it names and send the whole plan again.`);
+  const number = (lane.plans ?? 0) + 1;
   const ids = new Map<string, string>();
   for (const task of plan) {
     const after = task.after.map((id) => ids.get(id) ?? id);
-    const recorded = await recordTask(desk, project, lane, task.args, task.parallel, undefined, { after, role: roles.get(task.key)! });
+    const recorded = await recordTask(desk, project, lane, task.args, task.parallel, undefined, { after, role: roles.get(task.key)!, plan: number });
     ids.set(task.key, recorded.id);
   }
+  // Held until a person approves it only when the check is on; in shadow the log says it would have been.
+  const held = mode === "on" && asks;
+  const reason = signals.length > 0 ? signals.join(" ") : "this project approves every plan before it runs.";
   await ctx.ledger(project, (current) => {
     const entry = current.lanes[lane.id];
-    if (entry) entry.plans = (entry.plans ?? 0) + 1;
+    if (!entry) return;
+    entry.plans = number;
+    if (held) entry.approval = { plan: number, by: checks.approver, since: Date.now(), signals };
   });
-  ctx.event(project, { kind: "plan.recorded", lane: lane.id, tasks: [...ids.values()], findings: findings.length });
+  ctx.event(project, { kind: "plan.recorded", lane: lane.id, plan: number, tasks: [...ids.values()], findings: findings.length, held });
+  if (held) {
+    await ctx.post(await desk.roster.supervisorFor(project, lane.opener), `planheld:${lane.id}:${number}`, letters.planHeld(lane, number, reason, checks.approver === "human"));
+    return ok(`The plan is recorded as ${[...ids.values()].join(", ")} and waits for the owner's approval, because ${signals.length > 0 ? signals.join(" ") : reason} Nothing of it starts until then; APPROVED or SENT BACK arrives as mail.`);
+  }
   await startWaiting(desk, project, true);
   const now = loadLedger(project.state).tasks;
   const lines = plan.map((task) => {
