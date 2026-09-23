@@ -127,6 +127,13 @@ test("a project's Critic setting reads back from format 9", () => {
   assert.deepEqual(layer.status === "ready" ? layer.values.critic : undefined, { by: "off" });
 });
 
+test("when a lane was last reported ready reads back from format 10", () => {
+  const { root, shop } = machineAt("v10");
+  upgradeState(root, undefined, undefined, NOW);
+  assert.deepEqual(loadLedger(shop).lanes.L1!.ready, { at: 1790000000000 });
+  assert.equal(carriedTo("v9").lanes.L1!.ready, undefined);
+});
+
 test("a step carries every project and the machine, keeps a copy of the files first, and runs once", () => {
   const { root, shop } = machineAt("v1");
   const steps = [

@@ -293,9 +293,17 @@ export class SettingsControl implements Control {
     return { id: "", label: "", connect: direct };
   }
 
-  removeProject(slug: string): unknown {
+  async removeProject(slug: string): Promise<unknown> {
     const project = this.deps.source.named(slug);
     if (!project) return { error: unknownProject(slug) };
+    // A seat still working in the project records it again on the next round, so detaching it first would not hold.
+    let live: string[];
+    try {
+      live = (await this.deps.seats.open()).filter((seat) => !seat.archivedAt && seatOf(this.deps.kit, seat.provider)?.role.tools && projectOf(seat.cwd).slug === slug).map((seat) => seat.id);
+    } catch (error) {
+      return { error: `Paseo did not say which seats are working in ${slug} (${errorText(error)}), so its settings stay.` };
+    }
+    if (live.length > 0) return { error: `${slug} stays: ${live.length} seat${live.length === 1 ? " is" : "s are"} still working in it (${live.join(", ")}): archive ${live.length === 1 ? "it" : "them"} first, since a working seat puts the project back on record.` };
     // Live work only: lanes and tasks are never removed, so counting them made Detach impossible after the first lane.
     const ledger = loadLedger(project.state);
     const open = Object.values(ledger.lanes).filter((lane) => lane.status !== "closed").length;

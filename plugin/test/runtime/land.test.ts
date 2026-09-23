@@ -10,7 +10,7 @@ const runs = (state: string) =>
     ? readFileSync(join(state, "checkpoints.log"), "utf-8").split("\n").filter(Boolean).map((line) => JSON.parse(line) as { checkpoint: string; decision: string; findings: string[]; mode: string })
     : [];
 
-/** A lane with a gate that passes and one commit of `files` on it, its Lead between turns, in a project set as `settings` says. */
+/** A lane with a gate that passes, one commit of `files` on it and a READY from its Lead between turns, in a project set as `settings` says. */
 async function laneWith(outbox: string, files: Record<string, string>, settings?: Record<string, unknown>, isolate = false) {
   const h = harness(outbox);
   if (settings) {
@@ -31,6 +31,8 @@ async function laneWith(outbox: string, files: Record<string, string>, settings?
     h.git(lane.worktree!, "commit", "-qm", "work");
   };
   work(files);
+  // As a lane lands in the flow: after its Lead reports it ready.
+  await h.call(lane.lead!, "lead", "report", { summary: "done", ready: true });
   h.agents.get(lane.lead!)!.status = "idle";
   const land = () => h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true });
   return { h, sup, lane, work, land, onMain: (path: string) => h.git(h.root, "ls-tree", "--name-only", "-r", "main").split("\n").includes(path) };
@@ -95,7 +97,7 @@ test("with the check on, a risky lane waits for the Human: nothing lands, its Le
 test("a landing the Human sends back leaves the lane open with their note for its Lead, and landing it again asks again", async () => {
   const { h, sup, lane, land } = await laneWith("outbox-land-back.json", risky, { checkpoints: { land: "on" } });
   await land();
-  const back = (await h.runtime.control.decideLand(h.project.slug, "L1", false, "put the login change behind a flag")) as { decided?: string };
+  const back = (await h.runtime.control.decideLand(h.project.slug, "L1", false, "put the login change behind a flag.")) as { decided?: string };
   assert.match(back.decided ?? "", /Lane L1 is sent back to its Lead/);
   assert.deepEqual([h.ledger().lanes.L1!.status, h.ledger().lanes.L1!.landApproval], ["open", undefined]);
   await h.idle(lane.lead!);
@@ -216,5 +218,16 @@ test("once a shadow check has run enough to judge, the Supervisor is told once, 
   assert.equal(told.match(/CHECK DIGEST/g)?.length, 1, "once, not every round");
   assert.match(told, /CHECK DIGEST land: the check running in shadow has run enough to judge\. Turned on, it would have stopped work 3 times in 30 runs over 10 days \(0\.3 a day\)\.[^]*L20: src\/auth\/f20\.ts is a path[^]*Tell the Human in two lines/);
   assert.match((await h.call(sup, "supervisor", "status", {})).text, /- land: shadow\.[^\n]*\n  Turned on, it would have stopped work 3 times/);
+  h.runtime.dispose();
+});
+
+test("a READY stands until the lane is amended: status says so, and the Lead must report again", async () => {
+  const { h, sup, lane } = await laneWith("outbox-land-ready.json", { "a.txt": "one\nfour\n" });
+  assert.equal((await h.call(lane.lead!, "lead", "report", { summary: "done", ready: true })).ok, true);
+  assert.ok(h.ledger().lanes.L1!.ready);
+  assert.match((await h.call(sup, "supervisor", "status", {})).text, /Reported ready \d+ min ago\./);
+  await h.call(sup, "supervisor", "amend_lane", { lane: "L1", acceptance: ["four", "five"], why: "the Human added five" });
+  assert.equal(h.ledger().lanes.L1!.ready, undefined, "what it was ready against has changed");
+  assert.doesNotMatch((await h.call(sup, "supervisor", "status", {})).text, /Reported ready/);
   h.runtime.dispose();
 });

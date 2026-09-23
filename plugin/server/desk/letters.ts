@@ -33,6 +33,9 @@ export function clip(text: string, limit: number): string {
 
 const line = (text: string, limit: number) => clip(text.replace(/\s+/g, " ").trim(), limit);
 
+/** A person's note as a sentence: theirs often ends in a full stop already, and one more reads as a typo. */
+const ended = (text: string) => (/[.!?]$/.test(text.trim()) ? text.trim() : `${text.trim()}.`);
+
 export const letters = {
   directive(
     lane: Lane,
@@ -343,7 +346,7 @@ export const letters = {
   },
 
   planSentBack(lane: Lane, plan: number, note: string, cut: string[]): string {
-    return `SENT BACK plan ${plan} of ${lane.id} (${lane.title}): ${note || "no reason was given; ask the owner what to change"}. ${cut.length > 0 ? `${cut.join(", ")} ${cut.length === 1 ? "is" : "are"} cut. ` : ""}Send a new plan with plan_tasks.`;
+    return `SENT BACK plan ${plan} of ${lane.id} (${lane.title}): ${ended(note || "no reason was given; ask the owner what to change")} ${cut.length > 0 ? `${cut.join(", ")} ${cut.length === 1 ? "is" : "are"} cut. ` : ""}Send a new plan with plan_tasks.`;
   },
 
   landHeld(lane: Lane, reason: string): string {
@@ -351,7 +354,7 @@ export const letters = {
   },
 
   landSentBack(lane: Lane, note: string): string {
-    return `LAND SENT BACK ${lane.id} (${lane.title}): ${note || "no reason was given; ask the owner what to change"}. The lane stays open; report it ready again once that is dealt with.`;
+    return `LAND SENT BACK ${lane.id} (${lane.title}): ${ended(note || "no reason was given; ask the owner what to change")} The lane stays open; report it ready again once that is dealt with.`;
   },
 
   landDecided(lane: Lane, how: "landed" | "blocked" | "again" | "changed" | "sent back", text: string): string {
@@ -359,12 +362,16 @@ export const letters = {
     if (how === "again") return `HELD AGAIN ${lane.id} (${lane.title}): the Human approved it, but landing it turned up more. ${text}`;
     if (how === "changed") return `CHANGED ${lane.id} (${lane.title}) after its landing was held, so the Human's approval did not count. close_lane it with land true to have it checked as it is now.`;
     if (how === "blocked") return `APPROVED ${lane.id} (${lane.title}) for landing by the Human, but it could not land yet: ${text}. The approval stands while the lane does not change: once that is cleared, close_lane with land true lands it without asking again.`;
-    return `SENT BACK ${lane.id} (${lane.title}) by the Human: ${text || "no reason was given"}. The lane stays open, and its Lead has the note.`;
+    return `SENT BACK ${lane.id} (${lane.title}) by the Human: ${ended(text || "no reason was given")} The lane stays open, and its Lead has the note.`;
   },
 
   checkDigest(checkpoint: string, state: "ready" | "stamped", lines: string[]): string {
     const what = state === "ready" ? "the check running in shadow has run enough to judge." : "the check may be approved out of habit.";
     return `CHECK DIGEST ${checkpoint}: ${what} ${lines.join(" ")} Tell the Human in two lines; turning it on, narrowing it or moving it back is theirs, on the Team tab of the panel.`;
+  },
+
+  notStarted(task: Task): string {
+    return `NOT STARTED ${task.id} (${task.title}): the desk stopped while its Peer was being started, so it is cut. Start it again if you still want it and have not already.`;
   },
 
   leadGone(lane: Lane): string {

@@ -37,6 +37,7 @@ export async function landCheck(project: Project, ledger: Ledger, lane: Lane, ga
   const risky = new RegExp(checks.risk, "i");
   const tasks = tasksOf(ledger, lane.id);
   const signals = [
+    ...(lane.ready ? [] : ["Its Lead has not reported it ready as it now stands: never, or the lane was amended since."]),
     ...(!gate.set ? ["This project has no gate, so nothing ran the lane's checks."] : gate.ok ? [] : ["The gate failed on the lane, and landing was asked for over it."]),
     ...deleted.map((path) => `${path} is deleted.`),
     ...weaker,

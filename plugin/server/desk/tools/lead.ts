@@ -24,7 +24,7 @@ import {
   tasksOf,
 } from "../ledger.ts";
 import { clip, letters } from "../letters.ts";
-import { holderOf, parallelProblem, startPeer, taskPlacement } from "../opening.ts";
+import { holderOf, parallelProblem, seatingKey, startPeer, taskPlacement } from "../opening.ts";
 import { riskSignals } from "../approval.ts";
 import { planFindings, readPlan } from "../plan.ts";
 import { type Project, loadConfig } from "../project.ts";
@@ -79,6 +79,8 @@ function recordTask(desk: DeskServices, project: Project, lane: Lane, args: Args
       silent: 0,
     };
     current.tasks[id] = task;
+    // Marked where it is recorded running, so a round cannot take it for one a stop left half started.
+    if (!waiting) desk.ctx.seating.add(seatingKey(project, id));
     return { ...task };
   });
 }
@@ -240,6 +242,7 @@ export const startReview: Tool = async ({ ctx, agents }, caller, args) => {
       silent: 0,
     };
     current.tasks[id] = created;
+    ctx.seating.add(seatingKey(project, id));
     return { ...created };
   });
   try {
@@ -262,6 +265,8 @@ export const startReview: Tool = async ({ ctx, agents }, caller, args) => {
       entry.status = "cut";
     });
     return no(`The reviewer could not start: ${errorText(error)}`);
+  } finally {
+    ctx.seating.delete(seatingKey(project, review.id));
   }
 };
 
@@ -437,6 +442,12 @@ export const report: Tool = async ({ ctx, roster }, caller, args) => {
   const lane = laneOfLead(loadLedger(caller.project.state), caller.id);
   if (!lane) return no("You have no open lane.");
   const gate = args.ready === true ? await laneGate(ctx, caller.project, lane) : undefined;
+  await ctx.ledger(caller.project, (current) => {
+    const entry = current.lanes[lane.id];
+    if (!entry) return;
+    if (args.ready === true) entry.ready = { at: Date.now() };
+    else delete entry.ready;
+  });
   const to = await roster.supervisorFor(caller.project, lane.opener);
   const letter = letters.report(lane, summary, args.ready === true, strs(args.carried), gate);
   const posted = await ctx.post(to, `report:${lane.id}:${hash(summary)}`, letter);

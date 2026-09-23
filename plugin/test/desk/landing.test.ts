@@ -34,7 +34,7 @@ function shop() {
     git("commit", "-qm", "work");
   };
   const project: Project = { root, slug: "shop-abc123", state: tempDir("sw2-landing-state-") };
-  const lane = { id: "L1", title: "Cart", outcome: "a cart", acceptance: [], outOfScope: [], base: "main", branch: "lane/l1", writeSet: ["src/**", "test/**"], contracts: [], opener: "sup", status: "open", openedAt: 0, tasks: 0 } as unknown as Lane;
+  const lane = { id: "L1", title: "Cart", outcome: "a cart", acceptance: [], outOfScope: [], base: "main", branch: "lane/l1", writeSet: ["src/**", "test/**"], contracts: [], opener: "sup", status: "open", openedAt: 0, tasks: 0, ready: { at: 0 } } as unknown as Lane;
   const ledger = emptyLedger();
   ledger.lanes.L1 = lane;
   return { root, write, commit, project, lane, ledger };
@@ -92,4 +92,12 @@ test("a project without a gate is held, and its evidence says no gate ran", asyn
   commit();
   assert.deepEqual((await landCheck(project, ledger, lane, { set: false, ok: true }, checks)).signals, ["This project has no gate, so nothing ran the lane's checks."]);
   assert.match((await landCheck(project, ledger, lane, { set: false, ok: true }, checks)).evidence.join("\n"), /Gate: none set\./);
+});
+
+test("a lane its Lead has not reported ready as it now stands is held: never reported, or amended since", async () => {
+  const { write, commit, project, lane, ledger } = shop();
+  write("src/cart.ts", "export const total = 4;\n");
+  commit();
+  delete lane.ready;
+  assert.deepEqual((await landCheck(project, ledger, lane, passed, checks)).signals, ["Its Lead has not reported it ready as it now stands: never, or the lane was amended since."]);
 });

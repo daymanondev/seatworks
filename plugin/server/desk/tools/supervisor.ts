@@ -349,6 +349,7 @@ export const amendLane: Tool = async ({ ctx }, caller, args) => {
   const done = await ctx.ledger(project, (current) => {
     const entry = current.lanes[lane.id];
     const amendment = entry && entry.status !== "closed" ? amend(entry, changes, caller.id, str(args.why)) : undefined;
+    if (amendment) delete entry!.ready;
     return amendment && { lane: { ...entry! }, amendment };
   });
   if (!done) return no(`Nothing about lane ${lane.id} would change; pass the fields it is asked differently now.`);

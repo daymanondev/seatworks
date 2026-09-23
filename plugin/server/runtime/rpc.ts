@@ -12,7 +12,7 @@ export interface Control {
   writeSettings(project: string | undefined, revision: string, values: unknown): WriteResult;
   projects(): unknown;
   addProject(root: string): unknown;
-  removeProject(project: string): unknown;
+  removeProject(project: string): Promise<unknown>;
   candidateProjects(roots: string[]): unknown;
   parseMcp(text: string): unknown;
   team(project?: string): unknown;

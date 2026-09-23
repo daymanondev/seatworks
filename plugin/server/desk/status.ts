@@ -114,6 +114,7 @@ export function statusText(
       ...(lane.approval
         ? [`Plan ${lane.approval.plan} waits ${minutes(now, lane.approval.since)} min for approval by ${lane.approval.by === "human" ? "the Human, on the panel" : "the owner"}: ${lane.approval.signals.join(" ") || "every plan here is approved first."} None of its tasks starts until then.`]
         : []),
+      ...(lane.ready ? [`Reported ready ${minutes(now, lane.ready.at)} min ago.`] : []),
       ...(land?.approved
         ? [`Landing approved by the Human ${minutes(now, land.approved.at)} min ago; close_lane with land true lands it.`]
         : land

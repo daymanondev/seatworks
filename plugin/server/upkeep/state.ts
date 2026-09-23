@@ -25,6 +25,8 @@ export const STEPS: StateStep[] = [
   { to: 8 },
   // 9 only adds who reads a new lane against the Human's words; a project without it has a Critic, the default.
   { to: 9 },
+  // 10 only adds when a lane was last reported ready; a lane from before has none, and is reported again before it lands.
+  { to: 10 },
 ];
 
 const MACHINE_FILES = ["state.json", "settings.json", "outbox.json", "content.json"];

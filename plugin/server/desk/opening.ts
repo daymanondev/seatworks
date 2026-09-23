@@ -221,5 +221,7 @@ export async function startPeer(desk: DeskServices, project: Project, lane: Lane
     });
     if (parallel) await slots.release(project, taken, task.branch, lane.branch);
     return `The Peer could not start: ${errorText(error)}`;
+  } finally {
+    ctx.seating.delete(seatingKey(project, task.id));
   }
 }
