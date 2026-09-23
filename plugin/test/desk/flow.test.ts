@@ -172,3 +172,11 @@ test("a lane waiting on others is drawn with what it waits for and why it is not
   assert.deepEqual([waits!.id, waits!.status, waits!.after, waits!.held, waits!.lead], ["L3", "waiting", ["L1"], undefined, null]);
   assert.deepEqual([held!.id, held!.held], ["L4", "Lane L0 closed without landing."]);
 });
+
+test("the view is plain JSON as Paseo checks it, with no field left undefined, whatever the lanes hold", () => {
+  const ledger = working();
+  ledger.lanes.L2 = { ...ledger.lanes.L2!, base: "fix/login", branch: "fix/login", onBranch: true };
+  ledger.lanes.L3 = { ...lane("L3", "open"), status: "waiting", after: ["L1"] };
+  const view = flowView(project, ledger, seats, now);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(view)), view, "Paseo refuses a reply with an undefined field, and the panel shows the flow as unreadable");
+});

@@ -73,13 +73,13 @@ export function flowView(
       title: lane.title,
       status: lane.status,
       branch: lane.branch,
-      base: lane.onBranch ? undefined : lane.base,
+      ...(lane.onBranch ? {} : { base: lane.base }),
       lead: seatOf(seats, lane.lead, ledger.agents[lane.lead ?? ""]?.role ?? "lead", now),
       tasks: held.get(lane.id) ?? [],
       taskCount: count.total,
       running: count.running,
       open: open.has(lane.id),
-      ...(lane.status === "waiting" ? { after: lane.after, held: lane.held?.why } : {}),
+      ...(lane.status === "waiting" ? { after: lane.after ?? [], ...(lane.held ? { held: lane.held.why } : {}) } : {}),
     });
   }
 
