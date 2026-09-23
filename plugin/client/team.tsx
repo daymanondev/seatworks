@@ -5,8 +5,8 @@ import { type ReactElement, useState } from "react";
 import { modelsRpc } from "../shared/rpc.ts";
 import { Text } from "react-native";
 import { sourceLabel } from "./bits.tsx";
-import type { Catalog, Layer, RoleChoice, TeamView } from "./data.ts";
-import { message, modelRow, setRole, sourceOf } from "./data.ts";
+import type { Catalog, CheckpointMode, Layer, RoleChoice, TeamView } from "./data.ts";
+import { message, modelRow, setCheckpoint, setRole, sourceOf } from "./data.ts";
 import { ModelPicker } from "./model-picker.tsx";
 import { TabBar } from "./tabs.tsx";
 import { WatcherSettings } from "./watch.tsx";
@@ -122,6 +122,35 @@ export function roleRows({ catalog, team, values, machine, layer, theme, disable
   return rows;
 }
 
+const PLAN_CHECK: Record<CheckpointMode, string> = {
+  off: "Plans are not checked.",
+  shadow: "Every plan is checked and the result kept in checkpoints.log, pass or not; nothing is held back.",
+  on: "A plan the check finds fault with goes back to the Lead, and a lane's first task waits for a plan.",
+};
+
+/** On the Lead's chip, since the plan is the Lead's: how hard the desk checks it before the work starts. */
+function PlanCheckCard({ team, values, machine, layer, theme, disabled, save }: Props) {
+  const mode = team.checkpoints.plan;
+  const from = sourceLabel(sourceOf(values, machine, (entry) => entry.checkpoints?.plan, layer), layer);
+  return (
+    <SettingsCard>
+      <SettingsRow label="Plan check" hint={team.checkpoints.forced ? `On, because ${team.checkpoints.forced}.` : `${PLAN_CHECK[mode]} ${from}.`}>
+        <TabBar
+          theme={theme}
+          active={mode}
+          disabled={disabled}
+          onPick={(next) => void save((current) => setCheckpoint(current, { plan: next as CheckpointMode }))}
+          tabs={[
+            { id: "off", label: "Off" },
+            { id: "shadow", label: "Shadow" },
+            { id: "on", label: "On" },
+          ]}
+        />
+      </SettingsRow>
+    </SettingsCard>
+  );
+}
+
 export function TeamSection(props: Props) {
   const { catalog, theme, disabled, active, onActive } = props;
   const role = catalog.roles.find((entry) => entry.id === active) ?? catalog.roles[0];
@@ -130,6 +159,7 @@ export function TeamSection(props: Props) {
     <SettingsSection title="Team" info={role.description}>
       <TabBar theme={theme} active={role.id} disabled={disabled} onPick={onActive} tabs={catalog.roles.map((entry) => ({ id: entry.id, label: entry.label }))} />
       {role.can.includes("watch") ? <WatcherSettings {...props} role={role} rows={roleRows({ ...props, role })} /> : <SettingsCard>{roleRows({ ...props, role })}</SettingsCard>}
+      {role.can.includes("lead") ? <PlanCheckCard {...props} /> : null}
       <ModelsCard catalog={props.catalog} disabled={props.disabled} reload={props.reload} />
     </SettingsSection>
   );

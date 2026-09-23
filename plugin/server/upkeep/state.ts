@@ -14,6 +14,8 @@ export const STEPS: StateStep[] = [
   { to: 3 },
   // 4 only adds tasks that wait; state 3 has none to carry.
   { to: 4 },
+  // 5 only adds the checkpoint settings and a lane's count of plans; state 4 has neither to carry.
+  { to: 5 },
 ];
 
 const MACHINE_FILES = ["state.json", "settings.json", "outbox.json", "content.json"];

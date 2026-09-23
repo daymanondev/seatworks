@@ -1,4 +1,6 @@
+import type { Team } from "../catalog/team.ts";
 import type { SeatView } from "../core/paseo.ts";
+import { runsOf } from "./checkpoints.ts";
 import { type Lane, type Ledger, ownCopyHolder } from "./ledger.ts";
 import { type Project, type ProjectConfig, projectOf } from "./project.ts";
 
@@ -35,6 +37,14 @@ function ownCopyLines(project: Project, ledger: Ledger, config: ProjectConfig, c
   return lines;
 }
 
+/** What each checkpoint is set to and what its log holds, so a shadow period can be read before it is turned on. */
+function checkLines(project: Project, checks: Team["checkpoints"]): string[] {
+  const { runs, held, last } = runsOf(project, "plan");
+  const mode = checks.forced ? `on, because ${checks.forced}` : checks.plan;
+  const kept = runs === 0 ? "nothing checked yet" : `${runs} checked, ${held} ${checks.plan === "on" ? "held" : "would have been held"}${last ? `; last held ${last.lane} at ${last.at}: ${last.findings[0] ?? ""}` : ""}`;
+  return ["## Checkpoints", "", `- plan: ${mode}. ${checks.plan === "off" && !checks.forced ? "Nothing is checked." : `In checkpoints.log: ${kept}.`}`, ""];
+}
+
 function laneAim(lane: Lane): string[] {
   const outcome = lane.outcome.replace(/\s+/g, " ").trim();
   return [
@@ -50,11 +60,12 @@ export function statusText(
   config: ProjectConfig,
   seats: Map<string, SeatView>,
   now: number,
-  { laneId, waiting = [], held = [], copy }: { laneId?: string; waiting?: SeatView[]; held?: { to: string; text: string; at: number }[]; copy?: OwnCopy } = {},
+  { laneId, waiting = [], held = [], copy, checks }: { laneId?: string; waiting?: SeatView[]; held?: { to: string; text: string; at: number }[]; copy?: OwnCopy; checks?: Team["checkpoints"] } = {},
 ): string {
   const gate = config.gate || (config.gate === "" ? "none, by this project's own choice" : "none");
   const lines = [`# Status: ${project.root}`, "", `Updated ${new Date(now).toISOString()}. Base ${config.base ?? "unset"}. Gate ${gate}.`, ""];
   if (copy) lines.push(...ownCopyLines(project, ledger, config, copy));
+  if (checks) lines.push(...checkLines(project, checks));
   // One outbox holds every project's mail: a seated recipient belongs to its copy's project, a gone one to this project's record.
   const mine = held.filter((letter) => {
     const seat = seats.get(letter.to);

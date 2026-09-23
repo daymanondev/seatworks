@@ -25,6 +25,10 @@ keep the lane one straight line.
 
 Split the way the work divides; no quota on Peers.
 
+- **Lay the split out first** with `plan_tasks`: each task with its owned paths, what it waits for
+  (`after`), and `parallel` only where it truly is. The desk checks the plan and names what would
+  collide; each task then starts by itself once what it waits for is accepted. `start_task` adds
+  a task the plan did not foresee.
 - **One writer per working copy.** Tasks sharing the lane's copy run one after another; a handed-back
   task holds it until you accept or cut. `parallel` only when its owned paths touch no active task
   and no shared contract; say why in its context.

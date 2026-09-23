@@ -126,6 +126,7 @@ export function describeTeam(kit: Kit, team: Team, project?: Project): unknown {
     project: project?.slug ?? null,
     errors: team.errors,
     attention: team.attention,
+    checkpoints: { plan: team.checkpoints.plan, forced: team.checkpoints.forced ?? null },
     rules: team.rules,
     mcp: Object.fromEntries(
       Object.entries(team.mcp).map(([id, state]) => [
@@ -326,7 +327,7 @@ export class SettingsControl implements Control {
     const waiting = [...seats.values()].filter(
       (seat) => can(seatOf(this.deps.kit, seat.provider)?.role, "supervise") && projectOf(seat.cwd).slug === project.slug && (seat.pendingPermissions?.length ?? 0) > 0,
     );
-    return { text: statusText(project, loadLedger(project.state), loadConfig(project.state), seats, Date.now(), { waiting, held: this.deps.held() }) };
+    return { text: statusText(project, loadLedger(project.state), loadConfig(project.state), seats, Date.now(), { waiting, held: this.deps.held(), checks: this.deps.source.teamFor(project).checkpoints }) };
   }
 
   async flow(slug: string, since?: string, open?: string[]): Promise<unknown> {

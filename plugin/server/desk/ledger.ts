@@ -35,6 +35,7 @@ export type Lane = {
   after?: string[];
   opening?: { isolate?: boolean; role?: string };
   held?: { why: string; tried?: boolean };
+  plans?: number;
   landed?: boolean;
   amended?: Amendment[];
   restoring?: Restoring;

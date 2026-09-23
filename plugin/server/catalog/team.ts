@@ -19,7 +19,7 @@ import {
   teamServer,
   toolsOf,
 } from "./kit.ts";
-import type { Connect, Layer, McpChoice } from "./settings.ts";
+import { type CHECKPOINT_MODES, type Connect, type Layer, type McpChoice } from "./settings.ts";
 
 export type SettingValue = string | number | boolean;
 export type McpState = {
@@ -39,9 +39,13 @@ export type Team = {
   mcp: Record<string, McpState>;
   attention: Attention;
   sensor?: { spec: SensorSpec; key: string };
+  /** `forced` says why a check runs on though nobody chose it: settings the desk could not read. */
+  checkpoints: { plan: CheckpointMode; forced?: string };
   rules: string;
   errors: string[];
 };
+
+export type CheckpointMode = (typeof CHECKPOINT_MODES)[number];
 
 export function templateRoles(entry: McpEntry): string[] {
   return entry.kind === "proxy" ? Object.keys(entry.tools ?? {}) : (entry.roles ?? []);
@@ -223,6 +227,8 @@ export function resolveTeam(kit: Kit, machine: Layer = {}, project: Layer = {}, 
     mcp,
     ...(spec && machine.sensor?.key ? { sensor: { spec, key: machine.sensor.key } } : {}),
     attention: { ...kit.attention, ...stripUndefined(machine.attention), ...stripUndefined(project.attention) },
+    // A check the Human turned on must not fall silently to its default when the file that says so cannot be read.
+    checkpoints: unread.length > 0 ? { plan: "on", forced: unread.join("; ") } : { plan: project.checkpoints?.plan ?? machine.checkpoints?.plan ?? "shadow" },
     rules: [machine.rules, project.rules].filter((text) => text && text.trim()).join("\n\n"),
     errors,
   };

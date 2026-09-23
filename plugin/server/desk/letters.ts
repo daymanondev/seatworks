@@ -348,7 +348,8 @@ export const letters = {
   },
 
   waited(entry: Lane | Task, what: string): string {
-    return `WAITING ${entry.id} (${entry.title}), the ${"lane" in entry ? "task you started" : "lane you opened"} to wait for ${(entry.after ?? []).join(", ")}: ${what}`;
+    const after = entry.after?.length ? ` to wait for ${entry.after.join(", ")}` : "";
+    return `WAITING ${entry.id} (${entry.title}), the ${"lane" in entry ? (after ? "task you started" : "task from your plan") : "lane you opened"}${after}: ${what}`;
   },
 
   reminder(ask: Ask, minutes: number): string {

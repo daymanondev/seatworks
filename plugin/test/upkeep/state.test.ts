@@ -83,6 +83,14 @@ test("a task that waited, and why it was held, read back from format 4, and a ta
   assert.deepEqual([before.after, before.opening, before.held], [undefined, undefined, undefined]);
 });
 
+test("a project's plan check and a lane's count of plans read back from format 5, and a project from before chose neither", () => {
+  const { root, shop } = machineAt("v5");
+  upgradeState(root, undefined, undefined, NOW);
+  assert.equal(loadLedger(shop).lanes.L1!.plans, 1);
+  assert.deepEqual(readLayer(join(shop, "settings.json"), ProjectLayerSchema), { status: "ready", values: { rules: "Answer in English.", checkpoints: { plan: "on" } }, revision: readLayer(join(shop, "settings.json"), ProjectLayerSchema).revision });
+  assert.equal(carriedTo("v4").lanes.L1!.plans, undefined);
+});
+
 test("a step carries every project and the machine, keeps a copy of the files first, and runs once", () => {
   const { root, shop } = machineAt("v1");
   const steps = [

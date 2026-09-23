@@ -76,7 +76,13 @@ const FlowChoice = z.strictObject({
   everySeconds: z.number().int().min(2).max(120).optional(),
 });
 
+export const CHECKPOINT_MODES = ["off", "shadow", "on"] as const;
+const CheckpointsChoice = z.strictObject({
+  plan: z.enum(CHECKPOINT_MODES).optional(),
+});
+
 const shared = {
+  checkpoints: CheckpointsChoice.optional(),
   roles: z.record(z.string(), RoleChoice).optional(),
   mcp: z.record(z.string(), McpChoice).optional(),
   rules: z.string().optional(),

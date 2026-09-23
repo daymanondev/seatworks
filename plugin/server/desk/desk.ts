@@ -32,6 +32,7 @@ const TOOLS: Record<string, Tool> = {
   replace_lead: supervisor.replaceLead,
   set_project: supervisor.setProject,
   start_task: lead.startTask,
+  plan_tasks: lead.planTasks,
   start_review: lead.startReview,
   accept: lead.accept,
   rework: lead.rework,

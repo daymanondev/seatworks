@@ -319,6 +319,94 @@
   ],
   "lead": [
     {
+      "name": "plan_tasks",
+      "description": "Lay the lane's tasks out at once, before the first one starts: each with what it owns, what it waits for, and whether it runs in parallel. The desk checks the plan for tasks that would collide and says what it found; tasks in the lane's copy run one after another in the order after allows, listed order otherwise. Each task starts by itself once what it waits for is accepted, and whatever can start now does.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tasks": {
+            "type": "array",
+            "description": "Every task of the plan, in the order you mean them to run.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "description": "A short name for this task, unique in the plan, that the others name in after. Not a task id."
+                },
+                "title": {
+                  "type": "string",
+                  "description": "Short name, at most 60 characters."
+                },
+                "goal": {
+                  "type": "string",
+                  "description": "The outcome, not the implementation."
+                },
+                "acceptance": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Behaviors that show the task done; each needs one focused check."
+                },
+                "owned": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Exact paths the Peer may change."
+                },
+                "outOfScope": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Limits the owned paths don't already hold: what the Peer must leave alone, not do, or not decide."
+                },
+                "context": {
+                  "type": "string",
+                  "description": "Decisions made, approaches ruled out, where to start reading."
+                },
+                "skills": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Skills the Peer should open, by name. Only the ones it has: name one that it does not and the desk answers with the list it does have. Its own prompt already opens the obvious ones, so this is for a case it would not reach for."
+                },
+                "parallel": {
+                  "type": "boolean",
+                  "description": "Run beside the lane's writer in a separate working copy. Only for an independent write set."
+                },
+                "after": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Keys of this plan, or tasks of the lane, this one waits for. It starts once every one of them has been accepted."
+                },
+                "role": {
+                  "type": "string",
+                  "description": "Optional role to take it, when the kit has more than one that writes. Left out, the kit's first. This is how best-of-n gets two kinds of Peer on one question; a role that only reads is refused, with the list of those that write."
+                }
+              },
+              "required": [
+                "key",
+                "title",
+                "goal",
+                "acceptance",
+                "owned",
+                "outOfScope"
+              ]
+            }
+          }
+        },
+        "required": [
+          "tasks"
+        ]
+      }
+    },
+    {
       "name": "start_task",
       "description": "Start a Peer on one task. By default it works in your lane's working copy and commits straight onto the lane branch, one writer at a time; accepting it needs no merge. Set parallel when the task's owned paths are independent of every active task and touch no shared contract: it then gets its own working copy and branch, runs beside the others, and merges back when accepted. No limit caps how many tasks a lane may run.",
       "inputSchema": {
@@ -520,6 +608,13 @@
               "type": "string"
             },
             "description": "Everything out of scope as it stands now."
+          },
+          "owned": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Every path it owns now. A task running beside others that takes more is checked against them, as when it started."
           }
         },
         "required": [

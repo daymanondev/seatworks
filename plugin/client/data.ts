@@ -22,6 +22,7 @@ export type TeamView = {
   project: string | null;
   errors: string[];
   attention: Required<AttentionChoice>;
+  checkpoints: { plan: CheckpointMode; forced: string | null };
   rules: string;
   mcp: Record<string, { label: string; enabled: boolean; roles: string[]; settings: Record<string, Scalar>; transport: string; template: boolean; connect: Connect | null; rule: string | null }>;
   roles: Record<string, { harness: string; provider: string; model: string | null; thinking: string | null; mcp: string[]; tools: Record<string, string[]>; skills: string[]; rules: string }>;
@@ -33,10 +34,11 @@ export type AttentionChoice = {
   longTurnMinutes?: number; incidentsPerDay?: number;
   by?: "seat" | "jev"; watcherQuietSeconds?: number; watcherEveryMinutes?: number; watcherChars?: number; watcherRotateAfter?: number; watcherJudgeMinutes?: number;
 };
+export type CheckpointMode = "off" | "shadow" | "on";
 export type RoleChoice = { harness?: string; model?: string; thinking?: string; rules?: string };
 export type McpChoice = { enabled?: boolean; removed?: boolean; label?: string; connect?: Connect; roles?: string[]; tools?: Record<string, string[]>; rule?: string; settings?: Record<string, Scalar> };
 export type SensorChoice = { key?: string };
-export type Layer = { roles?: Record<string, RoleChoice>; mcp?: Record<string, McpChoice>; rules?: string; attention?: AttentionChoice; flow?: { live?: boolean; everySeconds?: number }; sensor?: SensorChoice };
+export type Layer = { checkpoints?: { plan?: CheckpointMode }; roles?: Record<string, RoleChoice>; mcp?: Record<string, McpChoice>; rules?: string; attention?: AttentionChoice; flow?: { live?: boolean; everySeconds?: number }; sensor?: SensorChoice };
 
 export type ProjectRow = { slug: string; root: string };
 export type PaseoProject = { name: string; root: string };
@@ -458,6 +460,10 @@ export function modelRow(model: string, models: { id: string; label: string }[])
 
 export function setAttention(values: Layer, choice: AttentionChoice): Layer {
   return { ...values, attention: { ...values.attention, ...choice } };
+}
+
+export function setCheckpoint(values: Layer, choice: { plan: CheckpointMode }): Layer {
+  return { ...values, checkpoints: { ...values.checkpoints, ...choice } };
 }
 
 /** Three places below a dollar, since a lane costs cents and two would print most seats as $0.00. */

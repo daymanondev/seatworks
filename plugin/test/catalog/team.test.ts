@@ -195,3 +195,12 @@ test("a server that needs something the project lacks is left off its seats, wit
   mkdirSync(join(opened, ".idea"));
   assert.deepEqual(servingProject(team, opened).roles.peer!.mcp, ["ide", "docs"]);
 });
+
+test("a project's plan check follows the machine where it says nothing, starts in shadow, and is shown to the panel as plain JSON", async () => {
+  assert.equal(resolveTeam(kit).checkpoints.plan, "shadow", "a check nobody chose is recorded, not enforced, until someone reads what it would have done");
+  assert.equal(resolveTeam(kit, { checkpoints: { plan: "on" } }).checkpoints.plan, "on");
+  assert.equal(resolveTeam(kit, { checkpoints: { plan: "on" } }, { checkpoints: { plan: "off" } }).checkpoints.plan, "off", "and the project's own choice wins");
+  const { describeTeam } = await import("../../server/runtime/control.ts");
+  const view = describeTeam(kit, resolveTeam(kit)) as { checkpoints: unknown };
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(view)).checkpoints, { plan: "shadow", forced: null }, "Paseo refuses a reply with an undefined field in it");
+});
