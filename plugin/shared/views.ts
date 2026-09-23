@@ -41,7 +41,9 @@ export type WatchView = {
   incidents: WatchIncident[];
   trouble: { kind: string; minutes: number; detail: string }[];
 };
-export type FlowView = { project: string; at: number; revision: string; supervisors: FlowSeat[]; lanes: FlowLane[]; moreLanes: number; asks: FlowAsk[]; watch: WatchView };
+/** A Critic reading one lane, for the few minutes it lives. */
+export type FlowCritic = { lane: string; title: string; seat: FlowSeat };
+export type FlowView = { project: string; at: number; revision: string; supervisors: FlowSeat[]; critics: FlowCritic[]; lanes: FlowLane[]; moreLanes: number; asks: FlowAsk[]; watch: WatchView };
 export type Check = { id: string; ok: boolean; detail: string };
 
 export type CleanItem = {

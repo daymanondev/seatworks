@@ -1,6 +1,6 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { SettingsCard, SettingsRow, SettingsSection, SettingsSwitch } from "@getpaseo/plugin/client/ui";
-import { memo, useMemo } from "react";
+import { Fragment, memo, useMemo } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Empty } from "./bits.tsx";
 import { type FlowLane, type FlowSeat, type FlowView, countsInstead, watcherState } from "./data.ts";
@@ -178,6 +178,14 @@ export function FlowSection({ following, flow, error, live, theme, disabled, onL
                       <Node theme={theme} title="Watcher" hint="reads every Lead and Peer" state={watcher.state} alive={watcher.alive} reads />
                     </>
                   ) : null}
+                  {index === 0
+                    ? flow.critics.map((critic) => (
+                        <Fragment key={critic.seat.id}>
+                          <View style={{ width: COL_GAP }} />
+                          <Node theme={theme} title={`Critic · ${critic.lane} ${critic.title}`.trim()} hint="the lane vs the Human's words" state={seatText(critic.seat)} alive={critic.seat.status !== "gone"} reads />
+                        </Fragment>
+                      ))
+                    : null}
                 </View>
               ))}
               {flow.lanes.map((lane) => (
