@@ -27,6 +27,7 @@ export const FACT_LEVELS: Record<string, Level> = {
   "test-weakened": "attend",
   suppressed: "attend",
   unverified: "attend",
+  "claim-contradicted": "attend",
   "long-turn": "attend",
   "rework-loop": "attend",
   "patched-not-fixed": "attend",
@@ -46,6 +47,7 @@ export const FACT_TITLES: Record<string, string> = {
   "test-weakened": "A test lost its assertions",
   suppressed: "Silenced a check instead of fixing it",
   unverified: "Handed back without running the gate",
+  "claim-contradicted": "Handed back as complete while its last check failed",
   "long-turn": "A turn running far longer than usual",
   "rework-loop": "Sent back again and again",
   "patched-not-fixed": "Several tasks patched, none fixed",
@@ -286,20 +288,35 @@ export class Recovery {
   }
 }
 
-export function unverified(window: Window, rules: Rules, heard: boolean): Fact[] {
-  const named = rules.gates[0];
-  if (!heard || !named) return [];
+/** The instruction's calls, with where the last edit inside the working copy and the last run of the gate fell. */
+function lastWriteAndGate(window: Window, rules: Rules) {
   const calls = window.sinceInstruction().flatMap((unit) => (unit.kind === "call" ? [unit.call] : []));
+  const inside = (call: Call) => (call.detail.type === "edit" || call.detail.type === "write") && !escapes(str(call.detail.filePath), rules);
   let lastWrite = -1;
   let lastGate = -1;
-  const inside = (call: Call) => (call.detail.type === "edit" || call.detail.type === "write") && !escapes(str(call.detail.filePath), rules);
   calls.forEach((call, index) => {
     if (inside(call) && !failed(call, rules.exit)) lastWrite = index;
     if (isGate(call, rules.gates)) lastGate = index;
   });
+  return { calls, inside, lastWrite, lastGate };
+}
+
+export function unverified(window: Window, rules: Rules, heard: boolean): Fact[] {
+  const named = rules.gates[0];
+  if (!heard || !named) return [];
+  const { calls, inside, lastWrite, lastGate } = lastWriteAndGate(window, rules);
   if (lastWrite < 0 || lastGate > lastWrite) return [];
   const written = new Set(calls.filter(inside).map((call) => str(call.detail.filePath)));
   return [{ kind: "unverified", level: "attend", quote: `${written.size} file${written.size === 1 ? "" : "s"} written and \`${flat(named, 100)}\` not run after the last of them` }];
+}
+
+/** A hand-back that says the work is complete when the check it ran after its last edit failed: the record, not the claim, is what settles it. */
+export function contradicted(window: Window, rules: Rules, outcome: string | undefined): Fact[] {
+  if (outcome !== "complete") return [];
+  const { calls, lastWrite, lastGate } = lastWriteAndGate(window, rules);
+  const check = calls[lastGate];
+  if (!check || lastGate < lastWrite || !failed(check, rules.exit)) return [];
+  return [{ kind: "claim-contradicted", level: "attend", quote: `handed back as complete, but \`${flat(str(check.detail.command), 100)}\` failed the last time it ran, after the last edit` }];
 }
 
 export function afterChange(change: Change, rules: Rules, known?: (path: string) => string | undefined): Fact[] {

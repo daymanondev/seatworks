@@ -203,12 +203,12 @@ export class Runtime {
         repeatsAt: attention.repeatsAt,
         recoverWithin: 10,
       },
-      heardSince: (at) => {
+      handedBack: (at) => {
         try {
           const handback = taskOfPeer(loadLedger(project.state), seat.id)?.handback;
-          return Boolean(handback && handback.at >= at && !handback.gate);
+          return handback && handback.at >= at && !handback.gate ? handback.outcome : undefined;
         } catch {
-          return false;
+          return undefined;
         }
       },
     };

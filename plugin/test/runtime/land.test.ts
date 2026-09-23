@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
-import { harness } from "./harness.ts";
+import { harness, laneWithPeer } from "./harness.ts";
+import { settle } from "./fake-timeline.ts";
 
 const runs = (state: string) =>
   existsSync(join(state, "checkpoints.log"))
@@ -170,5 +171,25 @@ test("settings the desk cannot read hold every landing for the Human rather than
   const { h, land } = await laneWith("outbox-land-unread.json", { "a.txt": "one\nfour\n" });
   writeFileSync(join(h.project.state, "settings.json"), "{ not json");
   assert.match((await land()).text, /waits for the Human's approval, on the Flow tab of the panel, because this project approves every landing\./);
+  h.runtime.dispose();
+});
+
+test("a Peer that hands back complete after its last test run failed is named to its Lead, and the lane does not land past it unasked", async () => {
+  const { h, sup, lane, peer, timeline } = await laneWithPeer("outbox-land-claim.json", { attention: { watch: true }, checkpoints: { land: "on" } });
+  await h.call(sup, "supervisor", "set_project", { gate: "npm test" });
+  const worktree = h.ledger().tasks["L1-T1"]!.worktree!;
+  timeline.beat("turn_started", "t1");
+  timeline.add({ type: "user_message", text: "Clean the build" }, "t1");
+  timeline.add({ type: "tool_call", callId: "w1", name: "Edit", status: "completed", detail: { type: "edit", filePath: join(worktree, "a.txt"), oldString: "one", newString: "uno" } }, "t1");
+  timeline.add({ type: "tool_call", callId: "g1", name: "Bash", status: "completed", detail: { type: "shell", command: "npm test", output: "1 failing", exitCode: 1 } }, "t1");
+  await settle();
+  assert.equal((await h.call(peer, "peer", "done", { outcome: "complete", summary: "done", checks: "npm test passes" })).ok, true);
+  timeline.beat("turn_completed", "t1");
+  await settle();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  await h.idle(lane.lead!);
+  assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /INCIDENT I\d+ \(claim-contradicted, attend\) on the Peer on L1-T1[^]*handed back as complete, but `npm test` failed the last time it ran, after the last edit/);
+  const held = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true, overGate: true });
+  assert.match(held.text, /Incident I\d+ on this lane is still open: claim-contradicted\./);
   h.runtime.dispose();
 });
