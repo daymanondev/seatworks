@@ -70,6 +70,13 @@
             },
             "description": "Shared files or modules this lane depends on without writing."
           },
+          "after": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Lanes this one waits for, when it needs their work or writes where they write. It is recorded now and opens by itself once every one of them has landed, checked again against the lanes open then; if one closes without landing, or it cannot open, you get a letter. It starts no branch of its own until then, so it takes no newBranch."
+          },
           "detourOf": {
             "type": "string",
             "description": "The lane this one clears the way for, when a Lead found a missing prerequisite mid-lane. The detour gets its own Lead and hands back; the lane it unblocks waits rather than widening."
@@ -149,6 +156,59 @@
         "required": [
           "lane",
           "land"
+        ]
+      }
+    },
+    {
+      "name": "amend_lane",
+      "description": "Change what an open or waiting lane is asked, when the Human's new request belongs to it rather than to a lane of its own. Give only the fields that change; what they held before is kept on record with why. An open lane's Lead gets the change and any READY it reported before no longer stands; a waiting lane opens as amended. A change that makes the lane's outcome pointless is not an amendment: that is the Human's call to close it and open the work again.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "lane": {
+            "type": "string",
+            "description": "The lane to change."
+          },
+          "why": {
+            "type": "string",
+            "description": "What the Human asked that changes it, in a sentence."
+          },
+          "outcome": {
+            "type": "string",
+            "description": "The outcome as it stands now."
+          },
+          "acceptance": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Every acceptance line as it stands now, not only the new one."
+          },
+          "outOfScope": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Everything out of scope as it stands now."
+          },
+          "writeSet": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Paths or globs it writes now; checked again against the open lanes."
+          },
+          "contracts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Shared files or modules it depends on now."
+          }
+        },
+        "required": [
+          "lane",
+          "why"
         ]
       }
     },
@@ -399,6 +459,45 @@
         "required": [
           "task",
           "text"
+        ]
+      }
+    },
+    {
+      "name": "amend_task",
+      "description": "Change what a task asks while its Peer works on it, when the lane's outcome moved or you split it differently. Give only the fields that change; what they held before is kept on record with why, and the Peer reads the change at its next turn instead of being cut off. A task whose contract changed under it is better cut and started again.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string",
+            "description": "The task to change."
+          },
+          "why": {
+            "type": "string",
+            "description": "Why it changes, in a sentence."
+          },
+          "goal": {
+            "type": "string",
+            "description": "The goal as it stands now."
+          },
+          "acceptance": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Every acceptance line as it stands now, not only the new one."
+          },
+          "outOfScope": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Everything out of scope as it stands now."
+          }
+        },
+        "required": [
+          "task",
+          "why"
         ]
       }
     },

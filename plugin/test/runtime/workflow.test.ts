@@ -1,223 +1,21 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { mock, test } from "node:test";
-import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
 import type { WatchView, WatchSeat } from "../../shared/views.ts";
+import { HOME, type Pending, harness, ideCalls, laneWithPeer, repo } from "./harness.ts";
 
-const HOME = mkdtempSync(join(tmpdir(), "sw2-flow-home-"));
-process.env.HOME = HOME;
-globalThis.fetch = (async () => new Response("{}", { status: 503 })) as typeof fetch;
-
-const { loadKit } = await import("../../server/catalog/kit.ts");
-const { applyModels } = await import("../../server/catalog/models.ts");
 const { placeProjectFiles } = await import("../../server/catalog/project-files.ts");
-const { loadLedger, saveLedger } = await import("../../server/desk/ledger.ts");
+const { saveLedger } = await import("../../server/desk/ledger.ts");
 const { KEEP_CLOSED_LANES } = await import("../../server/desk/archive.ts");
 const { loadConfig, projectOf } = await import("../../server/desk/project.ts");
-type Project = ReturnType<typeof projectOf>;
-const { Runtime } = await import("../../server/runtime/runtime.ts");
 const { upgradeState } = await import("../../server/upkeep/state.ts");
+const { STATE_VERSION } = await import("../../server/core/state.ts");
 const { firstOverlap, serialHits, serialPaths, SERIAL_ONLY } = await import("../../server/core/scope.ts");
-const { FakeTimeline, settle } = await import("./fake-timeline.ts");
+const { settle } = await import("./fake-timeline.ts");
 const { readAssessments } = await import("../../server/runtime/watch/jev/assessments.ts");
-
-type Pending = { id: string; kind: string; name: string; title?: string; input?: Record<string, unknown> };
-type Fake = {
-  id: string;
-  provider: string;
-  cwd: string;
-  title: string;
-  status: string;
-  archivedAt: string | null;
-  updatedAt: string;
-  sent: string[];
-  steered: string[];
-  pending: Pending[];
-  answered: { requestId: string; response: { behavior: string; updatedInput?: { answers?: Record<string, string> } } }[];
-  prompt?: string;
-};
-
-function fakePaseo() {
-  const agents = new Map<string, Fake>();
-  const workspaces = new Map<string, string>();
-  const workspaceNames = new Map<string, string>();
-  const workspaceProjects = new Map<string, string>();
-  const archivedWorkspaces = new Set<string>();
-  const timelines = new Map<string, InstanceType<typeof FakeTimeline>>();
-  const timelineOf = (id: string) => {
-    const found = timelines.get(id) ?? new FakeTimeline();
-    timelines.set(id, found);
-    return found;
-  };
-  let count = 0;
-  const ref = (id: string) => {
-    const agent = agents.get(id);
-    return {
-      id,
-      timeline: timelineOf(id),
-      get status() { return agent?.status ?? null; },
-      get cwd() { return agent?.cwd ?? null; },
-      get archivedAt() { return agent?.archivedAt ?? null; },
-      get pendingPermissions() { return agent?.pending ?? []; },
-      async refresh() {},
-      current() { return agent ? { id: agent.id, provider: agent.provider, cwd: agent.cwd, title: agent.title } : null; },
-      async send(text: string, options?: { activeTurnBehavior?: string }) {
-        agent?.sent.push(text);
-        if (options?.activeTurnBehavior === "steer") agent?.steered.push(text);
-      },
-      async respondToPermission({ requestId, response }: Fake["answered"][number]) {
-        const at = agent?.pending.findIndex((request) => request.id === requestId) ?? -1;
-        if (!agent || at < 0) throw new Error(`No pending permission request with id '${requestId}'`);
-        agent.pending.splice(at, 1);
-        agent.answered.push({ requestId, response });
-      },
-      async archive() { if (agent) Object.assign(agent, { archivedAt: new Date().toISOString(), status: "closed" }); },
-    };
-  };
-  const add = (provider: string, cwd: string, title: string, status = "idle", prompt?: string) => {
-    const id = `agent-${++count}`;
-    agents.set(id, { id, provider, cwd, title, status, archivedAt: null, updatedAt: new Date().toISOString(), sent: [], steered: [], pending: [], answered: [], prompt });
-    return id;
-  };
-  const workspace = (id: string) => ({
-    id,
-    projectId: workspaceProjects.get(id) ?? null,
-    agents: {
-      async create(options: { config: { provider: string }; title: string; prompt: string }) {
-        return ref(add(options.config.provider, workspaces.get(id)!, options.title, "running", options.prompt));
-      },
-    },
-  });
-  const paseo = {
-    agents: {
-      ref,
-      // The daemon caps a page at 200 rows and reports the rest through pageInfo, so the fake does too.
-      async list(options?: { page?: { limit?: number; cursor?: string } }) {
-        const all = [...agents.values()].map((agent) => ({ agent: { ...agent, pendingPermissions: agent.pending } }));
-        const from = Number(options?.page?.cursor ?? 0);
-        const limit = options?.page?.limit ?? 200;
-        const next = from + limit;
-        return {
-          entries: all.slice(from, next),
-          pageInfo: { hasMore: next < all.length, nextCursor: next < all.length ? String(next) : null, prevCursor: null },
-        };
-      },
-    },
-    workspaces: {
-      // The daemon files a directory under the given project, or makes one of the directory when given none.
-      async create({ title, source }: { title?: string; source: { path: string; projectId?: string } }) {
-        const id = `ws-${workspaces.size + 1}`;
-        workspaces.set(id, source.path);
-        workspaceProjects.set(id, source.projectId ?? `prj:${source.path}`);
-        if (title) workspaceNames.set(id, title);
-        return workspace(id);
-      },
-      async list() {
-        return {
-          entries: [...workspaces.keys()].map((id) => ({ id, projectId: workspaceProjects.get(id)!, name: workspaceNames.get(id) ?? "", archivingAt: archivedWorkspaces.has(id) ? new Date().toISOString() : null })),
-          pageInfo: { nextCursor: null, prevCursor: null, hasMore: false },
-        };
-      },
-      async archive(id: string) {
-        archivedWorkspaces.add(typeof id === "string" ? id : (id as { id: string }).id);
-        return { archivedAt: new Date().toISOString() };
-      },
-      ref: workspace,
-    },
-  };
-  return { paseo: paseo as never, agents, add, workspaces, workspaceNames, workspaceProjects, archivedWorkspaces, timelineOf };
-}
-
-function repo(): { root: string; git: (cwd: string, ...args: string[]) => string } {
-  const root = mkdtempSync(join(tmpdir(), "sw2-flow-repo-"));
-  const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-C", cwd, "-c", "user.name=t", "-c", "user.email=t@x", ...args], { encoding: "utf-8" });
-  writeFileSync(join(root, "a.txt"), "one\ntwo\nthree\n");
-  writeFileSync(join(root, "b.txt"), "bee\n");
-  // A real one, because the desk now reads the serial-only rules against the files that exist.
-  writeFileSync(join(root, "package-lock.json"), "{}\n");
-  // An IntelliJ project, which is what the index these tests fake serves.
-  mkdirSync(join(root, ".idea"));
-  writeFileSync(join(root, ".idea", "misc.xml"), "<project/>\n");
-  git(root, "init", "-q", "-b", "main");
-  git(root, "add", "-A");
-  git(root, "commit", "-qm", "seed");
-  return { root, git };
-}
-
-const kit = loadKit(join(dirname(fileURLToPath(import.meta.url)), "..", ".."));
-const thinking = ["low", "medium", "high"].map((id) => ({ id, label: id }));
-applyModels(kit, {
-  claude: { at: "", error: null, models: [{ id: "claude-opus-5", label: "Opus 5", thinkingOptions: thinking }] },
-  devin: { at: "", error: null, models: [{ id: "swe-2-max", label: "SWE-2 Max" }] },
-});
-
-const ideCalls: { kind: "open" | "sync" | "close"; path: string }[] = [];
-const ide = {
-  async open(path: string) {
-    ideCalls.push({ kind: "open" as const, path });
-    return { ok: true, text: "opened" };
-  },
-  async sync(path: string) {
-    ideCalls.push({ kind: "sync" as const, path });
-    return { ok: true, text: "synced" };
-  },
-  async close(path: string) {
-    ideCalls.push({ kind: "close" as const, path });
-    return { ok: true, text: "closed" };
-  },
-};
-
-function harness(outbox: string) {
-  const { root, git } = repo();
-  const state = join(HOME, ".local", "share", "seatworks-v2");
-  mkdirSync(state, { recursive: true });
-  // By Jev with a key and an unreachable endpoint: the watch on, the sensor silent unless a test asks.
-  writeFileSync(join(state, "settings.json"), JSON.stringify({ sensor: { key: "sk-or-harness" }, attention: { by: "jev" }, mcp: { "intellij-index": { enabled: true }, "code-search": { enabled: true }, context7: { enabled: true } } }));
-  const { paseo, agents, add, workspaces, workspaceNames, workspaceProjects, archivedWorkspaces, timelineOf } = fakePaseo();
-  const runtime = new Runtime(kit, { outboxFile: join(HOME, outbox), paseo, codeIndex: (proxy: { id: string; gitExclude?: string[] }) => ({ ...ide, id: proxy.id, gitExclude: proxy.gitExclude ?? [] }), reloadDaemon: async () => true });
-  const project = projectOf(root);
-  let n = 0;
-  // `where` is the calling working copy, since several desk keys turned out shared between projects.
-  const call = async (agent: string, role: string, tool: string, args: Record<string, unknown>, where = root) =>
-    runtime.desk.handle({ id: `${outbox}-${++n}`, agent, role, tool, args, cwd: where, at: Date.now() });
-  const idle = async (id: string) => {
-    agents.get(id)!.status = "idle";
-    runtime.outbox.turnEnded(id);
-    await runtime.outbox.pump(id);
-  };
-  const commit = (cwd: string, file: string, text: string) => {
-    writeFileSync(join(cwd, file), text);
-    git(cwd, "add", "-A");
-    git(cwd, "commit", "-qm", `edit ${file}`);
-  };
-  const ledger = (of: Project = project) => loadLedger(of.state);
-  const tick = (now?: number) => (runtime as unknown as { patrol: { tick(now?: number): Promise<void> } }).patrol.tick(now);
-  // Paseo fires a turn start before a turn end; without one, a turn is measured from half an hour ago.
-  const beginTurn = (id: string) => (runtime as unknown as { turnStarted(agentId: string): void }).turnStarted(id);
-  // Paseo hands this hook the seat's whole append-only timeline, not the turn that ended.
-  const told = new Map<string, unknown[]>();
-  const endTurn = (id: string, text: string, ...calls: unknown[]) => {
-    const timeline = told.get(id) ?? [];
-    timeline.push({ type: "user_message", text: "go" }, ...calls, { type: "assistant_message", text });
-    told.set(id, timeline);
-    return (runtime as unknown as { turnEnded: (event: unknown) => Promise<void> }).turnEnded({
-      agent: { id, provider: agents.get(id)!.provider, cwd: agents.get(id)!.cwd, title: agents.get(id)!.title, parentAgentId: null, workspaceId: null },
-      turnId: `t-${id}-${Date.now()}`,
-      outcome: { kind: "completed" },
-      timeline: [...timeline],
-    });
-  };
-  const permission = (id: string, request: Pending) =>
-    (runtime as unknown as { permissionRequested: (event: unknown) => Promise<void> }).permissionRequested({
-      agent: { id, provider: agents.get(id)!.provider, cwd: agents.get(id)!.cwd, title: agents.get(id)!.title, parentAgentId: null, workspaceId: null },
-      request,
-    });
-  return { root, git, paseo, agents, add, workspaces, workspaceNames, workspaceProjects, archivedWorkspaces, runtime, project, call, idle, commit, ledger, endTurn, tick, beginTurn, permission, timelineOf };
-}
 
 test("write sets overlap by path prefix and glob, and serial-only paths are caught", () => {
   assert.equal(firstOverlap(["src/pages/"], ["src/api/"]), undefined);
@@ -554,7 +352,7 @@ test("a lane open when the Human updates the plugin from state 1 carries on and 
   rmSync(join(root, "state.json"), { force: true });
   const report = upgradeState(root);
   assert.deepEqual(report.failed, []);
-  assert.ok(report.upgraded.includes(`${h.project.slug}: 1 → 2`), report.upgraded.join(", "));
+  assert.ok(report.upgraded.includes(`${h.project.slug}: 1 → ${STATE_VERSION}`), report.upgraded.join(", "));
   assert.deepEqual(h.ledger().lanes.L1, lane, "the open lane is on record exactly as it was");
 
   const closed = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true });
@@ -1167,7 +965,7 @@ test("a lane main cannot be merged into is refused and stays open, its copy as i
   h.runtime.dispose();
 });
 
-test("a lane closed in the project's own copy does not switch the branch out from under the next lane", async () => {
+test("a lane closed in the project's own copy keeps that copy until its Lead stops, and the next lane takes a copy of its own", async () => {
   const h = harness("outbox-stalerestore.json");
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   const scope = { outOfScope: ["anything else in the repository"] };
@@ -1180,25 +978,25 @@ test("a lane closed in the project's own copy does not switch the branch out fro
   assert.equal(closed.ok, true, closed.text);
   assert.deepEqual(h.ledger().lanes.L1!.restoring!.writers, [first.lead!], "and the wait is on the record, not in memory");
 
-  // The next lane takes the project's copy, because nothing is open in it any more.
+  // Switched now, the first Lead's next commit would land on the next lane's branch.
   const next = await h.call(sup, "supervisor", "open_lane", { title: "Second", outcome: "y", acceptance: ["a"], ...scope });
   assert.equal(next.ok, true, next.text);
   const second = h.ledger().lanes.L2!;
-  assert.equal(second.slot, undefined, "in the project's own copy");
-  assert.equal(h.git(h.root, "branch", "--show-current").trim(), second.branch);
+  assert.ok(second.slot, "in a copy of its own");
+  assert.equal(h.git(h.root, "branch", "--show-current").trim(), first.branch, "the copy the first Lead is writing in is not moved under it");
 
-  // Now the first Lead stops. Its restore is for a branch the copy has left, so it must not fire.
   h.agents.get(first.lead!)!.status = "idle";
   await h.endTurn(first.lead!, "stopping");
-  assert.equal(h.git(h.root, "branch", "--show-current").trim(), second.branch, "a live lane's checkout is not somebody else's to move");
-  h.commit(h.root, "a.txt", "L2 work\n");
-  assert.equal(h.git(h.root, "log", "-1", "--format=%s", second.branch).trim(), "edit a.txt", "so L2's commits land on L2's branch, not on main");
+  assert.equal(h.git(h.root, "branch", "--show-current").trim(), "main", "once it stops, the project's copy is back on its base");
+  const copy = h.ledger().slots[second.slot!]!.path;
+  h.commit(copy, "a.txt", "L2 work\n");
+  assert.equal(h.git(h.root, "log", "-1", "--format=%s", second.branch).trim(), "edit a.txt", "and L2's commits are on L2's branch");
 
   // And a Lead that never comes back at all: the round finishes what its turn was holding up.
   assert.equal((await h.call(sup, "supervisor", "close_lane", { lane: "L2", land: false, reason: "done" })).ok, true);
   h.agents.get(second.lead!)!.archivedAt = new Date().toISOString();
   await h.tick(Date.now());
-  assert.equal(h.git(h.root, "branch", "--show-current").trim(), "main", "the owner's own repository is not left on a dead lane's branch");
+  assert.deepEqual(Object.keys(h.ledger().slots), [], "its copy is put away, not left behind for good");
   h.runtime.dispose();
 });
 
@@ -1528,7 +1326,10 @@ test("a seat opening in a project writes the team's block there, and the first l
   assert.equal(own.ok, true, own.text);
   assert.match(own.text, /team block in AGENTS\.md and CLAUDE\.md is not committed/);
   await h.call(sup, "supervisor", "close_lane", { lane: "L2", land: false, reason: "done" });
+  const lead = h.ledger().lanes.L1!.lead!;
   await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false, reason: "done" });
+  h.agents.get(lead)!.status = "idle";
+  await h.endTurn(lead, "done");
 
   // The Human's own line in the same file is their work in progress, and a lane does not carry it off.
   writeFileSync(join(h.root, "AGENTS.md"), `Use pnpm.\n\n${readFileSync(join(h.root, "AGENTS.md"), "utf-8")}`);
@@ -1847,21 +1648,6 @@ test("mail reaches a running seat inside its turn where its harness can take it 
     mock.timers.reset();
   }
 });
-
-async function laneWithPeer(outbox: string, settings?: Record<string, unknown>) {
-  const h = harness(outbox);
-  if (settings) {
-    mkdirSync(h.project.state, { recursive: true });
-    writeFileSync(join(h.project.state, "settings.json"), JSON.stringify(settings));
-  }
-  const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
-  await h.call(sup, "supervisor", "open_lane", { title: "Build", outcome: "a.txt changes", acceptance: ["a"], outOfScope: ["anything else in the repository"] });
-  const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "Clean build", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] });
-  const peer = h.ledger().tasks["L1-T1"]!.peer!;
-  await h.tick();
-  return { h, sup, lane, peer, timeline: h.timelineOf(peer) };
-}
 
 const watchersOf = (h: ReturnType<typeof harness>) => [...h.agents.values()].filter((agent) => agent.provider.startsWith("sw2-watcher-"));
 const bySeat = (extra: Record<string, unknown> = {}) => ({ attention: { by: "seat", ...extra } });

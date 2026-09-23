@@ -10,6 +10,8 @@ export type StateStep = { to: number; machine?: (root: string) => void; project?
 export const STEPS: StateStep[] = [
   // 2 only adds `Lane.onBranch`; a lane without it is the lane branch it always was, so nothing is carried.
   { to: 2 },
+  // 3 only adds lanes that wait, their record of landing, and amendment history; state 2 has none of them to carry.
+  { to: 3 },
 ];
 
 const MACHINE_FILES = ["state.json", "settings.json", "outbox.json", "content.json"];

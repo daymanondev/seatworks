@@ -62,7 +62,7 @@ export function flowView(
   const lanes: FlowLane[] = [];
   let moreLanes = 0;
   for (const lane of Object.values(ledger.lanes)) {
-    if (lane.status !== "open") continue;
+    if (lane.status === "closed") continue;
     if (lanes.length >= LANE_CAP) {
       moreLanes += 1;
       continue;
@@ -79,6 +79,7 @@ export function flowView(
       taskCount: count.total,
       running: count.running,
       open: open.has(lane.id),
+      ...(lane.status === "waiting" ? { after: lane.after, held: lane.held?.why } : {}),
     });
   }
 

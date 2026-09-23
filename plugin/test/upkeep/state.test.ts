@@ -22,6 +22,13 @@ function machineAt(version: string): { root: string; shop: string } {
   return { root, shop: join(root, "projects", "shop-abc123") };
 }
 
+/** A fixture read as this version reads it, since an older one is refused until carried. */
+function carriedTo(version: string) {
+  const { root, shop } = machineAt(version);
+  upgradeState(root, undefined, undefined, NOW);
+  return loadLedger(shop);
+}
+
 test("the fixture of the current format exists, so the next change to a kept file has one to be carried from", () => {
   assert.ok(existsSync(join(FIXTURES, `v${STATE_VERSION}`)), `test/fixtures/state/v${STATE_VERSION} is missing`);
 });
@@ -52,11 +59,20 @@ for (const version of readdirSync(FIXTURES).filter((name) => /^v\d+$/.test(name)
 }
 
 test("a lane recorded as carrying on the Human's branch in format 2 reads back as one, and one from before has no such mark", () => {
-  const carried = loadLedger(machineAt("v2").shop).lanes.L1!;
+  const carried = carriedTo("v2").lanes.L1!;
   assert.deepEqual([carried.onBranch, carried.branch, carried.base], [true, "fix/totals", "fix/totals"]);
   const { root, shop } = machineAt("v1");
   upgradeState(root, undefined, undefined, NOW);
   assert.equal(loadLedger(shop).lanes.L1!.onBranch, undefined, "a lane from format 1 is the lane branch it always was");
+});
+
+test("a lane's landing and what it was asked before an amendment read back from format 3, and a lane from before has neither", () => {
+  const landed = carriedTo("v3").lanes.L1!;
+  assert.equal(landed.landed, true);
+  assert.deepEqual(landed.amended?.map((entry) => [entry.by, entry.was]), [["agent-sup-1", { acceptance: ["tax shown"] }]]);
+  const { root, shop } = machineAt("v2");
+  upgradeState(root, undefined, undefined, NOW);
+  assert.deepEqual([loadLedger(shop).lanes.L1!.landed, loadLedger(shop).lanes.L1!.amended], [undefined, undefined]);
 });
 
 test("a step carries every project and the machine, keeps a copy of the files first, and runs once", () => {

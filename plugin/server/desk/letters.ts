@@ -3,7 +3,7 @@ import type { Counts } from "../core/git.ts";
 import { type PendingPermission, questionsIn } from "../core/paseo.ts";
 import { FACT_TITLES } from "../runtime/watch/facts.ts";
 import type { Incident } from "./incidents.ts";
-import type { Ask, Lane, Task } from "./ledger.ts";
+import type { Amendment, Ask, Lane, Task } from "./ledger.ts";
 
 const list = (items: string[] | undefined, empty = "none") => (items && items.length > 0 ? items.map((item) => `- ${item}`).join("\n") : empty);
 const firstLine = (text: string) => text.split(/\r?\n/).find((line) => line.trim())?.trim() ?? "";
@@ -317,6 +317,27 @@ export const letters = {
       "",
       `Read what it did before you go on. Your lane branch ${waiting.branch} does not have it yet — ask if your work needs it there.`,
     ].join("\n");
+  },
+
+  amended(entry: Lane | Task, amendment: Amendment, reader: "lead" | "worker"): string {
+    const now = entry as unknown as Record<string, string | string[]>;
+    const show = (value: string | string[]) => (Array.isArray(value) ? list(value) : value);
+    return [
+      `AMENDED ${entry.id} (${entry.title}): ${amendment.why}`,
+      ...Object.entries(amendment.was).flatMap(([field, was]) => ["", `${field}, was:`, show(was), `${field}, now:`, show(now[field]!)]),
+      "",
+      reader === "lead"
+        ? "Carry it into the tasks it touches: amend_task a task whose goal moved, or cut one whose contract changed and start it again. A READY you reported before this no longer stands; report again once the lane meets it as it is now."
+        : "Work to it as it stands now. If what you have already done no longer fits it, say so in your hand-back.",
+    ].join("\n");
+  },
+
+  halfOpen(lane: Lane): string {
+    return `NOT OPENED ${lane.id} (${lane.title}): the desk stopped while its Lead was being started, so the lane is closed and its working copy put back. Open it again if you still want it and have not already.`;
+  },
+
+  waited(lane: Lane, what: string): string {
+    return `WAITING ${lane.id} (${lane.title}), the lane you opened to wait for ${(lane.after ?? []).join(", ")}: ${what}`;
   },
 
   reminder(ask: Ask, minutes: number): string {

@@ -4,7 +4,7 @@ import { skillDirsFor } from "../../catalog/team.ts";
 import { branchExists, currentBranch, diffCounts, git, headSha, outsideOwned, resetHard, trackedFiles } from "../../core/git.ts";
 import { workState } from "../../catalog/project-files.ts";
 import { firstOverlap, serialHits, serialPaths } from "../../core/scope.ts";
-import { type Args, type Caller, hash, no, ok, str, strs } from "../context.ts";
+import { type Args, type Caller, given, hash, no, ok, str, strs } from "../context.ts";
 import { errorText } from "../../core/errors.ts";
 import { gateNote, laneGate } from "../gates.ts";
 import {
@@ -15,6 +15,7 @@ import {
   type Task,
   type TaskStatus,
   activeTasks,
+  amend,
   findTask,
   laneOfLead,
   loadLedger,
@@ -308,6 +309,26 @@ export const rework: Tool = async ({ ctx, roster }, caller, args) => {
   return posted === "duplicate"
     ? no(`That rework was already sent to the Peer on ${result.id} and it has not ended a turn since, so this would be the same letter twice. Wait for its hand-back, or cut it.`)
     : ok(`Rework sent to the Peer on ${result.id}; its next hand-back arrives as mail.`);
+};
+
+/** Changes what a task asks while its Peer works, keeping what it asked before; the Peer is told at its next turn, not cut off. */
+export const amendTask: Tool = async ({ ctx }, caller, args) => {
+  const changes = given(args, ["goal"], ["acceptance", "outOfScope"]);
+  if (changes.goal === "" || changes.acceptance?.length === 0) return no("A task keeps a goal and at least one acceptance line; give what it asks now.");
+  const done = await ctx.ledger(caller.project, (ledger) => {
+    const found = laneTask(ledger, caller, str(args.task));
+    if (typeof found === "string") return found;
+    const { task } = found;
+    if (["merged", "cut", "queued", "merging"].includes(task.status)) return `${task.id} is ${task.status}; start a task for what is asked now.`;
+    const amendment = amend(task, changes, caller.id, str(args.why));
+    if (!amendment) return `Nothing about ${task.id} would change; pass the fields it asks differently now.`;
+    task.updatedAt = Date.now();
+    return { task: { ...task }, amendment };
+  });
+  if (typeof done === "string") return no(done);
+  ctx.event(caller.project, { kind: "task.amended", task: done.task.id, fields: Object.keys(done.amendment.was), by: caller.id });
+  const posted = await ctx.post(done.task.peer, `amended:${done.task.id}:${done.task.amended!.length}`, letters.amended(done.task, done.amendment, "worker"));
+  return ok(`${done.task.id} is amended${posted === "nobody" ? ", and it has no Peer to tell" : "; its Peer has it at its next turn"}.`);
 };
 
 export const cut: Tool = async ({ ctx, roster, slots }, caller, args) => {

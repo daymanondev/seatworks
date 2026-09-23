@@ -27,11 +27,13 @@ import * as worker from "./tools/worker.ts";
 const TOOLS: Record<string, Tool> = {
   open_lane: supervisor.openLane,
   close_lane: supervisor.closeLane,
+  amend_lane: supervisor.amendLane,
   set_project: supervisor.setProject,
   start_task: lead.startTask,
   start_review: lead.startReview,
   accept: lead.accept,
   rework: lead.rework,
+  amend_task: lead.amendTask,
   cut: lead.cut,
   report: lead.report,
   done: worker.done,
@@ -180,6 +182,11 @@ export class Desk {
 
   setTask(project: Project, taskId: string, change: (task: Task) => void): Promise<Task | undefined> {
     return this.services.ctx.setTask(project, taskId, change);
+  }
+
+  /** The patrol's net under a close that never got to open its waiting lanes; a lane already held waits for the next close. */
+  openWaiting(project: Project): Promise<void> {
+    return supervisor.openWaiting(this.services, project, false);
   }
 
   /** Checked on a plain read first, so a round with nothing to archive does not rewrite the ledger; records follow once it is saved. */

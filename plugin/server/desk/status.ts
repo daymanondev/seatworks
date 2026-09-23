@@ -97,6 +97,16 @@ export function statusText(
     }
     lines.push("");
   }
+  const pending = lanes.filter((lane) => lane.status === "waiting");
+  if (pending.length > 0) lines.push("## Waiting lanes", "");
+  for (const lane of pending) {
+    const after = (lane.after ?? []).map((id) => {
+      const other = ledger.lanes[id];
+      return `${id} ${other?.status === "closed" ? (other.landed ? "landed" : "closed without landing") : (other?.status ?? "gone")}`;
+    });
+    lines.push(`- ${lane.id} ${lane.title}: after ${after.join(", ")}${lane.held ? `. Not open: ${lane.held.why}` : ""}`, ...(copy ? laneAim(lane).map((line) => `  ${line}`) : []));
+  }
+  if (pending.length > 0) lines.push("");
   if (!laneId) {
     const slots = Object.values(ledger.slots ?? {});
     if (slots.length > 0) {
