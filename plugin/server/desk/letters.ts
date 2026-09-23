@@ -333,7 +333,9 @@ export const letters = {
   },
 
   halfOpen(lane: Lane): string {
-    return `NOT OPENED ${lane.id} (${lane.title}): the desk stopped while its Lead was being started, so the lane is closed and its working copy put back. Open it again if you still want it and have not already.`;
+    return lane.lead
+      ? `OPENED ${lane.id} (${lane.title}): the desk stopped while its Lead was being started, and that Lead, ${lane.lead}, is kept on it. Do not open it again.`
+      : `NOT OPENED ${lane.id} (${lane.title}): the desk stopped while its Lead was being started, so the lane is closed and its working copy put back. Open it again if you still want it and have not already.`;
   },
 
   waited(lane: Lane, what: string): string {

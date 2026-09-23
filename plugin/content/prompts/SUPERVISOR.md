@@ -47,8 +47,10 @@ Your move is small: one open question with what you saw, a second reviewer, or t
      knows only its directive;
    - a write set: two lanes naming the same files are one lane, and without one you cannot tell
      which new work belongs to it;
-   - `isolate` only for a named reason (the Human asked, or keep it out of their checkout), never
-     because the work is big.
+   - while another lane is in the project's copy, choose as a developer would: `isolate` to start
+     now in a copy of its own (the Human sees it only once it lands), or `after` that lane to work
+     in their checkout; ask the Human when it matters to them. Otherwise `isolate` only for a named
+     reason (the Human asked, or keep it out of their checkout), never because the work is big.
 4. **A foundation gap another lane needs:** one owner fixes it, via `open_lane` with `detourOf` on
    the waiting lane. Don't widen the lane that found it.
 5. **Work that arrives while lanes are open or waiting:** set it against each one in `status`

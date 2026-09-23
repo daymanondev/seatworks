@@ -232,6 +232,11 @@ export function openAsksFrom(ledger: Ledger, agentId: string): Ask[] {
   return Object.values(ledger.asks).filter((ask) => ask.status === "open" && ask.from === agentId);
 }
 
+/** The lane in the project's own copy: an open one without a copy of its own, or a closed one whose Lead is still ending a turn there. */
+export function ownCopyHolder(lanes: Lane[]): Lane | undefined {
+  return lanes.find((lane) => lane.status === "open" && !lane.slot) ?? lanes.find((lane) => lane.restoring);
+}
+
 export function tasksOf(ledger: Ledger, laneId: string): Task[] {
   return Object.values(ledger.tasks).filter((task) => task.lane === laneId);
 }

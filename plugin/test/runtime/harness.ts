@@ -30,6 +30,7 @@ type Fake = {
   pending: Pending[];
   answered: { requestId: string; response: { behavior: string; updatedInput?: { answers?: Record<string, string> } } }[];
   prompt?: string;
+  labels: Record<string, string>;
 };
 
 function fakePaseo() {
@@ -69,17 +70,17 @@ function fakePaseo() {
       async archive() { if (agent) Object.assign(agent, { archivedAt: new Date().toISOString(), status: "closed" }); },
     };
   };
-  const add = (provider: string, cwd: string, title: string, status = "idle", prompt?: string) => {
+  const add = (provider: string, cwd: string, title: string, status = "idle", prompt?: string, labels: Record<string, string> = {}) => {
     const id = `agent-${++count}`;
-    agents.set(id, { id, provider, cwd, title, status, archivedAt: null, updatedAt: new Date().toISOString(), sent: [], steered: [], pending: [], answered: [], prompt });
+    agents.set(id, { id, provider, cwd, title, status, archivedAt: null, updatedAt: new Date().toISOString(), sent: [], steered: [], pending: [], answered: [], prompt, labels });
     return id;
   };
   const workspace = (id: string) => ({
     id,
     projectId: workspaceProjects.get(id) ?? null,
     agents: {
-      async create(options: { config: { provider: string }; title: string; prompt: string }) {
-        return ref(add(options.config.provider, workspaces.get(id)!, options.title, "running", options.prompt));
+      async create(options: { config: { provider: string }; title: string; prompt: string; labels?: Record<string, string> }) {
+        return ref(add(options.config.provider, workspaces.get(id)!, options.title, "running", options.prompt, options.labels));
       },
     },
   });

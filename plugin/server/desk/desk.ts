@@ -21,6 +21,7 @@ import * as incidents from "./tools/incidents.ts";
 import * as lead from "./tools/lead.ts";
 import * as shared from "./tools/shared.ts";
 import * as supervisor from "./tools/supervisor.ts";
+import { openWaiting } from "./waiting.ts";
 import * as watcher from "./tools/watcher.ts";
 import * as worker from "./tools/worker.ts";
 
@@ -186,7 +187,7 @@ export class Desk {
 
   /** The patrol's net under a close that never got to open its waiting lanes; a lane already held waits for the next close. */
   openWaiting(project: Project): Promise<void> {
-    return supervisor.openWaiting(this.services, project, false);
+    return openWaiting(this.services, project, false);
   }
 
   /** Checked on a plain read first, so a round with nothing to archive does not rewrite the ledger; records follow once it is saved. */

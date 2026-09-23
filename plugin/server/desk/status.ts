@@ -1,5 +1,5 @@
 import type { SeatView } from "../core/paseo.ts";
-import type { Lane, Ledger } from "./ledger.ts";
+import { type Lane, type Ledger, ownCopyHolder } from "./ledger.ts";
 import { type Project, type ProjectConfig, projectOf } from "./project.ts";
 
 
@@ -24,8 +24,9 @@ function ownCopyLines(project: Project, ledger: Ledger, config: ProjectConfig, c
   const work = copy.work ? [...copy.work].sort() : undefined;
   const more = work && work.length > SHOWN_FILES ? `, and ${work.length - SHOWN_FILES} more` : "";
   const state = !work ? "and git could not say what is uncommitted" : work.length === 0 ? "clean" : `with ${work.length} uncommitted ${work.length === 1 ? "file" : "files"}: ${work.slice(0, SHOWN_FILES).join(", ")}${more}`;
-  const holder = Object.values(ledger.lanes).find((lane) => lane.status === "open" && !lane.slot);
-  const lines = ["## The project's own copy", "", `${project.root} is ${at}, ${state}.`, holder ? `Lane ${holder.id} is working in it.` : "No lane is working in it."];
+  const holder = ownCopyHolder(Object.values(ledger.lanes));
+  const held = holder?.status === "open" ? `Lane ${holder.id} is working in it.` : holder ? `Lane ${holder.id} is closed, and its Lead is ending a turn in it; it goes back to ${holder.base} after.` : "No lane is working in it.";
+  const lines = ["## The project's own copy", "", `${project.root} is ${at}, ${state}.`, held];
   if (!holder && copy.branch && work) {
     if (work.length > 0) lines.push(`The Human decides where the next lane works, before it opens: carry on ${copy.branch} here, a new branch that takes the uncommitted work along, or a new branch that leaves it where it is.`);
     else if (config.base && copy.branch !== config.base) lines.push(`The Human decides where the next lane works, before it opens: carry on ${copy.branch} here, or a new branch off ${config.base}.`);

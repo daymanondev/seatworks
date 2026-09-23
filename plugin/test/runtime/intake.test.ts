@@ -138,19 +138,25 @@ test("a patrol round opens a waiting lane whose lanes landed without it being tr
   h.runtime.dispose();
 });
 
-test("a lane is not opened in the project's copy while a closed lane is still putting that copy back", async () => {
+test("a lane waiting for the project's copy is held while a closed lane's Lead ends its turn there, and a round opens it there once it has", async () => {
   const h = harness("outbox-after-restoring.json");
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   const scope = { outcome: "x", acceptance: ["a"], outOfScope: ["anything else in the repository"] };
   await h.call(sup, "supervisor", "open_lane", { title: "Cart", ...scope });
   const cart = h.ledger().lanes.L1!;
-  await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false });
+  await h.call(sup, "supervisor", "open_lane", { title: "Order", ...scope, after: ["L1"] });
+  await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true });
   assert.ok(h.ledger().lanes.L1!.restoring, "its Lead is mid-turn, so the copy is still on its branch");
-
-  const next = await h.call(sup, "supervisor", "open_lane", { title: "Next", ...scope });
-  assert.equal(next.ok, true, next.text);
-  assert.ok(h.ledger().lanes.L2!.slot, "the next lane takes a copy of its own");
+  assert.equal(h.ledger().lanes.L2!.status, "waiting");
+  assert.match(h.ledger().lanes.L2!.held?.why ?? "", /its Lead is still ending a turn in the project's own copy/);
   assert.equal(h.git(h.root, "branch", "--show-current").trim(), cart.branch, "and the copy the Lead is writing in is not switched under it");
+
+  h.agents.get(cart.lead!)!.status = "idle";
+  await h.endTurn(cart.lead!, "stopping");
+  await h.tick(Date.now());
+  const order = h.ledger().lanes.L2!;
+  assert.deepEqual([order.status, order.slot], ["open", undefined], "it waited for the project's copy, as the Supervisor chose, and opened there");
+  assert.equal(h.git(h.root, "branch", "--show-current").trim(), order.branch);
   h.runtime.dispose();
 });
 
@@ -353,5 +359,31 @@ test("a round while a lane's Lead is still being started leaves that lane alone"
   go();
   assert.equal((await opening).ok, true);
   assert.ok(h.ledger().lanes.L1!.lead);
+  h.runtime.dispose();
+});
+
+test("a Lead Paseo started before a stop kept the desk from recording it is taken on, not left writing in a copy given back", async () => {
+  const h = harness("outbox-half-open-lead.json");
+  const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
+  await h.call(sup, "supervisor", "open_lane", { title: "Cart", outcome: "x", acceptance: ["a"], outOfScope: ["the rest"] });
+  const opened = h.ledger().lanes.L1!;
+  // The desk stopped after Paseo seated the Lead in the Human's copy and before the ledger said so.
+  const ledger = h.ledger();
+  delete ledger.lanes.L1!.lead;
+  delete ledger.agents[opened.lead!];
+  saveLedger(h.project.state, ledger);
+
+  const agents = (h.paseo as unknown as { agents: { list: () => Promise<unknown> } }).agents;
+  const list = agents.list;
+  agents.list = async () => ({ entries: [], pageInfo: { hasMore: false, nextCursor: null, prevCursor: null } });
+  await h.tick(Date.now());
+  assert.deepEqual([h.ledger().lanes.L1!.status, h.git(h.root, "branch", "--show-current").trim()], ["open", opened.branch], "a daemon that listed nothing is no word that no Lead was started");
+  agents.list = list;
+  await h.tick(Date.now());
+  const lane = h.ledger().lanes.L1!;
+  assert.deepEqual([lane.status, lane.lead, h.ledger().agents[opened.lead!]?.lane], ["open", opened.lead, "L1"]);
+  assert.equal(h.git(h.root, "branch", "--show-current").trim(), opened.branch, "the copy its Lead writes in is left where it is");
+  assert.equal([...h.agents.values()].filter((agent) => agent.title.startsWith("L1 ")).length, 1, "and no second Lead is started");
+  assert.match(h.agents.get(sup)!.sent.join("\n"), /OPENED L1 \(Cart\): the desk stopped while its Lead was being started, and that Lead, [^,]+, is kept on it/);
   h.runtime.dispose();
 });
