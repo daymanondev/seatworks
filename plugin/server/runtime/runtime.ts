@@ -156,6 +156,7 @@ export class Runtime {
       held: () => this.outbox.letters(),
       watch: (project, seats) => this.watchView(project, seats),
       decidePlan: (project, lane, approve, note) => this.desk.decidePlan(project, lane, approve, "human", note),
+      decideLand: (project, lane, approve, note) => this.desk.decideLand(project, lane, approve, note),
     });
   }
 

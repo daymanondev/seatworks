@@ -110,6 +110,16 @@ test("how a project's lanes land reads back from format 7, and a project from be
   assert.equal(loadConfig(before.shop).landAs, "squash");
 });
 
+test("a landing held for the Human and a project's land check read back from format 8", () => {
+  const { root, shop } = machineAt("v8");
+  upgradeState(root, undefined, undefined, NOW);
+  assert.deepEqual(loadLedger(shop).lanes.L1!.landApproval?.signals, ["db/migrations/002_cart.sql is a path this project counts as risky."]);
+  const layer = readLayer(join(shop, "settings.json"), ProjectLayerSchema);
+  const checks = layer.status === "ready" ? layer.values.checkpoints : undefined;
+  assert.deepEqual([checks?.land, checks?.landApprove, checks?.landLines], ["on", "risky", 800]);
+  assert.equal(carriedTo("v7").lanes.L1!.landApproval, undefined);
+});
+
 test("a step carries every project and the machine, keeps a copy of the files first, and runs once", () => {
   const { root, shop } = machineAt("v1");
   const steps = [

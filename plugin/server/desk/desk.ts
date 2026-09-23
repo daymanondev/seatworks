@@ -161,6 +161,10 @@ export class Desk {
     return decidePlan(this.services, project, lane, approve, by, note);
   }
 
+  decideLand(project: Project, lane: string, approve: boolean, note: string): Promise<{ ok: boolean; text: string }> {
+    return supervisor.decideLand(this.services, project, lane, approve, note);
+  }
+
   archive(agentId: string | undefined, force = false): Promise<void> {
     return this.services.roster.archive(agentId, force);
   }

@@ -172,6 +172,7 @@ export type ControlDeps = {
   held: () => { to: string; text: string; at: number }[];
   watch: (project: Project, seats: Iterable<SeatView>) => WatchView;
   decidePlan: (project: Project, lane: string, approve: boolean, note: string) => Promise<{ ok: boolean; text: string }>;
+  decideLand: (project: Project, lane: string, approve: boolean, note: string) => Promise<{ ok: boolean; text: string }>;
 };
 
 export class SettingsControl implements Control {
@@ -336,6 +337,14 @@ export class SettingsControl implements Control {
     const project = this.deps.source.named(slug);
     if (!project) return { error: unknownProject(slug) };
     const decided = await this.deps.decidePlan(project, lane, approve, note.trim());
+    return decided.ok ? { decided: decided.text } : { error: decided.text };
+  }
+
+  /** The Human's own word on a held landing, from the panel like a plan's: landing is already the Supervisor's call. */
+  async decideLand(slug: string, lane: string, approve: boolean, note: string): Promise<unknown> {
+    const project = this.deps.source.named(slug);
+    if (!project) return { error: unknownProject(slug) };
+    const decided = await this.deps.decideLand(project, lane, approve, note.trim());
     return decided.ok ? { decided: decided.text } : { error: decided.text };
   }
 

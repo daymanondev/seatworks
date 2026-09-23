@@ -120,7 +120,8 @@ export function kindOf(path: string): "src" | "test" | "docs" {
 }
 
 /** Uses `-z` so a rename yields both real paths, not the `src/{old.ts => new.ts}` form that matches no owned path. */
-export function countNumstat(numstat: string): Counts {
+/** Lines of an `uncounted` path are left out of the counts; the path is still listed. */
+export function countNumstat(numstat: string, uncounted: (path: string) => boolean = () => false): Counts {
   const counts: Counts = { src: 0, test: 0, docs: 0, files: [] };
   const fields = numstat.split("\0");
   for (let index = 0; index < fields.length; index++) {
@@ -139,7 +140,7 @@ export function countNumstat(numstat: string): Counts {
       index += 2;
     }
     for (const path of paths) {
-      counts[kindOf(path)] += lines;
+      if (!uncounted(path)) counts[kindOf(path)] += lines;
       counts.files.push(path);
     }
   }
@@ -147,9 +148,9 @@ export function countNumstat(numstat: string): Counts {
 }
 
 /** Undefined when git could not answer: zeroed counts read as "nothing changed", which is a claim. */
-export async function diffCounts(cwd: string, from: string, to: string): Promise<Counts | undefined> {
+export async function diffCounts(cwd: string, from: string, to: string, uncounted?: (path: string) => boolean): Promise<Counts | undefined> {
   const run = await git(cwd, ["diff", "-z", "--numstat", `${from}..${to}`]);
-  return run.code === 0 ? countNumstat(run.stdout) : undefined;
+  return run.code === 0 ? countNumstat(run.stdout, uncounted) : undefined;
 }
 
 export function outsideOwned(files: string[], owned: string[]): string[] {

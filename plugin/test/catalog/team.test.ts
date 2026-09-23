@@ -200,7 +200,12 @@ test("a project's plan check follows the machine where it says nothing, starts i
   assert.equal(resolveTeam(kit).checkpoints.plan, "shadow", "a check nobody chose is recorded, not enforced, until someone reads what it would have done");
   assert.equal(resolveTeam(kit, { checkpoints: { plan: "on" } }).checkpoints.plan, "on");
   assert.equal(resolveTeam(kit, { checkpoints: { plan: "on" } }, { checkpoints: { plan: "off" } }).checkpoints.plan, "off", "and the project's own choice wins");
+  assert.deepEqual(
+    (({ land, landApprove, landLines }) => ({ land, landApprove, landLines }))(resolveTeam(kit, { checkpoints: { land: "off", landLines: 400 } }, { checkpoints: { land: "on", landApprove: "every" } }).checkpoints),
+    { land: "on", landApprove: "every", landLines: 400 },
+    "the land check reads its layers the same way",
+  );
   const { describeTeam } = await import("../../server/runtime/control.ts");
   const view = describeTeam(kit, resolveTeam(kit)) as { checkpoints: unknown };
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(view)).checkpoints, { plan: "shadow", approve: "risky", approver: "human", risk: RISKY_PATHS, forced: null }, "Paseo refuses a reply with an undefined field in it");
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(view)).checkpoints, { plan: "shadow", approve: "risky", approver: "human", risk: RISKY_PATHS, land: "shadow", landApprove: "risky", landLines: 1000, forced: null }, "Paseo refuses a reply with an undefined field in it");
 });

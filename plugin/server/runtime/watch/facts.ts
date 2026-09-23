@@ -72,6 +72,13 @@ const count = (text: string, pattern: string): number => (text.match(new RegExp(
 const flat = (text: string, limit = 200): string => within(mask(text).replace(/\s+/g, " ").trim(), limit);
 const str = (value: unknown): string => (typeof value === "string" ? value : "");
 
+/** How a change to a test file weakened it, if it did: a new skip marker, or fewer assertions. */
+export function weakened(before: string, after: string): string | undefined {
+  if (count(after, SKIPPED) > count(before, SKIPPED)) return "adds a skip marker";
+  const [was, now] = [count(before, ASSERTION), count(after, ASSERTION)];
+  return now < was ? `${was} assertions become ${now}` : undefined;
+}
+
 export function failed(call: Call, exit?: RegExp): boolean {
   if (call.status === "failed") return true;
   if (typeof call.detail.exitCode === "number") return call.detail.exitCode !== 0;
@@ -227,11 +234,8 @@ export function onSettle(call: Call, rules: Rules, known?: (path: string) => str
     const path = str(detail.filePath);
     const [before, after] = both;
     if (rules.testPath.test(path) && (before || after)) {
-      const lost = count(before, ASSERTION) - count(after, ASSERTION);
-      const muted = count(after, SKIPPED) > count(before, SKIPPED);
-      if (lost > 0 || muted) {
-        facts.push({ kind: "test-weakened", level: "attend", quote: muted ? `${flat(path)}: adds a skip marker` : `${flat(path)}: ${count(before, ASSERTION)} assertions become ${count(after, ASSERTION)}` });
-      }
+      const how = weakened(before, after);
+      if (how) facts.push({ kind: "test-weakened", level: "attend", quote: `${flat(path)}: ${how}` });
     }
     if (!PROSE.test(path)) {
       const was = hits(before, rules.suppressed);

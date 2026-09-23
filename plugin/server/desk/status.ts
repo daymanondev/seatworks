@@ -1,4 +1,4 @@
-import type { Team } from "../catalog/team.ts";
+import type { CheckpointMode, Team } from "../catalog/team.ts";
 import type { SeatView } from "../core/paseo.ts";
 import { runsOf } from "./checkpoints.ts";
 import { type Lane, type Ledger, ownCopyHolder } from "./ledger.ts";
@@ -39,11 +39,18 @@ function ownCopyLines(project: Project, ledger: Ledger, config: ProjectConfig, c
 
 /** What each checkpoint is set to and what its log holds, so a shadow period can be read before it is turned on. */
 function checkLines(project: Project, checks: Team["checkpoints"]): string[] {
-  const { runs, held, asked, last } = runsOf(project, "plan");
-  const mode = checks.forced ? `on, because ${checks.forced}` : checks.plan;
-  const kept = runs === 0 ? "nothing checked yet" : `${runs} checked, ${held} ${checks.plan === "on" ? "held" : "would have been held"}, ${asked} ${checks.plan === "on" ? "sent for approval" : "would have been sent for approval"}${last ? `; last held ${last.lane} at ${last.at}: ${last.findings[0] ?? ""}` : ""}`;
-  const approval = `Plans are approved ${checks.approve === "every" ? "every time" : "when they touch risky paths"}, by ${checks.approver === "human" ? "the Human on the panel" : "the Supervisor"}`;
-  return ["## Checkpoints", "", `- plan: ${mode}. ${checks.plan === "off" && !checks.forced ? "Nothing is checked." : `${approval}. In checkpoints.log: ${kept}.`}`, ""];
+  const line = (checkpoint: "plan" | "land", set: CheckpointMode, approval: string, holds: boolean) => {
+    const { runs, held, asked, last } = runsOf(project, checkpoint);
+    const kept = runs === 0 ? "nothing checked yet" : `${runs} checked, ${holds ? `${held} ${set === "on" ? "held" : "would have been held"}, ` : ""}${asked} ${set === "on" ? "sent for approval" : "would have been sent for approval"}${last ? `; last flagged ${last.lane} at ${last.at}: ${last.findings[0] ?? ""}` : ""}`;
+    return `- ${checkpoint}: ${checks.forced ? `on, because ${checks.forced}` : set}. ${set === "off" && !checks.forced ? "Nothing is checked." : `${approval}. In checkpoints.log: ${kept}.`}`;
+  };
+  return [
+    "## Checkpoints",
+    "",
+    line("plan", checks.plan, `Plans are approved ${checks.approve === "every" ? "every time" : "when they touch risky paths"}, by ${checks.approver === "human" ? "the Human on the panel" : "the Supervisor"}`, true),
+    line("land", checks.land, `Landings are approved ${checks.landApprove === "every" ? "every time" : "when something in them should be seen first"}, by the Human on the panel`, false),
+    "",
+  ];
 }
 
 function laneAim(lane: Lane): string[] {
@@ -101,9 +108,17 @@ export function statusText(
   if (open.length === 0) lines.push("No open lanes.", "");
   for (const lane of open) {
     const detour = lane.detourOf ? ` Clearing the way for ${lane.detourOf}.` : "";
-    const approval = lane.approval
-      ? [`Plan ${lane.approval.plan} waits ${minutes(now, lane.approval.since)} min for approval by ${lane.approval.by === "human" ? "the Human, on the panel" : "the owner"}: ${lane.approval.signals.join(" ") || "every plan here is approved first."} None of its tasks starts until then.`]
-      : [];
+    const land = lane.landApproval;
+    const approval = [
+      ...(lane.approval
+        ? [`Plan ${lane.approval.plan} waits ${minutes(now, lane.approval.since)} min for approval by ${lane.approval.by === "human" ? "the Human, on the panel" : "the owner"}: ${lane.approval.signals.join(" ") || "every plan here is approved first."} None of its tasks starts until then.`]
+        : []),
+      ...(land?.approved
+        ? [`Landing approved by the Human ${minutes(now, land.approved.at)} min ago; close_lane with land true lands it.`]
+        : land
+          ? [`Landing waits ${minutes(now, land.since)} min for the Human's approval: ${land.signals.join(" ") || "every landing here is approved first."}`]
+          : []),
+    ];
     lines.push(`## ${lane.id} ${lane.title}`, "", `Branch ${lane.branch}${lane.onBranch ? ", carried on in the project's own copy" : ` off ${lane.base}`}. Lead ${seatLine(seats, lane.lead, now)}.${detour}`, ...approval, ...(copy ? laneAim(lane) : []), "");
     const tasks = Object.values(ledger.tasks).filter((task) => task.lane === lane.id);
     if (tasks.length === 0) lines.push("- no tasks yet");

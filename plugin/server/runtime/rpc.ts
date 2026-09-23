@@ -20,6 +20,7 @@ export interface Control {
   status(project: string): Promise<unknown>;
   flow(project: string, since?: string, open?: string[]): Promise<unknown>;
   decidePlan(project: string, lane: string, approve: boolean, note: string): Promise<unknown>;
+  decideLand(project: string, lane: string, approve: boolean, note: string): Promise<unknown>;
   listPaths(path?: string): unknown;
   refreshModels(): Promise<unknown>;
   decide(unit: string, choice: "new" | "mine" | "seen"): Promise<unknown>;
@@ -53,6 +54,7 @@ export function registerRpc(server: { handle: unknown }, control: Control, bind:
   handle(contracts.status, (input) => control.status(input.project));
   handle(contracts.flow, (input) => control.flow(input.project, input.since, input.open));
   handle(contracts.planDecide, (input) => control.decidePlan(input.project, input.lane, input.approve, input.note));
+  handle(contracts.landDecide, (input) => control.decideLand(input.project, input.lane, input.approve, input.note));
   handle(contracts.paths, (input) => control.listPaths(input.path));
   handle(contracts.models, () => control.refreshModels());
   handle(contracts.decide, (input) => control.decide(input.unit, input.choice));

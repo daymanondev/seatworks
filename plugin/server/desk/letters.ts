@@ -346,6 +346,22 @@ export const letters = {
     return `SENT BACK plan ${plan} of ${lane.id} (${lane.title}): ${note || "no reason was given; ask the owner what to change"}. ${cut.length > 0 ? `${cut.join(", ")} ${cut.length === 1 ? "is" : "are"} cut. ` : ""}Send a new plan with plan_tasks.`;
   },
 
+  landHeld(lane: Lane, reason: string): string {
+    return `LAND HELD ${lane.id} (${lane.title}): the owner looks at it before it lands, because ${reason} Commit nothing more on the lane until LANDED or LAND SENT BACK arrives: a new commit means it is looked at again from the start.`;
+  },
+
+  landSentBack(lane: Lane, note: string): string {
+    return `LAND SENT BACK ${lane.id} (${lane.title}): ${note || "no reason was given; ask the owner what to change"}. The lane stays open; report it ready again once that is dealt with.`;
+  },
+
+  landDecided(lane: Lane, how: "landed" | "blocked" | "again" | "changed" | "sent back", text: string): string {
+    if (how === "landed") return `LANDED ${lane.id} (${lane.title}) after the Human approved it: ${text}`;
+    if (how === "again") return `HELD AGAIN ${lane.id} (${lane.title}): the Human approved it, but landing it turned up more. ${text}`;
+    if (how === "changed") return `CHANGED ${lane.id} (${lane.title}) after its landing was held, so the Human's approval did not count. close_lane it with land true to have it checked as it is now.`;
+    if (how === "blocked") return `APPROVED ${lane.id} (${lane.title}) for landing by the Human, but it could not land yet: ${text}. The approval stands while the lane does not change: once that is cleared, close_lane with land true lands it without asking again.`;
+    return `SENT BACK ${lane.id} (${lane.title}) by the Human: ${text || "no reason was given"}. The lane stays open, and its Lead has the note.`;
+  },
+
   leadGone(lane: Lane): string {
     return `LEAD GONE ${lane.id} (${lane.title}): its Lead ${lane.lead} is no longer seated, so nothing on the lane moves. replace_lead puts a new Lead on it where it stands; close_lane ends it.`;
   },

@@ -40,16 +40,31 @@ export type Team = {
   attention: Attention;
   sensor?: { spec: SensorSpec; key: string };
   /** `forced` says why a check runs at its strictest though nobody chose it: settings the desk could not read. */
-  checkpoints: { plan: CheckpointMode; approve: "risky" | "every"; approver: "human" | "supervisor"; risk: string; forced?: string };
+  checkpoints: Checkpoints;
   rules: string;
   errors: string[];
 };
 
 export type CheckpointMode = (typeof CHECKPOINT_MODES)[number];
 
+/** A landing is only ever approved by the Human: landing is already the Supervisor's call, so it cannot also be the check on it. */
+export type Checkpoints = {
+  plan: CheckpointMode;
+  approve: "risky" | "every";
+  approver: "human" | "supervisor";
+  risk: string;
+  land: CheckpointMode;
+  landApprove: "risky" | "every";
+  landLines: number;
+  forced?: string;
+};
+
 /** Paths whose change is risky enough that a plan touching them waits for a person: access, money, data shape, and what ships. */
 export const RISKY_PATHS =
   "(^|/)(auth|login|session|passwords?|secrets?|credentials?|tokens?|payments?|billing|migrations?|schema)(/|\\.|$)|\\.sql$|(^|/)\\.github/workflows(/|$)|(^|/)(Dockerfile|docker-compose[^/]*|\\.env[^/]*)$|(^|/)(infra|deploy|terraform|k8s|helm)(/|$)";
+
+/** More changed lines than one sitting reviews well: past a few hundred, reviewers find fewer defects. */
+export const LAND_LINES = 1000;
 
 export function templateRoles(entry: McpEntry): string[] {
   return entry.kind === "proxy" ? Object.keys(entry.tools ?? {}) : (entry.roles ?? []);
@@ -234,12 +249,15 @@ export function resolveTeam(kit: Kit, machine: Layer = {}, project: Layer = {}, 
     // A check the Human turned on must not fall silently to its default when the file that says so cannot be read.
     checkpoints:
       unread.length > 0
-        ? { plan: "on", approve: "every", approver: "human", risk: RISKY_PATHS, forced: unread.join("; ") }
+        ? { plan: "on", approve: "every", approver: "human", risk: RISKY_PATHS, land: "on", landApprove: "every", landLines: LAND_LINES, forced: unread.join("; ") }
         : {
             plan: project.checkpoints?.plan ?? machine.checkpoints?.plan ?? "shadow",
             approve: project.checkpoints?.approve ?? machine.checkpoints?.approve ?? "risky",
             approver: project.checkpoints?.approver ?? machine.checkpoints?.approver ?? "human",
             risk: project.checkpoints?.risk ?? machine.checkpoints?.risk ?? RISKY_PATHS,
+            land: project.checkpoints?.land ?? machine.checkpoints?.land ?? "shadow",
+            landApprove: project.checkpoints?.landApprove ?? machine.checkpoints?.landApprove ?? "risky",
+            landLines: project.checkpoints?.landLines ?? machine.checkpoints?.landLines ?? LAND_LINES,
           },
     rules: [machine.rules, project.rules].filter((text) => text && text.trim()).join("\n\n"),
     errors,

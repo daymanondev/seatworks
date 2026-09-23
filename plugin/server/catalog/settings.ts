@@ -82,6 +82,9 @@ const CheckpointsChoice = z.strictObject({
   approve: z.enum(["risky", "every"]).optional(),
   approver: z.enum(["human", "supervisor"]).optional(),
   risk: Pattern.optional(),
+  land: z.enum(CHECKPOINT_MODES).optional(),
+  landApprove: z.enum(["risky", "every"]).optional(),
+  landLines: z.number().int().min(1).optional(),
 });
 
 const shared = {

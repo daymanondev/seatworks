@@ -6,13 +6,13 @@ import { appendRecord } from "./records.ts";
 
 /** One time a checkpoint ran: what it was run on, what it found, and what it decided, whether or not that held anything. */
 export type Run = {
-  checkpoint: "plan";
+  checkpoint: "plan" | "land";
   mode: CheckpointMode;
   lane: string;
   by: string;
   decision: "pass" | "hold" | "ask" | "approved" | "sent back";
   findings: string[];
-  /** On a decision, how long the plan waited for it. */
+  /** On a decision, how long what it held waited for it. */
   waitedMs?: number;
 };
 
@@ -38,6 +38,5 @@ export function runsOf(project: Project, checkpoint: Run["checkpoint"]): { runs:
         })
         .filter((run) => run.checkpoint === checkpoint && ["pass", "hold", "ask"].includes(run.decision))
     : [];
-  const held = runs.filter((run) => run.decision === "hold");
-  return { runs: runs.length, held: held.length, asked: runs.filter((run) => run.decision === "ask").length, last: held.at(-1) };
+  return { runs: runs.length, held: runs.filter((run) => run.decision === "hold").length, asked: runs.filter((run) => run.decision === "ask").length, last: runs.filter((run) => run.decision !== "pass").at(-1) };
 }

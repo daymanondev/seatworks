@@ -16,7 +16,7 @@ const KEPT: [string, string[]][] = [
   ["server/core/git.ts", ["LandAs"]],
   ["server/runtime/outbox.ts", ["Letter"]],
   ["server/upkeep/content.ts", ["Taken"]],
-  ["server/catalog/settings.ts", ["Scalar", "RoleChoice", "Connect", "McpChoice", "Pattern", "AttentionChoice", "FlowChoice", "shared", "SensorChoice", "ProjectLayerSchema", "MachineLayerSchema"]],
+  ["server/catalog/settings.ts", ["Scalar", "RoleChoice", "CheckpointsChoice", "Connect", "McpChoice", "Pattern", "AttentionChoice", "FlowChoice", "shared", "SensorChoice", "ProjectLayerSchema", "MachineLayerSchema"]],
 ];
 
 const bare = (text: string) =>

@@ -73,7 +73,7 @@ test("in shadow the plan check names what would collide and records it, and the 
   assert.equal(Object.keys(h.ledger().tasks).length, 4, "shadow holds nothing back");
   const [run] = runs(h.project.state);
   assert.deepEqual([run!.mode, run!.decision, run!.findings.length], ["shadow", "hold", 4]);
-  assert.match((await h.call(h.ledger().lanes.L1!.opener, "supervisor", "status", {})).text, /- plan: shadow\. Plans are approved when they touch risky paths, by the Human on the panel\. In checkpoints\.log: 1 checked, 1 would have been held, 0 would have been sent for approval; last held L1 at /);
+  assert.match((await h.call(h.ledger().lanes.L1!.opener, "supervisor", "status", {})).text, /- plan: shadow\. Plans are approved when they touch risky paths, by the Human on the panel\. In checkpoints\.log: 1 checked, 1 would have been held, 0 would have been sent for approval; last flagged L1 at /);
   h.runtime.dispose();
 });
 
@@ -95,7 +95,7 @@ test("with the plan check on, a plan it finds fault with goes back to the Lead a
   const fixed = await h.call(lead, "lead", "plan_tasks", { tasks: [task("left", ["src/x.ts"], { parallel: true }), task("right", ["src/x.ts"], { parallel: true, after: ["left"] })] });
   assert.equal(fixed.ok, true, fixed.text);
   assert.deepEqual(runs(h.project.state).map((run) => run.decision), ["hold", "hold", "pass"], "every run is kept, the pass as well");
-  assert.match((await h.call(sup, "supervisor", "status", {})).text, /## Checkpoints\n\n- plan: on\. Plans are approved when they touch risky paths, by the Human on the panel\. In checkpoints\.log: 3 checked, 2 held, 0 sent for approval; last held L1/);
+  assert.match((await h.call(sup, "supervisor", "status", {})).text, /## Checkpoints\n\n- plan: on\. Plans are approved when they touch risky paths, by the Human on the panel\. In checkpoints\.log: 3 checked, 2 held, 0 sent for approval; last flagged L1/);
   h.runtime.dispose();
 });
 
@@ -103,7 +103,9 @@ test("settings the desk cannot read leave the plan check on, and say why, rather
   const { h, sup, lead } = await lane("outbox-plan-unread.json");
   writeFileSync(join(h.project.state, "settings.json"), "{ not json");
   assert.match((await h.call(lead, "lead", "start_task", { title: "T", goal: "g", ...scope, owned: ["a.txt"] })).text, /checks a lane's plan before its first task/);
-  assert.match((await h.call(sup, "supervisor", "status", {})).text, /- plan: on, because The project settings are not being used/);
+  const status = (await h.call(sup, "supervisor", "status", {})).text;
+  assert.match(status, /- plan: on, because The project settings are not being used/);
+  assert.match(status, /- land: on, because The project settings are not being used[^]*?Landings are approved every time/);
   assert.match((await h.call(lead, "lead", "plan_tasks", { tasks: [task("page", ["src/pages/p.ts"])] })).text, /waits for the owner's approval, because this project approves every plan/, "at its strictest: every plan, by the Human");
   assert.equal(h.ledger().lanes.L1!.approval?.by, "human");
   h.runtime.dispose();

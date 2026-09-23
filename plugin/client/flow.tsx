@@ -106,7 +106,7 @@ const Lane = memo(function Lane({ lane, theme, onOpen }: { lane: FlowLane; theme
         theme={theme}
         title={`Lead · ${lane.id} ${lane.title}`}
         hint={lane.base ? `${lane.branch} off ${lane.base}` : `${lane.branch}, carried on in place`}
-        state={lane.approval ? `plan ${lane.approval.plan} waits for ${lane.approval.by === "human" ? "your approval" : "the Supervisor"}` : countsInstead(lane) ? `${lane.taskCount} task${lane.taskCount === 1 ? "" : "s"}, ${lane.running} running` : seatText(lane.lead)}
+        state={lane.landApproval ? (lane.landApproval.approved ? "landing approved, not landed yet" : "landing waits for your approval") : lane.approval ? `plan ${lane.approval.plan} waits for ${lane.approval.by === "human" ? "your approval" : "the Supervisor"}` : countsInstead(lane) ? `${lane.taskCount} task${lane.taskCount === 1 ? "" : "s"}, ${lane.running} running` : seatText(lane.lead)}
         alive={Boolean(lane.lead && lane.lead.status !== "gone")}
         caret={lane.taskCount === 0 ? undefined : lane.open ? "▾" : "▸"}
         onPress={lane.taskCount === 0 ? undefined : () => onOpen(lane.id)}

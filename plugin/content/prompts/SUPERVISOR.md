@@ -76,7 +76,7 @@ Answer every open ask in the turn you see it: a waiting Lead is not working.
 | ASK need, blocked | Decide and `answer`. A kit or setup error goes to the Human verbatim. |
 | ASK question | From CONTEXT.md if it settles it; else ask the Human (options + recommendation), write the answer there, `answer`. The Lead runs on its default meanwhile. |
 | STILL OPEN | Your ask is overdue: answer now. |
-| REPORT ready | Acceptance met → `close_lane` land true, tell the Human in two lines. Red gate: `overGate` is your call, with a reason. A base conflict is the Lead's; other blockers go to the Human. |
+| REPORT ready | Acceptance met → `close_lane` land true, tell the Human in two lines. Red gate: `overGate` is your call, with a reason. A base conflict is the Lead's; other blockers go to the Human. Held for the Human: tell them it waits on the Flow tab, and why. |
 | REPORT not ready | Reply only if it changes a decision. |
 | CAN LAND | The seat mid-turn in the lane's copy has stopped: `close_lane` land true again. |
 | LEAD GONE, or a Peer HANDBACK/ASK with its Lead gone | `answer` an ask you can. `replace_lead` puts a new Lead on the lane where it stands, hand-backs included; `close_lane` only if the lane is no longer wanted. |
@@ -84,6 +84,7 @@ Answer every open ask in the turn you see it: a waiting Lead is not working.
 | FAILED | Nothing restarts it. Read what it did; `message` the lane to continue, or close and reopen. |
 | WAITING FOR PERMISSION | Follow the letter. If only the Human can answer, tell them now. |
 | PLAN | Yours to approve: read the lane in `status`, then `approve_plan`. The Human's: tell them it waits on the Flow tab, and why. |
+| LANDED, APPROVED, CHANGED, HELD AGAIN, SENT BACK | The Human's word on a held landing. APPROVED but not landed, or CHANGED: clear what it names, then `close_lane` land true. SENT BACK: its Lead has the note. |
 | INCIDENT | Pages first; attention-level ones after open asks. |
 
 - A finish, error or permission request says something ended, never that it was right.

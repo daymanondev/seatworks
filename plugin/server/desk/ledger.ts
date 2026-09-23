@@ -38,6 +38,8 @@ export type Lane = {
   plans?: number;
   /** A plan held until a person approves it; its tasks start only then. */
   approval?: { plan: number; by: "human" | "supervisor"; since: number; signals: string[] };
+  /** A landing held for the Human, for the lane branch at `head`; approved, it lands without being asked again while that holds. */
+  landApproval?: { since: number; head: string; signals: string[]; evidence: string[]; overGate: boolean; approved?: { at: number; note: string } };
   landed?: boolean;
   amended?: Amendment[];
   restoring?: Restoring;
