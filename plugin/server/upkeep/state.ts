@@ -23,6 +23,8 @@ export const STEPS: StateStep[] = [
   { to: 7 },
   // 8 only adds the land check's settings and a landing held for the Human; state 7 has neither.
   { to: 8 },
+  // 9 only adds who reads a new lane against the Human's words; a project without it has a Critic, the default.
+  { to: 9 },
 ];
 
 const MACHINE_FILES = ["state.json", "settings.json", "outbox.json", "content.json"];

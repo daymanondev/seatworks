@@ -26,6 +26,7 @@ type Fake = {
   archivedAt: string | null;
   updatedAt: string;
   sent: string[];
+  sentIds: string[];
   steered: string[];
   pending: Pending[];
   answered: { requestId: string; response: { behavior: string; updatedInput?: { answers?: Record<string, string> } } }[];
@@ -57,8 +58,9 @@ function fakePaseo() {
       get pendingPermissions() { return agent?.pending ?? []; },
       async refresh() {},
       current() { return agent ? { id: agent.id, provider: agent.provider, cwd: agent.cwd, title: agent.title } : null; },
-      async send(text: string, options?: { activeTurnBehavior?: string }) {
+      async send(text: string, options?: { activeTurnBehavior?: string; messageId?: string }) {
         agent?.sent.push(text);
+        if (options?.messageId) agent?.sentIds.push(options.messageId);
         if (options?.activeTurnBehavior === "steer") agent?.steered.push(text);
       },
       async respondToPermission({ requestId, response }: Fake["answered"][number]) {
@@ -72,7 +74,7 @@ function fakePaseo() {
   };
   const add = (provider: string, cwd: string, title: string, status = "idle", prompt?: string, labels: Record<string, string> = {}) => {
     const id = `agent-${++count}`;
-    agents.set(id, { id, provider, cwd, title, status, archivedAt: null, updatedAt: new Date().toISOString(), sent: [], steered: [], pending: [], answered: [], prompt, labels });
+    agents.set(id, { id, provider, cwd, title, status, archivedAt: null, updatedAt: new Date().toISOString(), sent: [], sentIds: [], steered: [], pending: [], answered: [], prompt, labels });
     return id;
   };
   const workspace = (id: string) => ({

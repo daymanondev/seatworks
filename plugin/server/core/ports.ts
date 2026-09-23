@@ -33,6 +33,8 @@ export type Seats = {
   open(): Promise<SeatView[]>;
   look(id: string): Promise<SeatLook>;
   send(id: string, text: string, steer?: boolean): Promise<void>;
+  /** What a person typed to the seat, oldest first: its messages the desk did not send. */
+  typed(id: string): Promise<string[]>;
   respond(id: string, requestId: string, response: PermissionResponse): Promise<void>;
   archive(id: string): Promise<void>;
   watch(id: string, see: (seen: Seen) => void): Stream;

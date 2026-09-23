@@ -948,5 +948,63 @@
         ]
       }
     }
+  ],
+  "critic": [
+    {
+      "name": "findings",
+      "description": "Hand in where the Human's words and the lane may not agree, once, then end your turn. None found is a right and common answer: leave findings out or empty. Each quote must be copied exactly; one that is not there is refused.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "lane": {
+            "type": "string"
+          },
+          "findings": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "missing",
+                    "added",
+                    "contradiction",
+                    "ambiguity"
+                  ]
+                },
+                "human": {
+                  "type": "string",
+                  "description": "The Human's words, copied exactly. Empty only for added."
+                },
+                "lane": {
+                  "type": "string",
+                  "description": "The lane's words, copied exactly. Empty when the lane says nothing of it."
+                },
+                "why": {
+                  "type": "string",
+                  "description": "What goes wrong if the lane is built as written, in one sentence."
+                },
+                "question": {
+                  "type": "string",
+                  "description": "The one question for the Human that settles it, with its choices and your recommended answer."
+                }
+              },
+              "required": [
+                "kind",
+                "human",
+                "lane",
+                "why",
+                "question"
+              ]
+            }
+          }
+        },
+        "required": [
+          "lane"
+        ]
+      }
+    }
   ]
 }

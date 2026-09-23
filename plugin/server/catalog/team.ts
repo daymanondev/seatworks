@@ -41,6 +41,8 @@ export type Team = {
   sensor?: { spec: SensorSpec; key: string };
   /** `forced` says why a check runs at its strictest though nobody chose it: settings the desk could not read. */
   checkpoints: Checkpoints;
+  /** Who reads a new lane against the Human's own words before its Lead gets far: a Critic seat, or nobody. */
+  critic: { by: "seat" | "off" };
   rules: string;
   errors: string[];
 };
@@ -74,7 +76,8 @@ export function templateRoles(entry: McpEntry): string[] {
 export function eligibleRoles(state: McpState, kit: Kit): string[] {
   const entry = state.entry;
   if (entry?.kind === "proxy") return Object.keys(state.tools ?? entry.tools ?? {});
-  const working = () => kit.roles.filter((role) => role.tools && !can(role, "watch")).map((role) => role.role);
+  // Neither reader works: a Watcher reads seats and a Critic reads a lane, and a pasted server's tools can write.
+  const working = () => kit.roles.filter((role) => role.tools && !can(role, "watch") && !can(role, "critique")).map((role) => role.role);
   if (entry) return entry.roles ?? working();
   return working();
 }
@@ -259,6 +262,7 @@ export function resolveTeam(kit: Kit, machine: Layer = {}, project: Layer = {}, 
             landApprove: project.checkpoints?.landApprove ?? machine.checkpoints?.landApprove ?? "risky",
             landLines: project.checkpoints?.landLines ?? machine.checkpoints?.landLines ?? LAND_LINES,
           },
+    critic: { by: project.critic?.by ?? machine.critic?.by ?? "seat" },
     rules: [machine.rules, project.rules].filter((text) => text && text.trim()).join("\n\n"),
     errors,
   };

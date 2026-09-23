@@ -23,6 +23,7 @@ import * as shared from "./tools/shared.ts";
 import * as supervisor from "./tools/supervisor.ts";
 import { openWaiting, startWaiting } from "./waiting.ts";
 import { decidePlan } from "./approval.ts";
+import * as critique from "./critique.ts";
 import * as watcher from "./tools/watcher.ts";
 import * as worker from "./tools/worker.ts";
 
@@ -49,6 +50,7 @@ const TOOLS: Record<string, Tool> = {
   ack: incidents.ack,
   raise: watcher.raise,
   judge: watcher.judge,
+  findings: critique.findings,
 };
 
 const ASK: { holds: (role: RoleSpec) => boolean; tool: Tool }[] = [

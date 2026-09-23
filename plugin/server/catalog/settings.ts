@@ -87,8 +87,13 @@ const CheckpointsChoice = z.strictObject({
   landLines: z.number().int().min(1).optional(),
 });
 
+const CriticChoice = z.strictObject({
+  by: z.enum(["seat", "off"]).optional(),
+});
+
 const shared = {
   checkpoints: CheckpointsChoice.optional(),
+  critic: CriticChoice.optional(),
   roles: z.record(z.string(), RoleChoice).optional(),
   mcp: z.record(z.string(), McpChoice).optional(),
   rules: z.string().optional(),

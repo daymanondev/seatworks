@@ -1,6 +1,10 @@
 import type { PaseoApi, PendingPermission, PermissionResponse, SeatView } from "./paseo.ts";
 import type { SeatLook, SeatSpec, Seats, Workspace, Workspaces } from "./ports.ts";
+import { randomUUID } from "node:crypto";
 import { type TimelineHandle, follow } from "./stream.ts";
+
+/** The start of every message id the desk sends, which no person's client uses. */
+const DESK_MARK = "sw2-";
 
 export type Bound = () => PaseoApi | undefined;
 
@@ -12,7 +16,7 @@ type Handle = {
   pendingPermissions?: PendingPermission[];
   refresh(): Promise<unknown>;
   current(): { id?: string; provider?: string; cwd?: string | null; title?: string | null } | null | undefined;
-  send(text: string, options?: { activeTurnBehavior?: "steer" }): Promise<unknown>;
+  send(text: string, options?: { messageId?: string; activeTurnBehavior?: "steer" }): Promise<unknown>;
   respondToPermission(options: { requestId: string; response: PermissionResponse }): Promise<unknown>;
   archive(): Promise<unknown>;
   timeline: TimelineHandle;
@@ -63,8 +67,15 @@ export function seatsOn(bound: Bound): Seats {
       return lookOf(handle);
     },
     async send(id: string, text: string, steer = false): Promise<void> {
-      // The daemon takes `activeTurnBehavior` though the SDK's type leaves it out.
-      await ref(id).send(text, steer ? { activeTurnBehavior: "steer" } : undefined);
+      // The daemon takes `activeTurnBehavior` though the SDK's type leaves it out; the id is how `typed` knows the desk sent it.
+      await ref(id).send(text, { messageId: `${DESK_MARK}${randomUUID()}`, ...(steer ? { activeTurnBehavior: "steer" } : {}) });
+    },
+    async typed(id: string): Promise<string[]> {
+      // The daemon stamps every message it is sent with the sender's id, and a person's client stamps one of its own.
+      const page = await ref(id).timeline.refetch({ direction: "tail", limit: 200, projection: "canonical" });
+      return page.entries.flatMap(({ item }) =>
+        item.type === "user_message" && typeof item.text === "string" && typeof item.clientMessageId === "string" && !item.clientMessageId.startsWith(DESK_MARK) ? [item.text] : [],
+      );
     },
     async respond(id: string, requestId: string, response: PermissionResponse): Promise<void> {
       await ref(id).respondToPermission({ requestId, response });

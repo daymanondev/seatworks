@@ -795,6 +795,7 @@ test("one workspace carries a whole project, and the desk puts it away when the 
   await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false, reason: "done" });
   h.agents.get(lane.lead!)!.archivedAt = new Date().toISOString();
   h.agents.get(sup)!.archivedAt = new Date().toISOString();
+  for (const agent of h.agents.values()) if (agent.provider.startsWith("sw2-critic-")) agent.archivedAt = new Date().toISOString();
   await tick();
 
   assert.equal(live().length, 0, "with the work finished and nobody seated, the desk takes back what it opened instead of leaving it for a human to delete");

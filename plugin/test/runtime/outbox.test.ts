@@ -20,6 +20,9 @@ function fakeSeats(agents: Record<string, FakeAgent>): Seats {
       agents[id]!.sent.push(text);
       if (steer) agents[id]!.steered.push(text);
     },
+    async typed() {
+      return [];
+    },
     async respond() {},
     async archive() {},
     watch() {

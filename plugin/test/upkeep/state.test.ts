@@ -120,6 +120,13 @@ test("a landing held for the Human and a project's land check read back from for
   assert.equal(carriedTo("v7").lanes.L1!.landApproval, undefined);
 });
 
+test("a project's Critic setting reads back from format 9", () => {
+  const { root, shop } = machineAt("v9");
+  upgradeState(root, undefined, undefined, NOW);
+  const layer = readLayer(join(shop, "settings.json"), ProjectLayerSchema);
+  assert.deepEqual(layer.status === "ready" ? layer.values.critic : undefined, { by: "off" });
+});
+
 test("a step carries every project and the machine, keeps a copy of the files first, and runs once", () => {
   const { root, shop } = machineAt("v1");
   const steps = [

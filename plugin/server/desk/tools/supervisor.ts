@@ -17,6 +17,7 @@ import { openWaiting, waitsFor } from "../waiting.ts";
 import { namedOrNot } from "./shared.ts";
 import { decidePlan } from "../approval.ts";
 import { keepRun } from "../checkpoints.ts";
+import { seatCritic } from "../critique.ts";
 import { landCheck } from "../landing.ts";
 
 /** An unreadable issue ref is a note on the lane, never a reason to refuse opening it. */
@@ -88,6 +89,7 @@ export const openLane: Tool = async (desk, caller, args) => {
     const { issue } = await readIssue(args, project);
     const lane = await recordLane(desk, caller, args, place, issue, after);
     desk.ctx.event(project, { kind: "lane.waiting", lane: lane.id, after });
+    await seatCritic(desk, project, lane);
     return ok(`Lane ${lane.id} waits for ${pending.map((entry) => `${entry.id} (${entry.status})`).join(", ")}. It opens by itself once they have all landed, checked again against the lanes open then; if it cannot, or one closes without landing, you get a letter. Close it to drop it.`);
   }
   const placed = await placement(project, { onBranch, writeSet: strs(args.writeSet), contracts: strs(args.contracts), detourOf: str(args.detourOf).trim().toUpperCase() || undefined }, args.isolate === true);
@@ -96,6 +98,7 @@ export const openLane: Tool = async (desk, caller, args) => {
   const lane = await recordLane(desk, caller, args, place, issue);
   const started = await startLead(desk, project, lane, { ownCopy: placed.ownCopy, failed: "closed", from: newBranch ? here : undefined, role: str(args.role), parent: caller.id, issue });
   if (typeof started === "string") return no(started);
+  await seatCritic(desk, project, lane);
   const unshared = started.slot.id && (await blockUncommitted(project.root))
     ? "\n\nThe team block in AGENTS.md and CLAUDE.md is not committed, so this lane's copy was made without it: ask the Human to commit those two files now."
     : "";
