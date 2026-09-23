@@ -213,6 +213,26 @@
       }
     },
     {
+      "name": "replace_lead",
+      "description": "Seat a new Lead on an open lane whose Lead is gone, where the lane stands: its copy, branch, tasks and the asks waiting on the old Lead carry over, and the new Lead is told it takes over. A Lead Paseo already started for the lane is taken on instead of a second one.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "lane": {
+            "type": "string",
+            "description": "The lane whose Lead is gone."
+          },
+          "role": {
+            "type": "string",
+            "description": "Optional role to lead it, when the kit has more than one that can lead. Left out, the kit's first."
+          }
+        },
+        "required": [
+          "lane"
+        ]
+      }
+    },
+    {
       "name": "set_project",
       "description": "Set this project's base branch and gate: the command that proves the lane works (for example npm test). By default it runs once on the whole lane, when its Lead reports it ready and before it lands, so tasks merge into the lane without each having to build on its own.",
       "inputSchema": {
@@ -347,6 +367,13 @@
           "parallel": {
             "type": "boolean",
             "description": "Run beside the lane's writer in a separate working copy. Only for an independent write set."
+          },
+          "after": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Tasks of this lane this one waits for. Nothing starts until every one has been accepted; it then starts by itself, and you get a letter if it cannot."
           },
           "role": {
             "type": "string",

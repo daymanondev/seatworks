@@ -47,7 +47,8 @@ for (const version of readdirSync(FIXTURES).filter((name) => /^v\d+$/.test(name)
 
     assert.equal(ledgerFault(shop), undefined);
     const ledger = loadLedger(shop);
-    assert.deepEqual([Object.keys(ledger.lanes), Object.keys(ledger.tasks), Object.keys(ledger.asks)], [["L1"], ["L1-T1"], ["A1"]]);
+    assert.deepEqual([Object.keys(ledger.lanes), Object.keys(ledger.asks)], [["L1"], ["A1"]]);
+    assert.equal(ledger.tasks["L1-T1"]!.status, "merged", "the task every format has, whatever later formats add beside it");
     assert.equal(ledger.tasks["L1-T1"]!.handback?.summary, "Tax added");
     assert.equal(ledger.asks.A1!.answer, "Round half up.");
     assert.deepEqual(Object.keys(loadIncidents(shop).items), ["I1"]);
@@ -73,6 +74,13 @@ test("a lane's landing and what it was asked before an amendment read back from 
   const { root, shop } = machineAt("v2");
   upgradeState(root, undefined, undefined, NOW);
   assert.deepEqual([loadLedger(shop).lanes.L1!.landed, loadLedger(shop).lanes.L1!.amended], [undefined, undefined]);
+});
+
+test("a task that waited, and why it was held, read back from format 4, and a task from before has neither", () => {
+  const waited = carriedTo("v4").tasks["L1-T2"]!;
+  assert.deepEqual([waited.after, waited.opening?.role, waited.held?.tried], [["L1-T1"], "peer", true]);
+  const before = carriedTo("v3").tasks["L1-T1"]!;
+  assert.deepEqual([before.after, before.opening, before.held], [undefined, undefined, undefined]);
 });
 
 test("a step carries every project and the machine, keeps a copy of the files first, and runs once", () => {

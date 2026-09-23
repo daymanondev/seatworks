@@ -332,14 +332,23 @@ export const letters = {
     ].join("\n");
   },
 
+  leadGone(lane: Lane): string {
+    return `LEAD GONE ${lane.id} (${lane.title}): its Lead ${lane.lead} is no longer seated, so nothing on the lane moves. replace_lead puts a new Lead on it where it stands; close_lane ends it.`;
+  },
+
+  /** Read before the directive by a Lead seated on a lane already under way. */
+  takeover(lane: Lane, was: string): string {
+    return `You take over ${lane.id} from its Lead ${was}, which is gone. The lane branch, its working copy, its tasks and the asks waiting on its Lead are as that Lead left them: call status and read the branch's log before you start anything, and carry on from there rather than over it.`;
+  },
+
   halfOpen(lane: Lane): string {
     return lane.lead
       ? `OPENED ${lane.id} (${lane.title}): the desk stopped while its Lead was being started, and that Lead, ${lane.lead}, is kept on it. Do not open it again.`
       : `NOT OPENED ${lane.id} (${lane.title}): the desk stopped while its Lead was being started, so the lane is closed and its working copy put back. Open it again if you still want it and have not already.`;
   },
 
-  waited(lane: Lane, what: string): string {
-    return `WAITING ${lane.id} (${lane.title}), the lane you opened to wait for ${(lane.after ?? []).join(", ")}: ${what}`;
+  waited(entry: Lane | Task, what: string): string {
+    return `WAITING ${entry.id} (${entry.title}), the ${"lane" in entry ? "task you started" : "lane you opened"} to wait for ${(entry.after ?? []).join(", ")}: ${what}`;
   },
 
   reminder(ask: Ask, minutes: number): string {

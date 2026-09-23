@@ -172,6 +172,8 @@ export function harness(outbox: string) {
   const { paseo, agents, add, workspaces, workspaceNames, workspaceProjects, archivedWorkspaces, timelineOf } = fakePaseo();
   const runtime = new Runtime(kit, { outboxFile: join(HOME, outbox), paseo, codeIndex: (proxy: { id: string; gitExclude?: string[] }) => ({ ...ide, id: proxy.id, gitExclude: proxy.gitExclude ?? [] }), reloadDaemon: async () => true });
   const project = projectOf(root);
+  // Paseo seats a project's agents through the create hook, which records the project; the seats added here skip it.
+  (runtime as unknown as { remember(project: Project): void }).remember(project);
   let n = 0;
   // `where` is the calling working copy, since several desk keys turned out shared between projects.
   const call = async (agent: string, role: string, tool: string, args: Record<string, unknown>, where = root) =>

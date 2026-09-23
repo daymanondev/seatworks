@@ -1,9 +1,10 @@
 import { roleThatCan } from "../catalog/kit.ts";
 import { trackedFiles } from "../core/git.ts";
+import type { SeatView } from "../core/paseo.ts";
 import { errorText } from "../core/errors.ts";
-import { firstOverlap, serialPaths, serialReach } from "../core/scope.ts";
+import { firstOverlap, serialHits, serialPaths, serialReach } from "../core/scope.ts";
 import type { Issue } from "./issue.ts";
-import { type Lane, loadLedger, ownCopyHolder } from "./ledger.ts";
+import { type Lane, type Ledger, type Task, type TaskStatus, activeTasks, loadLedger, ownCopyHolder } from "./ledger.ts";
 import { letters, outside } from "./letters.ts";
 import { type Project, conceptFile, loadConfig } from "./project.ts";
 import type { DeskServices } from "./services.ts";
@@ -41,6 +42,15 @@ export async function overlap(project: Project, open: Lane[], writeSet: string[]
 }
 
 export const seatingKey = (project: Project, lane: string) => `${project.slug}:${lane}`;
+
+/** A seat Paseo holds as this lane's Lead, by the labels it was started with; a Peer's and a reviewer's also name a task. */
+export function leadSeatOf(seats: SeatView[], project: Project, lane: string): SeatView | undefined {
+  return seats.find((seat) => seat.labels?.["seatworks.project"] === project.slug && seat.labels["seatworks.lane"] === lane && !seat.labels["seatworks.task"]);
+}
+
+export function directiveFor(project: Project, lane: Lane, issue?: Issue): string {
+  return letters.directive(lane, issue, conceptFile(project.state), gateRegime(project));
+}
 
 /** Which gate regime this project runs, because a Lead plans its splits against it. */
 function gateRegime(project: Project): string {
@@ -124,7 +134,7 @@ async function seatLead(desk: DeskServices, project: Project, lane: Lane, how: S
     const lead = await agents.start(project, slot, leadRole.role, {
       parent: how.parent,
       title: `${lane.id} ${lane.title}`,
-      prompt: letters.directive(lane, how.issue, conceptFile(project.state), gateRegime(project)),
+      prompt: directiveFor(project, lane, how.issue),
       labels: { "seatworks.lane": lane.id, "seatworks.role": leadRole.role },
     });
     await ctx.ledger(project, (ledger) => {
@@ -137,5 +147,74 @@ async function seatLead(desk: DeskServices, project: Project, lane: Lane, how: S
   } catch (error) {
     await giveBack(slot);
     return `The Lead could not start: ${errorText(error)}`;
+  }
+}
+
+const HOLDS: TaskStatus[] = ["running", "rework", "done", "stalled"];
+
+/** Handed-back and stalled tasks still hold the copy (their Peer is seated there), unless the stalled Peer's seat is gone. */
+const holds = (task: Task): boolean => HOLDS.includes(task.status) && !(task.status === "stalled" && task.peerGone);
+
+export function holderOf(ledger: Ledger, lane: Lane, except?: string): Task | undefined {
+  return Object.values(ledger.tasks).find(
+    (task) => task.lane === lane.id && task.id !== except && task.kind === "code" && task.mode !== "parallel" && holds(task),
+  );
+}
+
+/** Where a task may start in its lane now, or why not; asked again when a waiting task's turn comes. */
+export async function taskPlacement(project: Project, ledger: Ledger, lane: Lane, owned: string[], parallel: boolean): Promise<Refusal | undefined> {
+  if (!parallel) {
+    const holder = holderOf(ledger, lane);
+    if (!holder) return undefined;
+    return holder.status === "done"
+      ? { why: `${holder.id} has handed back and is waiting on you, and it still holds the lane's working copy — rework would wake its Peer in there.`, instead: "Accept or cut it first, or set parallel only for owned paths independent of it." }
+      : { why: `${holder.id} is still writing in the lane's working copy, and it holds one writer at a time.`, instead: `Pass after ${holder.id} to start this once it is accepted, or set parallel only for owned paths independent of it.` };
+  }
+  const serial = serialHits(owned, serialPaths(await trackedFiles(lane.worktree ?? project.root), loadConfig(project.state).serialOnly));
+  if (serial.length > 0) return { why: `A parallel task can't own ${serial.join(", ")}.`, instead: "Run it in the lane's working copy instead." };
+  for (const task of activeTasks(ledger, lane.id).filter((entry) => entry.kind === "code")) {
+    const clash = firstOverlap(owned, task.owned);
+    if (clash) return { why: `The owned paths overlap ${task.id} at ${clash}.`, instead: `Pass after ${task.id} instead of running it in parallel.` };
+  }
+  return undefined;
+}
+
+/** Seats the Peer of a task recorded running; a failure gives back its copy, sets it to `failed`, and comes back as the reason. */
+export async function startPeer(desk: DeskServices, project: Project, lane: Lane, task: Task, how: { role: string; parent?: string; failed: "cut" | "waiting" }): Promise<{ peer: string; where: string } | string> {
+  const { ctx, slots, agents } = desk;
+  const parallel = task.mode === "parallel";
+  try {
+    let slot: { id?: string; path: string; workspaceId?: string };
+    if (parallel) {
+      slot = await slots.acquire(project, task.branch!, lane.branch, { task: task.id });
+      await ctx.setTask(project, task.id, (entry) => Object.assign(entry, { slot: slot.id, worktree: slot.path }));
+    } else {
+      slot = lane.slot ? loadLedger(project.state).slots[lane.slot]! : { path: lane.worktree!, workspaceId: lane.workspaceId };
+    }
+    const peer = await agents.start(project, slot, how.role, {
+      parent: how.parent,
+      title: `${task.id} ${task.title}`,
+      prompt: letters.brief(task, lane),
+      labels: { "seatworks.lane": lane.id, "seatworks.task": task.id, "seatworks.role": how.role },
+    });
+    await ctx.setTask(project, task.id, (entry) => {
+      entry.peer = peer;
+    });
+    await ctx.ledger(project, (current) => {
+      current.agents[peer] = { id: peer, role: how.role, lane: lane.id, task: task.id };
+    });
+    ctx.event(project, { kind: "task.started", task: task.id, peer, mode: task.mode, slot: slot.id ?? "in place" });
+    return { peer, where: parallel ? `in its own working copy ${slot.id} on ${task.branch}` : `in the lane's working copy on ${lane.branch}` };
+  } catch (error) {
+    const taken = loadLedger(project.state).tasks[task.id]?.slot;
+    await ctx.setTask(project, task.id, (entry) => {
+      entry.status = how.failed;
+      if (parallel) {
+        delete entry.slot;
+        delete entry.worktree;
+      }
+    });
+    if (parallel) await slots.release(project, taken, task.branch, lane.branch);
+    return `The Peer could not start: ${errorText(error)}`;
   }
 }

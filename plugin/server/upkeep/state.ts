@@ -12,6 +12,8 @@ export const STEPS: StateStep[] = [
   { to: 2 },
   // 3 only adds lanes that wait, their record of landing, and amendment history; state 2 has none of them to carry.
   { to: 3 },
+  // 4 only adds tasks that wait; state 3 has none to carry.
+  { to: 4 },
 ];
 
 const MACHINE_FILES = ["state.json", "settings.json", "outbox.json", "content.json"];

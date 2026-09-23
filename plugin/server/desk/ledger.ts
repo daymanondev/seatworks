@@ -5,7 +5,7 @@ import { errorText } from "../core/errors.ts";
 import { STATE_VERSION } from "../core/state.ts";
 
 export type LaneStatus = "waiting" | "open" | "closed";
-export type TaskStatus = "running" | "done" | "rework" | "queued" | "merging" | "merged" | "failed" | "cut" | "stalled";
+export type TaskStatus = "waiting" | "running" | "done" | "rework" | "queued" | "merging" | "merged" | "failed" | "cut" | "stalled";
 /** Free-form: the ledger carries whatever it is told, because nothing routes on it. */
 export type AskKind = string;
 /** What a change replaced, kept so the record says what the work was asked before it was asked again. */
@@ -68,6 +68,9 @@ export type Task = {
   openedAt: number;
   updatedAt: number;
   handback?: Handback;
+  after?: string[];
+  opening?: { role: string };
+  held?: { why: string; tried?: boolean };
   amended?: Amendment[];
   reworks?: number;
   silent: number;

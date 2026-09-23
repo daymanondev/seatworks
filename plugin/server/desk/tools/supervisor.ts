@@ -1,4 +1,7 @@
+import { existsSync } from "node:fs";
+import { roleThatCan } from "../../catalog/kit.ts";
 import { configFault } from "../../core/config-file.ts";
+import { errorText } from "../../core/errors.ts";
 import { branchExists, currentBranch, isAncestor, landLane, mergeBranch } from "../../core/git.ts";
 import { blockUncommitted } from "../../catalog/project-files.ts";
 import { type Args, type Caller, given, no, ok, str, strs } from "../context.ts";
@@ -9,8 +12,9 @@ import { clip, letters } from "../letters.ts";
 import { type Project, type ProjectConfig, configFile, detectGate, loadConfig, saveConfig } from "../project.ts";
 import type { Roster } from "../roster.ts";
 import type { DeskServices, Tool } from "../services.ts";
-import { overlap, openedReply, placement, seatingKey, startLead } from "../opening.ts";
+import { directiveFor, leadSeatOf, overlap, openedReply, placement, seatingKey, startLead } from "../opening.ts";
 import { openWaiting, waitsFor } from "../waiting.ts";
+import { namedOrNot } from "./shared.ts";
 
 /** An unreadable issue ref is a note on the lane, never a reason to refuse opening it. */
 async function readIssue(args: Args, project: Project): Promise<{ issue?: Issue; unread?: string }> {
@@ -168,7 +172,7 @@ export const closeLane: Tool = async (desk, caller, args) => {
     if (entry) Object.assign(entry, { status: "closed", landed: args.land === true || undefined });
     const tasks: Task[] = [];
     for (const task of Object.values(current.tasks).filter((item) => item.lane === lane.id)) {
-      if (["running", "rework", "queued", "done", "failed", "stalled"].includes(task.status)) task.status = "cut";
+      if (["waiting", "running", "rework", "queued", "done", "failed", "stalled"].includes(task.status)) task.status = "cut";
       tasks.push({ ...task });
     }
     return tasks;
@@ -229,6 +233,61 @@ export const amendLane: Tool = async ({ ctx }, caller, args) => {
   if (done.lane.status === "waiting") return ok(`Lane ${lane.id} is amended; it opens as it is now.`);
   const posted = await ctx.post(done.lane.lead, `amended:${lane.id}:${done.lane.amended!.length}`, letters.amended(done.lane, done.amendment, "lead"));
   return ok(`Lane ${lane.id} is amended${posted === "nobody" ? ", and it has no Lead to tell" : " and its Lead has the change"}; a READY it reported before no longer stands.`);
+};
+
+/** Seats a new Lead on an open lane whose Lead is gone, where the lane stands; a Lead Paseo already started for it is taken on instead. */
+export const replaceLead: Tool = async ({ ctx, roster, agents }, caller, args) => {
+  const { project } = caller;
+  const lane = findLane(loadLedger(project.state), str(args.lane));
+  if (!lane) return no(`There is no lane ${str(args.lane)}.`);
+  if (lane.status !== "open") return no(`Lane ${lane.id} is ${lane.status}; only an open lane has a Lead to replace.`);
+  const seats = await roster.open();
+  // An empty listing is a daemon that answered nothing, not word that the Lead is gone.
+  if (seats.length === 0) return no("Paseo listed no agents just now, so whether the lane's Lead is still seated cannot be told; try again.");
+  if (seats.some((seat) => seat.id === lane.lead)) return no(`Lane ${lane.id}'s Lead ${lane.lead} is still seated; message it instead.`);
+  const key = seatingKey(project, lane.id);
+  const claimed = await ctx.ledger(project, (ledger) => {
+    const entry = ledger.lanes[lane.id];
+    if (entry?.status !== "open" || entry.lead !== lane.lead || ctx.seating.has(key)) return false;
+    ctx.seating.add(key);
+    return true;
+  });
+  if (!claimed) return no(`Lane ${lane.id} changed while this was asked; read status and ask again if its Lead is still gone.`);
+  try {
+    const started = leadSeatOf(seats, project, lane.id);
+    let lead = started?.id;
+    let role = started?.labels?.["seatworks.role"];
+    if (!lead) {
+      const leadRole = roleThatCan(ctx.kit, "lead", str(args.role) || undefined);
+      if (!leadRole) return no(namedOrNot(ctx.kit, "lead", str(args.role), "lead a lane"));
+      if (!lane.worktree || !existsSync(lane.worktree)) return no(`Lane ${lane.id} has no working copy left${lane.worktree ? ` at ${lane.worktree}` : ""}; close it and open the work again.`);
+      const fetched = lane.issue ? await fetchIssue(lane.issue, project.root) : undefined;
+      try {
+        lead = await agents.start(project, { path: lane.worktree, workspaceId: lane.workspaceId }, leadRole.role, {
+          parent: caller.id,
+          title: `${lane.id} ${lane.title}`,
+          prompt: `${letters.takeover(lane, lane.lead ?? "its first Lead")}\n\n${directiveFor(project, lane, fetched && !("error" in fetched) ? fetched : undefined)}`,
+          labels: { "seatworks.lane": lane.id, "seatworks.role": leadRole.role },
+        });
+      } catch (error) {
+        return no(`The new Lead could not start: ${errorText(error)}`);
+      }
+      role = leadRole.role;
+    }
+    const moved = await ctx.ledger(project, (ledger) => {
+      ledger.lanes[lane.id]!.lead = lead;
+      ledger.agents[lead!] = { id: lead!, role: role ?? "lead", lane: lane.id };
+      const asks = Object.values(ledger.asks).filter((ask) => ask.status === "open" && ask.to === lane.lead);
+      for (const ask of asks) ask.to = lead!;
+      return asks.length;
+    });
+    ctx.event(project, { kind: "lead.replaced", lane: lane.id, was: lane.lead ?? null, lead, adopted: Boolean(started) });
+    const how = started ? `the Lead ${lead} that Paseo already had seated for it` : `a new Lead ${lead}, told it takes over where the lane stands`;
+    const asks = moved > 0 ? ` The ${moved} open ask${moved === 1 ? "" : "s"} to the Lead that left now wait on it.` : "";
+    return ok(`Lane ${lane.id} has ${how}.${asks}`);
+  } finally {
+    ctx.seating.delete(key);
+  }
 };
 
 export const setProject: Tool = async (_desk, caller, args) => {

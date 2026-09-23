@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import { harness, laneWithPeer } from "./harness.ts";
 
 const { saveLedger } = await import("../../server/desk/ledger.ts");
@@ -385,5 +385,148 @@ test("a Lead Paseo started before a stop kept the desk from recording it is take
   assert.equal(h.git(h.root, "branch", "--show-current").trim(), opened.branch, "the copy its Lead writes in is left where it is");
   assert.equal([...h.agents.values()].filter((agent) => agent.title.startsWith("L1 ")).length, 1, "and no second Lead is started");
   assert.match(h.agents.get(sup)!.sent.join("\n"), /OPENED L1 \(Cart\): the desk stopped while its Lead was being started, and that Lead, [^,]+, is kept on it/);
+  h.runtime.dispose();
+});
+
+test("a waiting lane asked to open by a round and a close at once opens once, with one Lead", async () => {
+  const h = harness("outbox-after-race.json");
+  const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
+  const scope = { outcome: "x", acceptance: ["a"], outOfScope: ["anything else in the repository"] };
+  await h.call(sup, "supervisor", "open_lane", { title: "Cart", ...scope, isolate: true });
+  await h.call(sup, "supervisor", "open_lane", { title: "Order", ...scope, after: ["L1"], isolate: true });
+  const ledger = h.ledger();
+  Object.assign(ledger.lanes.L1!, { status: "closed", landed: true });
+  saveLedger(h.project.state, ledger);
+
+  await Promise.all([h.runtime.desk.openWaiting(h.project), h.runtime.desk.openWaiting(h.project)]);
+  assert.equal(h.ledger().lanes.L2!.status, "open");
+  assert.equal([...h.agents.values()].filter((agent) => agent.title.startsWith("L2 ")).length, 1, "both passed the checks, and only one claimed it");
+  assert.equal(Object.values(h.ledger().slots).filter((slot) => slot.lane === "L2").length, 1, "and only one copy was taken for it");
+  h.runtime.dispose();
+});
+
+test("a lane whose Lead is gone gets a new one where it stands, with the asks that waited on the old one, and its Supervisor is told once", async () => {
+  const { h, sup, lane, peer } = await laneWithPeer("outbox-replace-lead.json");
+  assert.match((await h.call(sup, "supervisor", "replace_lead", { lane: "L1" })).text, /still seated; message it instead/);
+  assert.equal((await h.call(peer, "peer", "ask", { question: "Which rounding?" })).ok, true);
+  h.agents.get(lane.lead!)!.archivedAt = new Date().toISOString();
+
+  const replaced = await h.call(sup, "supervisor", "replace_lead", { lane: "L1" });
+  assert.equal(replaced.ok, true, replaced.text);
+  const now = h.ledger().lanes.L1!;
+  assert.notEqual(now.lead, lane.lead);
+  assert.notEqual(now.lead, peer, "a Peer carries the lane's label too, and is not taken for its Lead");
+  const seated = h.agents.get(now.lead!)!;
+  assert.equal(seated.cwd, lane.worktree, "in the copy the lane already has, on its branch");
+  assert.match(seated.prompt ?? "", new RegExp(`^You take over L1 from its Lead ${lane.lead}, which is gone\\.[^]*OWNER DIRECTIVE L1: Build`));
+  assert.doesNotMatch(seated.prompt ?? "", /supervisor/i, "a Lead is not shown the word its role hides");
+  assert.deepEqual(Object.values(h.ledger().asks).map((ask) => ask.to), [now.lead], "the ask that waited on the old Lead waits on the new one");
+  assert.equal(h.ledger().tasks["L1-T1"]!.status, "running", "and the lane's task carries on");
+
+  h.agents.get(now.lead!)!.archivedAt = new Date().toISOString();
+  await h.tick(Date.now());
+  // Past the half hour the mail itself counts a letter as new again.
+  mock.timers.enable({ apis: ["Date"], now: Date.now() + 31 * 60_000 });
+  try {
+    await h.tick(Date.now());
+  } finally {
+    mock.timers.reset();
+  }
+  const mail = h.agents.get(sup)!.sent.join("\n---\n");
+  assert.equal(mail.match(/LEAD GONE L1/g)?.length, 1, mail);
+  assert.match(mail, /LEAD GONE L1 \(Build\): its Lead [^ ]+ is no longer seated[^]*replace_lead puts a new Lead on it where it stands/);
+  h.runtime.dispose();
+});
+
+test("a Lead Paseo seated for a lane but the ledger never recorded is taken on rather than seating a second", async () => {
+  const { h, sup, lane } = await laneWithPeer("outbox-replace-adopt.json");
+  h.agents.get(lane.lead!)!.archivedAt = new Date().toISOString();
+  const orphan = h.add("sw2-lead-claude/claude-opus-5", lane.worktree!, "L1 Build", "idle", undefined, { "seatworks.project": h.project.slug, "seatworks.lane": "L1", "seatworks.role": "lead" });
+  const before = h.agents.size;
+  const replaced = await h.call(sup, "supervisor", "replace_lead", { lane: "L1" });
+  assert.match(replaced.text, new RegExp(`the Lead ${orphan} that Paseo already had seated for it`));
+  assert.deepEqual([h.ledger().lanes.L1!.lead, h.agents.size], [orphan, before]);
+  h.runtime.dispose();
+});
+
+test("a task that waits for another starts by itself once that one is accepted, as it was amended, and its Lead is told", async () => {
+  const { h, lane, peer } = await laneWithPeer("outbox-task-after.json");
+  const lead = lane.lead!;
+  const queued = await h.call(lead, "lead", "start_task", { title: "Receipt", goal: "show the total", acceptance: ["a"], owned: ["b.txt"], outOfScope: ["the rest"], after: ["l1-t1"] });
+  assert.equal(queued.ok, true, queued.text);
+  assert.match(queued.text, /L1-T2 waits for L1-T1 \(running\)/);
+  assert.deepEqual([h.ledger().tasks["L1-T2"]!.status, h.ledger().tasks["L1-T2"]!.peer], ["waiting", undefined], "recorded, with no Peer started");
+  assert.match((await h.call(lead, "lead", "status", {})).text, /- L1-T2 Receipt: waiting, after L1-T1/);
+  assert.match((await h.call(lead, "lead", "accept", { task: "L1-T2" })).text, /L1-T2 is waiting/);
+  assert.match((await h.call(lead, "lead", "amend_task", { task: "L1-T2", why: "the Human wants tax on it", goal: "show the total with tax" })).text, /L1-T2 is amended; it starts as it is now/);
+
+  h.commit(lane.worktree!, "a.txt", "T1\n");
+  await h.call(peer, "peer", "done", { outcome: "complete", summary: "done" });
+  h.agents.get(peer)!.status = "idle";
+  assert.equal((await h.call(lead, "lead", "accept", { task: "L1-T1" })).ok, true);
+
+  const started = h.ledger().tasks["L1-T2"]!;
+  assert.equal(started.status, "running");
+  assert.equal(h.agents.get(started.peer!)!.cwd, lane.worktree, "in the lane's working copy, now that L1-T1 has left it");
+  assert.equal(started.startSha, h.git(lane.worktree!, "rev-parse", "HEAD").trim(), "and it starts from the lane as L1-T1 left it");
+  assert.match(h.agents.get(started.peer!)!.prompt ?? "", /show the total with tax/);
+  await h.idle(lead);
+  assert.match(h.agents.get(lead)!.sent.join("\n"), /WAITING L1-T2 \(Receipt\), the task you started to wait for L1-T1: Started L1-T2 in the lane's working copy/);
+  h.runtime.dispose();
+});
+
+test("a task waits only for tasks of its own lane, one waiting for a cut task is held and its Lead told, and closing the lane cuts it", async () => {
+  const { h, sup, lane } = await laneWithPeer("outbox-task-after-cut.json");
+  const lead = lane.lead!;
+  const scope = { acceptance: ["a"], outOfScope: ["the rest"] };
+  await h.call(sup, "supervisor", "open_lane", { title: "Other", outcome: "x", ...scope, isolate: true });
+  const other = h.ledger().lanes.L2!;
+  await h.call(other.lead!, "lead", "start_task", { title: "Theirs", goal: "g", ...scope, owned: ["c.txt"] });
+  assert.match((await h.call(lead, "lead", "start_task", { title: "T", goal: "g", ...scope, owned: ["b.txt"], after: ["L2-T1"] })).text, /There is no task in this lane L2-T1 to wait for/);
+
+  await h.call(lead, "lead", "start_task", { title: "Receipt", goal: "g", ...scope, owned: ["b.txt"], after: ["L1-T1"] });
+  await h.call(lead, "lead", "cut", { task: "L1-T1", reason: "wrong approach" });
+  const held = h.ledger().tasks["L1-T2"]!;
+  assert.equal(held.status, "waiting");
+  assert.match(held.held?.why ?? "", /L1-T1 was cut, so nothing of it is there to build on/);
+  await h.tick(Date.now());
+  await h.idle(lead);
+  const mail = h.agents.get(lead)!.sent.join("\n---\n");
+  assert.equal(mail.match(/WAITING L1-T2/g)?.length, 1, mail);
+  assert.match((await h.call(lead, "lead", "start_task", { title: "Again", goal: "g", ...scope, owned: ["b.txt"], after: ["L1-T1"] })).text, /L1-T1 was cut[^]*Start this task without waiting for it/);
+
+  h.agents.get(lead)!.status = "idle";
+  await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false });
+  assert.equal(h.ledger().tasks["L1-T2"]!.status, "cut", "a task still waiting when its lane closes goes with it");
+  h.runtime.dispose();
+});
+
+test("a task whose turn comes while another holds the lane's copy is held with why, and starts once that one is accepted", async () => {
+  const { h, lane, peer } = await laneWithPeer("outbox-task-after-held.json");
+  const lead = lane.lead!;
+  const scope = { acceptance: ["a"], outOfScope: ["the rest"] };
+  await h.call(lead, "lead", "start_task", { title: "Beside", goal: "g", ...scope, owned: ["b.txt"], parallel: true });
+  await h.call(lead, "lead", "start_task", { title: "After beside", goal: "g", ...scope, owned: ["c.txt"], after: ["L1-T2"] });
+  const beside = h.ledger().tasks["L1-T2"]!;
+  h.commit(beside.worktree!, "b.txt", "B\n");
+  await h.call(beside.peer!, "peer", "done", { outcome: "complete", summary: "b" });
+  h.agents.get(beside.peer!)!.status = "idle";
+  await h.tick(Date.now());
+  assert.deepEqual([h.ledger().tasks["L1-T3"]!.status, h.ledger().tasks["L1-T3"]!.held], ["waiting", undefined], "handed back is not accepted, so its turn has not come");
+  await h.call(lead, "lead", "accept", { task: "L1-T2" });
+  await h.runtime.desk.settled(h.project);
+  await h.tick(Date.now());
+
+  const waiting = h.ledger().tasks["L1-T3"]!;
+  assert.equal(h.ledger().tasks["L1-T2"]!.status, "merged");
+  assert.equal(waiting.status, "waiting", "a round finds its turn has come, but L1-T1 still writes in the lane's copy");
+  assert.match(waiting.held?.why ?? "", /L1-T1 is still writing in the lane's working copy[^]*It starts by itself once that clears/);
+
+  h.commit(lane.worktree!, "a.txt", "A\n");
+  await h.call(peer, "peer", "done", { outcome: "complete", summary: "a" });
+  h.agents.get(peer)!.status = "idle";
+  await h.call(lead, "lead", "accept", { task: "L1-T1" });
+  assert.equal(h.ledger().tasks["L1-T3"]!.status, "running", "accepting what held the copy starts it");
+  assert.equal(h.ledger().tasks["L1-T3"]!.held, undefined);
   h.runtime.dispose();
 });

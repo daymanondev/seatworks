@@ -93,7 +93,13 @@ export function statusText(
     const tasks = Object.values(ledger.tasks).filter((task) => task.lane === lane.id);
     if (tasks.length === 0) lines.push("- no tasks yet");
     for (const task of tasks) {
-      const detail = ["running", "rework"].includes(task.status) ? `, Peer ${seatLine(seats, task.peer, now)}` : task.handback ? `, hand-back ${minutes(now, task.handback.at)} min ago` : "";
+      const detail = ["running", "rework"].includes(task.status)
+        ? `, Peer ${seatLine(seats, task.peer, now)}`
+        : task.status === "waiting"
+          ? `, after ${(task.after ?? []).join(", ")}${task.held ? `. Not started: ${task.held.why}` : ""}`
+          : task.handback
+            ? `, hand-back ${minutes(now, task.handback.at)} min ago`
+            : "";
       lines.push(`- ${task.id} ${task.title}: ${task.status}${detail}`);
     }
     lines.push("");

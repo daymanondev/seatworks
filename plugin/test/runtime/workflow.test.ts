@@ -776,6 +776,19 @@ test("one workspace carries a whole project, and the desk puts it away when the 
   h.runtime.dispose();
 });
 
+test("a project removed while the plugin runs is not written back by the round", async () => {
+  const h = harness("outbox-removed.json");
+  const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
+  await h.tick(Date.now());
+  assert.ok(existsSync(join(h.project.state, "status.md")), "a project on record has its status page");
+  // Its seats gone: a live one is a project still in use, and seeing it records the project again.
+  h.agents.get(sup)!.archivedAt = new Date().toISOString();
+  rmSync(h.project.state, { recursive: true, force: true });
+  await h.tick(Date.now());
+  assert.equal(existsSync(h.project.state), false, "the Human removed it, and the round leaves it removed");
+  h.runtime.dispose();
+});
+
 test("a lane that declared no write set does not lock the project to one lane, and where the next one works is the Supervisor's call", async () => {
   const h = harness("outbox-lockout.json");
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
