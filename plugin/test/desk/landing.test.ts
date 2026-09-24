@@ -65,10 +65,11 @@ test("each thing that should reach a person before a lane lands is named, one en
   ledger.tasks["L1-T1"] = task("L1-T1", { handback: { file: "", outcome: "complete", summary: "", at: 0, gate: { ok: false, note: "npm test: the gate failed with exit 1" } } });
   ledger.tasks["L1-R1"] = task("L1-R1", { kind: "review", status: "done", handback: { file: "", outcome: "changes", summary: "", at: 0 } });
   saveIncidents(project.state, {
-    next: 3,
+    next: 4,
     items: {
       I1: { id: "I1", seat: "peer-1", where: "w", lane: "L1", task: "L1-T1", kind: "test-weakened", level: "attend", quote: "q", facts: [], opened: 0, last: 0, count: 1, open: true },
       I2: { id: "I2", seat: "peer-2", where: "w", lane: "L2", kind: "destructive", level: "page", quote: "q", facts: [], opened: 0, last: 0, count: 1, open: true },
+      I3: { id: "I3", seat: "peer-1", where: "w", lane: "L1", task: "L1-T1", kind: "agreed_without_checking", level: "attend", quote: "q", facts: [], p: 0.8, opened: 0, last: 0, count: 1, open: true },
     },
   });
   const checked = await landCheck(project, ledger, lane, { set: true, ok: false }, checks);
@@ -84,6 +85,8 @@ test("each thing that should reach a person before a lane lands is named, one en
     "Incident I1 on this lane is still open: test-weakened.",
   ]);
   assert.match(checked.evidence.join("\n"), /L1-R1 review: changes\./);
+  // A question the sensor answered is shown, and holds nothing on its own.
+  assert.match(checked.evidence.join("\n"), /Incident I3 on this lane is open, from the sensor's reading: agreed_without_checking\./);
 });
 
 test("a project without a gate is held, and its evidence says no gate ran", async () => {

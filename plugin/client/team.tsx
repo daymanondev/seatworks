@@ -214,7 +214,7 @@ function LandCheckCard({ team, values, machine, layer, theme, disabled, save }: 
       </SettingsRow>
       <SettingsRow
         label="Approve landings"
-        hint={`${team.checkpoints.landApprove === "every" ? "Every landing waits for you." : `Only a landing with something to see first waits: a red or missing gate, tests deleted or weakened, risky paths, more than ${team.checkpoints.landLines} lines, open incidents, files outside the lane.`} Held only while the check is on. ${sourceLabel(sourceOf(values, machine, (entry) => entry.checkpoints?.landApprove, layer), layer)}.`}
+        hint={`${team.checkpoints.landApprove === "every" ? "Every landing waits for you." : `Only a landing with something to see first waits: a red or missing gate, tests deleted or weakened, risky paths, more than ${team.checkpoints.landLines} lines, open incidents the code or a Watcher raised, files outside the lane.`} Held only while the check is on. ${sourceLabel(sourceOf(values, machine, (entry) => entry.checkpoints?.landApprove, layer), layer)}.`}
       >
         <TabBar
           theme={theme}
