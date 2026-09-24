@@ -3,7 +3,7 @@ import { useRpc } from "@getpaseo/plugin/client";
 import { SettingsAction, SettingsCard, SettingsInput, type SettingsInputHandle, SettingsRow } from "@getpaseo/plugin/client/ui";
 import { useRef, useState } from "react";
 import { Text } from "react-native";
-import { landDecideRpc, planDecideRpc } from "../shared/rpc.ts";
+import { landDecideRpc } from "../shared/rpc.ts";
 import type { FlowLane } from "./data.ts";
 
 type Decided = { decided?: string; error?: string };
@@ -39,25 +39,9 @@ function Held({ project, lane, decide, label, hint, approved, sentBack, theme }:
 }
 
 export function ApprovalsCards({ project, lanes, theme }: { project: string; lanes: FlowLane[]; theme: PluginTheme }) {
-  const plan = useRpc(planDecideRpc) as unknown as Decide;
   const land = useRpc(landDecideRpc) as unknown as Decide;
   return (
     <>
-      {lanes.map((lane) =>
-        lane.approval?.by === "human" ? (
-          <Held
-            key={`${lane.id}:plan:${lane.approval.plan}`}
-            project={project}
-            lane={lane.id}
-            decide={plan}
-            theme={theme}
-            label={`Plan ${lane.approval.plan} of ${lane.id} ${lane.title} waits for you`}
-            hint={`${lane.approval.signals.join(" ") || "This project approves every plan before it runs."} Waiting ${waited(lane.approval.minutes)}; open the lane above to read its tasks.`}
-            approved="Its tasks start as what each waits for is accepted."
-            sentBack="Its tasks are cut, and the Lead plans again with your note."
-          />
-        ) : null,
-      )}
       {lanes.map((lane) =>
         lane.landApproval && !lane.landApproval.approved ? (
           <Held

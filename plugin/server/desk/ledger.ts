@@ -34,9 +34,6 @@ export type Lane = {
   after?: string[];
   opening?: { isolate?: boolean; role?: string };
   held?: { why: string; tried?: boolean };
-  plans?: number;
-  /** A plan held until a person approves it; its tasks start only then. */
-  approval?: { plan: number; by: "human" | "supervisor"; since: number; signals: string[] };
   /** When its Lead last reported it ready; an amendment takes it away, since what it was ready against has changed. */
   ready?: { at: number };
   /** A landing held for the Human, for the lane branch at `head`; approved, it lands without being asked again while that holds. */
@@ -74,7 +71,6 @@ export type Task = {
   openedAt: number;
   updatedAt: number;
   handback?: Handback;
-  plan?: number;
   after?: string[];
   opening?: { role: string };
   held?: { why: string; tried?: boolean };

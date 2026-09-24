@@ -80,7 +80,6 @@ export function flowView(
       running: count.running,
       open: open.has(lane.id),
       ...(lane.status === "waiting" ? { after: lane.after ?? [], ...(lane.held ? { held: lane.held.why } : {}) } : {}),
-      ...(lane.approval ? { approval: { plan: lane.approval.plan, by: lane.approval.by, minutes: minutes(now, lane.approval.since), signals: lane.approval.signals } } : {}),
       ...(lane.landApproval
         ? { landApproval: { minutes: minutes(now, lane.landApproval.since), approved: Boolean(lane.landApproval.approved), signals: lane.landApproval.signals, evidence: lane.landApproval.evidence } }
         : {}),

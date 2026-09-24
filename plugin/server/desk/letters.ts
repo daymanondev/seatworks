@@ -332,20 +332,6 @@ export const letters = {
     ].join("\n");
   },
 
-  planHeld(lane: Lane, plan: number, reason: string, human: boolean): string {
-    return human
-      ? `PLAN ${plan} of ${lane.id} (${lane.title}) waits for the Human's approval, on the Flow tab of the panel: ${reason} You cannot approve it; tell them it is waiting, and why.`
-      : `PLAN ${plan} of ${lane.id} (${lane.title}) waits for your approval: ${reason} Read it in status, then approve_plan with approve true, or false with what the Lead should change.`;
-  },
-
-  planApproved(lane: Lane, plan: number, note: string): string {
-    return `APPROVED plan ${plan} of ${lane.id} (${lane.title})${note ? `: ${note}` : "."} Its tasks start as what each waits for is accepted.`;
-  },
-
-  planSentBack(lane: Lane, plan: number, note: string, cut: string[]): string {
-    return `SENT BACK plan ${plan} of ${lane.id} (${lane.title}): ${ended(note || "no reason was given; ask the owner what to change")} ${cut.length > 0 ? `${cut.join(", ")} ${cut.length === 1 ? "is" : "are"} cut. ` : ""}Send a new plan with plan_tasks.`;
-  },
-
   landHeld(lane: Lane, reason: string): string {
     return `LAND HELD ${lane.id} (${lane.title}): the owner looks at it before it lands, because ${reason} Commit nothing more on the lane until LANDED or LAND SENT BACK arrives: a new commit means it is looked at again from the start.`;
   },
@@ -360,11 +346,6 @@ export const letters = {
     if (how === "changed") return `CHANGED ${lane.id} (${lane.title}) after its landing was held, so the Human's approval did not count. close_lane it with land true to have it checked as it is now.`;
     if (how === "blocked") return `APPROVED ${lane.id} (${lane.title}) for landing by the Human, but it could not land yet: ${text}. The approval stands while the lane does not change: once that is cleared, close_lane with land true lands it without asking again.`;
     return `SENT BACK ${lane.id} (${lane.title}) by the Human: ${ended(text || "no reason was given")} The lane stays open, and its Lead has the note.`;
-  },
-
-  checkDigest(checkpoint: string, state: "ready" | "stamped", lines: string[]): string {
-    const what = state === "ready" ? "the check running in shadow has run enough to judge." : "the check may be approved out of habit.";
-    return `CHECK DIGEST ${checkpoint}: ${what} ${lines.join(" ")} Tell the Human in two lines; turning it on, narrowing it or moving it back is theirs, on the Team tab of the panel.`;
   },
 
   notStarted(task: Task): string {

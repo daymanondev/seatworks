@@ -22,7 +22,6 @@ import * as lead from "./tools/lead.ts";
 import * as shared from "./tools/shared.ts";
 import * as supervisor from "./tools/supervisor.ts";
 import { openWaiting, startWaiting } from "./waiting.ts";
-import { decidePlan } from "./approval.ts";
 import * as critique from "./critique.ts";
 import * as worker from "./tools/worker.ts";
 
@@ -31,7 +30,6 @@ const TOOLS: Record<string, Tool> = {
   close_lane: supervisor.closeLane,
   amend_lane: supervisor.amendLane,
   replace_lead: supervisor.replaceLead,
-  approve_plan: supervisor.approvePlan,
   set_project: supervisor.setProject,
   start_task: lead.startTask,
   plan_tasks: lead.planTasks,
@@ -131,10 +129,6 @@ export class Desk {
 
   supervisorFor(project: Project, preferred?: string): Promise<string | undefined> {
     return this.services.roster.supervisorFor(project, preferred);
-  }
-
-  decidePlan(project: Project, lane: string, approve: boolean, by: string, note: string): Promise<{ ok: boolean; text: string }> {
-    return decidePlan(this.services, project, lane, approve, by, note);
   }
 
   decideLand(project: Project, lane: string, approve: boolean, note: string): Promise<{ ok: boolean; text: string }> {

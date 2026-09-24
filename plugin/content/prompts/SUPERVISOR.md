@@ -84,10 +84,8 @@ Answer every open ask in the turn you see it: a waiting Lead is not working.
 | LANE IDLE, UNANSWERED | If the words read worse than the work looks, read the Lead's record first. Then the smallest unblocking step (often `answer` the Peer's ask yourself). |
 | FAILED | Nothing restarts it. Read what it did; `message` the lane to continue, or close and reopen. |
 | WAITING FOR PERMISSION | Follow the letter. If only the Human can answer, tell them now. |
-| PLAN | Yours to approve: read the lane in `status`, then `approve_plan`. The Human's: tell them it waits on the Flow tab, and why. |
 | LANDED, APPROVED, CHANGED, HELD AGAIN, SENT BACK | The Human's word on a held landing. APPROVED but not landed, or CHANGED: clear what it names, then `close_lane` land true. SENT BACK: its Lead has the note. |
 | CRITIQUE | A Critic read the lane against the Human's words only. Weigh each point on those words: `amend_lane` where it is right, ask the Human where only they can settle it, drop it where it is wrong. |
-| CHECK DIGEST | A check's log says it is ready to judge, or is approved out of habit: tell the Human in two lines. Its mode is theirs. |
 | INCIDENT | Pages first; attention-level ones after open asks. |
 
 - A finish, error or permission request says something ended, never that it was right.

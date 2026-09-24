@@ -233,31 +233,6 @@
       }
     },
     {
-      "name": "approve_plan",
-      "description": "Approve a plan a lane holds for your approval, and its tasks start; or send it back with what the Lead should change, and its tasks are cut. A plan held for the Human is theirs to decide, on the panel.",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "lane": {
-            "type": "string",
-            "description": "The lane whose plan waits."
-          },
-          "approve": {
-            "type": "boolean",
-            "description": "True to approve, false to send it back."
-          },
-          "note": {
-            "type": "string",
-            "description": "What the Lead should change, when you send it back; anything worth saying, when you approve."
-          }
-        },
-        "required": [
-          "lane",
-          "approve"
-        ]
-      }
-    },
-    {
       "name": "set_project",
       "description": "Set this project's base branch and gate: the command that proves the lane works (for example npm test). By default it runs once on the whole lane, when its Lead reports it ready and before it lands, so tasks merge into the lane without each having to build on its own.",
       "inputSchema": {

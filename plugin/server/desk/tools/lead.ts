@@ -5,7 +5,6 @@ import { branchExists, currentBranch, diffCounts, git, headSha, outsideOwned, re
 import { serialPaths } from "../../core/scope.ts";
 import { workState } from "../../catalog/project-files.ts";
 import { type Args, type Caller, type DeskContext, given, hash, no, ok, str, strs } from "../context.ts";
-import { keepRun } from "../checkpoints.ts";
 import { errorText } from "../../core/errors.ts";
 import { gateNote, laneGate } from "../gates.ts";
 import {
@@ -21,11 +20,9 @@ import {
   nextAskId,
   nextTaskId,
   slugify,
-  tasksOf,
 } from "../ledger.ts";
 import { clip, letters } from "../letters.ts";
 import { holderOf, parallelProblem, seatingKey, startPeer, taskPlacement } from "../opening.ts";
-import { riskSignals } from "../approval.ts";
 import { planFindings, readPlan } from "../plan.ts";
 import { type Project, loadConfig } from "../project.ts";
 import type { DeskServices, Tool } from "../services.ts";
@@ -48,7 +45,7 @@ function laneTask(ledger: Ledger, caller: Caller, id: string): { lane: Lane; tas
   return { lane, task };
 }
 
-function recordTask(desk: DeskServices, project: Project, lane: Lane, args: Args, parallel: boolean, startSha: string | undefined, waiting?: { after: string[]; role: string; plan?: number }): Promise<Task> {
+function recordTask(desk: DeskServices, project: Project, lane: Lane, args: Args, parallel: boolean, startSha: string | undefined, waiting?: { after: string[]; role: string }): Promise<Task> {
   const title = str(args.title);
   return desk.ctx.ledger(project, (current) => {
     const id = nextTaskId(current.lanes[lane.id]!, "code");
@@ -70,7 +67,6 @@ function recordTask(desk: DeskServices, project: Project, lane: Lane, args: Args
       slot: parallel ? undefined : lane.slot,
       startSha,
       status: waiting ? "waiting" : "running",
-      plan: waiting?.plan,
       after: waiting?.after,
       // Who takes it, kept for when it starts: the call that asked for it is long gone by then.
       opening: waiting && { role: waiting.role },
@@ -97,14 +93,6 @@ function workRoleFor(ctx: DeskContext, project: Project, args: Args): RoleSpec |
   return held.length === 0 ? `This kit gives ${workRole.label}s no skills, so ${unknown.join(", ")} cannot be opened.` : `${workRole.label}s have no skill called ${unknown.join(", ")}. They have: ${held.sort().join(", ")}.`;
 }
 
-/** A lane's first task with no plan: the plan check records it in shadow, and refuses it when on. */
-function unplanned(ctx: DeskContext, project: Project, ledger: Ledger, lane: Lane, by: string): string | undefined {
-  const mode = ctx.team(project).checkpoints.plan;
-  if (mode === "off" || lane.plans || tasksOf(ledger, lane.id).some((task) => task.kind === "code")) return undefined;
-  keepRun(project, { checkpoint: "plan", mode, lane: lane.id, by, decision: "hold", findings: ["The lane's first task was started with no plan."] });
-  return mode === "on" ? "This project checks a lane's plan before its first task: lay the lane's tasks out with plan_tasks, then they start from it." : undefined;
-}
-
 export const startTask: Tool = async (desk, caller, args) => {
   const { ctx } = desk;
   const { project } = caller;
@@ -114,8 +102,6 @@ export const startTask: Tool = async (desk, caller, args) => {
   const ledger = loadLedger(project.state);
   const lane = laneOfLead(ledger, caller.id);
   if (!lane?.worktree) return no("You have no open lane.");
-  const refused = unplanned(ctx, project, ledger, lane, caller.id);
-  if (refused) return no(refused);
   const pending = after.length > 0 ? taskWaitsFor(ledger, lane.id, after) : [];
   if (typeof pending === "string") return no(`${pending} Start this task without waiting for it.`);
   const problem = pending.length > 0 ? undefined : await taskPlacement(project, ledger, lane, owned, parallel);
@@ -133,7 +119,7 @@ export const startTask: Tool = async (desk, caller, args) => {
   return ok(`Started ${task.id} ${started.where} with Peer ${started.peer}. Its hand-back arrives as mail; there is nothing to wait for in this turn.`);
 };
 
-/** Records a lane's tasks at once, each waiting for what it names, and starts what can start; the plan check runs first. */
+/** Records a lane's tasks at once, each waiting for what it names, and starts what can start; what would collide is told, not refused. */
 export const planTasks: Tool = async (desk, caller, args) => {
   const { ctx } = desk;
   const { project } = caller;
@@ -148,35 +134,14 @@ export const planTasks: Tool = async (desk, caller, args) => {
     if (typeof role === "string") return no(`${task.key}: ${role}`);
     roles.set(task.key, role.role);
   }
-  const checks = ctx.team(project).checkpoints;
-  const mode = checks.plan;
-  const findings = mode === "off" ? [] : planFindings(ledger, lane, plan, serialPaths(await trackedFiles(lane.worktree), loadConfig(project.state).serialOnly));
-  const signals = mode === "off" || findings.length > 0 ? [] : riskSignals(plan, checks.risk);
-  const asks = signals.length > 0 || (mode !== "off" && findings.length === 0 && checks.approve === "every");
-  if (mode !== "off") keepRun(project, { checkpoint: "plan", mode, lane: lane.id, by: caller.id, decision: findings.length > 0 ? "hold" : asks ? "ask" : "pass", findings: [...findings, ...signals] });
-  const found = findings.map((finding) => `- ${finding}`).join("\n");
-  if (mode === "on" && findings.length > 0) return no(`The plan was not taken: this project checks plans, and the check found\n${found}\nChange what it names and send the whole plan again.`);
-  const number = (lane.plans ?? 0) + 1;
+  const findings = planFindings(ledger, lane, plan, serialPaths(await trackedFiles(lane.worktree), loadConfig(project.state).serialOnly));
   const ids = new Map<string, string>();
   for (const task of plan) {
     const after = task.after.map((id) => ids.get(id) ?? id);
-    const recorded = await recordTask(desk, project, lane, task.args, task.parallel, undefined, { after, role: roles.get(task.key)!, plan: number });
+    const recorded = await recordTask(desk, project, lane, task.args, task.parallel, undefined, { after, role: roles.get(task.key)! });
     ids.set(task.key, recorded.id);
   }
-  // Held until a person approves it only when the check is on; in shadow the log says it would have been.
-  const held = mode === "on" && asks;
-  const reason = signals.length > 0 ? signals.join(" ") : "this project approves every plan before it runs.";
-  await ctx.ledger(project, (current) => {
-    const entry = current.lanes[lane.id];
-    if (!entry) return;
-    entry.plans = number;
-    if (held) entry.approval = { plan: number, by: checks.approver, since: Date.now(), signals };
-  });
-  ctx.event(project, { kind: "plan.recorded", lane: lane.id, plan: number, tasks: [...ids.values()], findings: findings.length, held });
-  if (held) {
-    await ctx.post(await desk.roster.supervisorFor(project, lane.opener), `planheld:${lane.id}:${number}`, letters.planHeld(lane, number, reason, checks.approver === "human"));
-    return ok(`The plan is recorded as ${[...ids.values()].join(", ")} and waits for the owner's approval, because ${signals.length > 0 ? signals.join(" ") : reason} Nothing of it starts until then; APPROVED or SENT BACK arrives as mail.`);
-  }
+  ctx.event(project, { kind: "plan.recorded", lane: lane.id, tasks: [...ids.values()], findings: findings.length });
   await startWaiting(desk, project, true);
   const now = loadLedger(project.state).tasks;
   const lines = plan.map((task) => {
@@ -184,7 +149,7 @@ export const planTasks: Tool = async (desk, caller, args) => {
     const state = entry.status === "waiting" ? `waits for ${entry.after!.join(", ") || "the lane's copy"}${entry.held ? ` (${clip(entry.held.why, 200)})` : ""}` : `${entry.status}, Peer ${entry.peer}`;
     return `- ${task.key} is ${entry.id} ${entry.title}: ${state}`;
   });
-  const evidence = findings.length > 0 ? `\n\nThe plan check found, as evidence and not a refusal:\n${found}` : "";
+  const evidence = findings.length > 0 ? `\n\nThe desk found, as evidence and not a refusal:\n${findings.map((finding) => `- ${finding}`).join("\n")}` : "";
   return ok(`The plan is recorded; each task starts by itself once what it waits for is accepted, and hand-backs arrive as mail.\n${lines.join("\n")}${evidence}`);
 };
 

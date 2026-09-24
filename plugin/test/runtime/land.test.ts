@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { mock, test } from "node:test";
+import { test } from "node:test";
 import { harness, laneWithPeer } from "./harness.ts";
 import { settle } from "./fake-timeline.ts";
 
@@ -185,7 +185,7 @@ test("a Peer that hands back complete after its last test run failed is named to
   assert.match(held.text, /Incident I\d+ on this lane is still open: claim-contradicted\./);
 });
 
-test("once a shadow check has run enough to judge, the Supervisor is told once, and status shows it", async () => {
+test("status reads the land check's log: how much it checked, what it would have held, and the last it flagged", async () => {
   const h = harness();
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   const day = 86_400_000;
@@ -193,21 +193,11 @@ test("once a shadow check has run enough to judge, the Supervisor is told once, 
     JSON.stringify({ at: new Date(Date.now() - (30 - index) * day / 3).toISOString(), checkpoint: "land", mode: "shadow", lane: `L${index}`, by: sup, decision: index % 10 === 0 ? "ask" : "pass", findings: index % 10 === 0 ? [`src/auth/f${index}.ts is a path this project counts as risky.`] : [] }),
   );
   mkdirSync(h.project.state, { recursive: true });
-  writeFileSync(join(h.project.state, "checkpoints.log"), `${lines.join("\n")}\n`);
-  await h.tick();
-  // Past the outbox's own half hour of keeping a letter from being posted twice.
-  mock.timers.enable({ apis: ["Date"], now: Date.now() + 31 * 60_000 });
-  try {
-    await h.tick(Date.now());
-  } finally {
-    mock.timers.reset();
-  }
-  await h.idle(sup);
-  const told = h.agents.get(sup)!.sent.join("\n");
-  assert.equal(told.match(/CHECK DIGEST/g)?.length, 1, "once, not every round");
-  assert.match(told, /CHECK DIGEST land: the check running in shadow has run enough to judge\. Turned on, it would have stopped work 3 times in 30 runs over 10 days \(0\.3 a day\)\.[^]*L20: src\/auth\/f20\.ts is a path[^]*Tell the Human in two lines/);
-  assert.match((await h.call(sup, "supervisor", "status", {})).text, /- land: shadow\.[^\n]*\n  Turned on, it would have stopped work 3 times/);
-  assert.doesNotMatch((await h.call(sup, "supervisor", "status", {})).text, /\.\./, "a reason that ends in a full stop is not given a second");
+  // A line cut short by a stop mid-write is skipped, not allowed to take the status page down.
+  writeFileSync(join(h.project.state, "checkpoints.log"), `${lines.join("\n")}\n{"at":"2026-`);
+  const status = (await h.call(sup, "supervisor", "status", {})).text;
+  assert.match(status, /## Land check\n\nshadow\. Landings are approved when something in them should be seen first, by the Human on the panel\. In checkpoints\.log: 30 checked, 3 would have been sent for approval; last flagged L20 at [^:]+:[^:]+:[^:]+: src\/auth\/f20\.ts is a path this project counts as risky\./);
+  assert.doesNotMatch(status, /\.\./, "a reason that ends in a full stop is not given a second");
 });
 
 test("a READY stands until the lane is amended: status says so, and the Lead must report again", async () => {

@@ -10,7 +10,7 @@ import { landCheck } from "../../server/desk/landing.ts";
 import type { Project } from "../../server/desk/project.ts";
 import { tempDir } from "../tempdir.ts";
 
-const checks = { plan: "shadow" as const, approve: "risky" as const, approver: "human" as const, risk: RISKY_PATHS, land: "on" as const, landApprove: "risky" as const, landLines: 1000 };
+const checks = { risk: RISKY_PATHS, land: "on" as const, landApprove: "risky" as const, landLines: 1000 };
 const passed = { set: true, ok: true };
 
 /** A repository whose main holds a test with two assertions, and a lane branch the test writes on. */

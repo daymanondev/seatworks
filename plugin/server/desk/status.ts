@@ -1,6 +1,6 @@
-import type { CheckpointMode, Team } from "../catalog/team.ts";
+import type { Team } from "../catalog/team.ts";
 import type { SeatView } from "../core/paseo.ts";
-import { digestOf, runsOf } from "./checkpoints.ts";
+import { runsOf } from "./checkpoints.ts";
 import { type Lane, type Ledger, ownCopyHolder } from "./ledger.ts";
 import { type Project, type ProjectConfig, projectOf } from "./project.ts";
 
@@ -37,21 +37,13 @@ function ownCopyLines(project: Project, ledger: Ledger, config: ProjectConfig, c
   return lines;
 }
 
-/** What each checkpoint is set to and what its log holds, so a shadow period can be read before it is turned on. */
+/** What the land check is set to and what its log holds, so a shadow period can be read before it is turned on. */
 function checkLines(project: Project, checks: Team["checkpoints"]): string[] {
-  const line = (checkpoint: "plan" | "land", set: CheckpointMode, approval: string, holds: boolean) => {
-    const { runs, held, asked, last } = runsOf(project, checkpoint);
-    const kept = runs === 0 ? "nothing checked yet" : `${runs} checked, ${holds ? `${held} ${set === "on" ? "held" : "would have been held"}, ` : ""}${asked} ${set === "on" ? "sent for approval" : "would have been sent for approval"}${last ? `; last flagged ${last.lane} at ${last.at}: ${(last.findings[0] ?? "").replace(/[.!?]+$/, "")}` : ""}`;
-    const digest = digestOf(project, checkpoint, checks.forced ? "on" : set).lines.map((text) => `  ${text}`);
-    return [`- ${checkpoint}: ${checks.forced ? `on, because ${checks.forced}` : set}. ${set === "off" && !checks.forced ? "Nothing is checked." : `${approval}. In checkpoints.log: ${kept}.`}`, ...digest].join("\n");
-  };
-  return [
-    "## Checkpoints",
-    "",
-    line("plan", checks.plan, `Plans are approved ${checks.approve === "every" ? "every time" : "when they touch risky paths"}, by ${checks.approver === "human" ? "the Human on the panel" : "the Supervisor"}`, true),
-    line("land", checks.land, `Landings are approved ${checks.landApprove === "every" ? "every time" : "when something in them should be seen first"}, by the Human on the panel`, false),
-    "",
-  ];
+  const set = checks.land;
+  const { runs, asked, last } = runsOf(project);
+  const kept = runs === 0 ? "nothing checked yet" : `${runs} checked, ${asked} ${set === "on" ? "sent for approval" : "would have been sent for approval"}${last ? `; last flagged ${last.lane} at ${last.at}: ${(last.findings[0] ?? "").replace(/[.!?]+$/, "")}` : ""}`;
+  const approval = `Landings are approved ${checks.landApprove === "every" ? "every time" : "when something in them should be seen first"}, by the Human on the panel`;
+  return ["## Land check", "", `${checks.forced ? `On, because ${checks.forced}` : set}. ${set === "off" && !checks.forced ? "Nothing is checked." : `${approval}. In checkpoints.log: ${kept}.`}`, ""];
 }
 
 function laneAim(lane: Lane): string[] {
@@ -111,9 +103,6 @@ export function statusText(
     const detour = lane.detourOf ? ` Clearing the way for ${lane.detourOf}.` : "";
     const land = lane.landApproval;
     const approval = [
-      ...(lane.approval
-        ? [`Plan ${lane.approval.plan} waits ${minutes(now, lane.approval.since)} min for approval by ${lane.approval.by === "human" ? "the Human, on the panel" : "the owner"}: ${lane.approval.signals.join(" ") || "every plan here is approved first."} None of its tasks starts until then.`]
-        : []),
       ...(lane.ready ? [`Reported ready ${minutes(now, lane.ready.at)} min ago.`] : []),
       ...(land?.approved
         ? [`Landing approved by the Human ${minutes(now, land.approved.at)} min ago; close_lane with land true lands it.`]
@@ -132,9 +121,7 @@ export function statusText(
           : task.handback
             ? `, hand-back ${minutes(now, task.handback.at)} min ago`
             : "";
-      // A plan waiting for approval is judged on what each task is for and what it will write, not on its titles.
-      const judged = lane.approval && task.plan === lane.approval.plan ? [`  Goal: ${task.goal}`, `  Owns: ${task.owned.join(", ")}${task.mode === "parallel" ? ", in parallel" : ""}`] : [];
-      lines.push(`- ${task.id} ${task.title}: ${task.status}${detail}`, ...judged);
+      lines.push(`- ${task.id} ${task.title}: ${task.status}${detail}`);
     }
     lines.push("");
   }

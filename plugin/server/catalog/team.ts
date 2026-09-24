@@ -51,9 +51,6 @@ export type CheckpointMode = (typeof CHECKPOINT_MODES)[number];
 
 /** A landing is only ever approved by the Human: landing is already the Supervisor's call, so it cannot also be the check on it. */
 export type Checkpoints = {
-  plan: CheckpointMode;
-  approve: "risky" | "every";
-  approver: "human" | "supervisor";
   risk: string;
   land: CheckpointMode;
   landApprove: "risky" | "every";
@@ -61,7 +58,7 @@ export type Checkpoints = {
   forced?: string;
 };
 
-/** Paths whose change is risky enough that a plan touching them waits for a person: access, money, data shape, and what ships. */
+/** Paths whose change is risky enough that a landing touching them is shown to a person first: access, money, data shape, and what ships. */
 export const RISKY_PATHS =
   "(^|/)(auth|login|session|passwords?|secrets?|credentials?|tokens?|payments?|billing|migrations?|schema)(/|\\.|$)|\\.sql$|(^|/)\\.github/workflows(/|$)|(^|/)(Dockerfile|docker-compose[^/]*|\\.env[^/]*)$|(^|/)(infra|deploy|terraform|k8s|helm)(/|$)";
 
@@ -244,11 +241,8 @@ export function resolveTeam(kit: Kit, machine: Layer = {}, project: Layer = {}, 
     // A check the Human turned on must not fall silently to its default when the file that says so cannot be read.
     checkpoints:
       unread.length > 0
-        ? { plan: "on", approve: "every", approver: "human", risk: RISKY_PATHS, land: "on", landApprove: "every", landLines: LAND_LINES, forced: unread.join("; ") }
+        ? { risk: RISKY_PATHS, land: "on", landApprove: "every", landLines: LAND_LINES, forced: unread.join("; ") }
         : {
-            plan: project.checkpoints?.plan ?? machine.checkpoints?.plan ?? "shadow",
-            approve: project.checkpoints?.approve ?? machine.checkpoints?.approve ?? "risky",
-            approver: project.checkpoints?.approver ?? machine.checkpoints?.approver ?? "human",
             risk: project.checkpoints?.risk ?? machine.checkpoints?.risk ?? RISKY_PATHS,
             land: project.checkpoints?.land ?? machine.checkpoints?.land ?? "shadow",
             landApprove: project.checkpoints?.landApprove ?? machine.checkpoints?.landApprove ?? "risky",

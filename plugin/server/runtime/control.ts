@@ -9,7 +9,6 @@ import type { SeatView, Seats } from "../core/ports.ts";
 import { seatProblems } from "../catalog/seats.ts";
 import { guidesDir, home, stateRoot, worktreeRoot } from "../core/paths.ts";
 import { createHash } from "node:crypto";
-import { digestOf } from "../desk/checkpoints.ts";
 import { flowView } from "../desk/flow.ts";
 import type { CleanView, MigrateView, UpdateView, WatchView } from "../../shared/views.ts";
 import { removeGarbage, scanGarbage } from "../upkeep/clean.ts";
@@ -127,15 +126,6 @@ export function describeTeam(kit: Kit, team: Team, project?: Project): unknown {
     attention: team.attention,
     checkpoints: { ...team.checkpoints, forced: team.checkpoints.forced ?? null },
     critic: team.critic,
-    // A project's own log, read where its mode is chosen; the machine's defaults have none.
-    digest: project
-      ? Object.fromEntries(
-          (["plan", "land"] as const).map((checkpoint) => {
-            const { lines, state } = digestOf(project, checkpoint, team.checkpoints.forced ? "on" : team.checkpoints[checkpoint]);
-            return [checkpoint, { lines, state: state ?? null }];
-          }),
-        )
-      : null,
     rules: team.rules,
     mcp: Object.fromEntries(
       Object.entries(team.mcp).map(([id, state]) => [
@@ -179,7 +169,6 @@ export type ControlDeps = {
   seats: Seats;
   held: () => { to: string; text: string; at: number }[];
   watch: (project: Project, seats: Iterable<SeatView>) => WatchView;
-  decidePlan: (project: Project, lane: string, approve: boolean, note: string) => Promise<{ ok: boolean; text: string }>;
   decideLand: (project: Project, lane: string, approve: boolean, note: string) => Promise<{ ok: boolean; text: string }>;
 };
 
@@ -346,15 +335,7 @@ export class SettingsControl implements Control {
     return { text: statusText(project, loadLedger(project.state), loadConfig(project.state), seats, Date.now(), { waiting, held: this.deps.held(), checks: this.deps.source.teamFor(project).checkpoints }) };
   }
 
-  /** The Human's own word on a held plan: the panel is the one place it comes from, since no seat may give it for them. */
-  async decidePlan(slug: string, lane: string, approve: boolean, note: string): Promise<unknown> {
-    const project = this.deps.source.named(slug);
-    if (!project) return { error: unknownProject(slug) };
-    const decided = await this.deps.decidePlan(project, lane, approve, note.trim());
-    return decided.ok ? { decided: decided.text } : { error: decided.text };
-  }
-
-  /** The Human's own word on a held landing, from the panel like a plan's: landing is already the Supervisor's call. */
+  /** The Human's own word on a held landing, from the panel, the one place it comes from: landing is already the Supervisor's call. */
   async decideLand(slug: string, lane: string, approve: boolean, note: string): Promise<unknown> {
     const project = this.deps.source.named(slug);
     if (!project) return { error: unknownProject(slug) };

@@ -82,7 +82,6 @@ no `status` in a loop: the Peer is no faster for it, and mail waits until your t
 | MESSAGE, ANSWER | From the owner: act on it. |
 | ANSWERED FOR YOU, RECONCILE | The owner reached your Peer; the letter says what is still yours. |
 | CLEARED | The detour closed; its work isn't on your branch: `ask` if you need it. |
-| APPROVED, SENT BACK | The owner's word on a plan that waited: its tasks start, or send a new plan that answers the note. |
 | LAND HELD, LAND SENT BACK | The owner reads the lane before it lands: commit nothing meanwhile. Sent back: act on the note, then `report` ready again. |
 
 `status` shows your tasks and asks; `incidents` lists every incident about your lane, held ones too.
