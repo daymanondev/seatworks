@@ -41,26 +41,28 @@ function lookOf(handle: Handle): SeatLook {
   };
 }
 
+/** Paged: an unpaged read is capped by the daemon, and a seat missing from this list is treated as gone. */
+async function openSeats(bound: Bound): Promise<SeatView[]> {
+  const paseo = bound();
+  if (!paseo) return [];
+  const found: SeatView[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < 20; page++) {
+    const result = await paseo.agents.list({ filter: { includeArchived: false }, page: cursor ? { limit: 200, cursor } : { limit: 200 } });
+    for (const entry of result.entries) {
+      const seat = entry.agent as unknown as SeatView;
+      if (!seat.archivedAt) found.push(seat);
+    }
+    if (!result.pageInfo?.hasMore || !result.pageInfo.nextCursor) break;
+    cursor = result.pageInfo.nextCursor;
+  }
+  return found;
+}
+
 export function seatsOn(bound: Bound): Seats {
   const ref = (id: string): Handle => reach(bound).agents.ref(id) as unknown as Handle;
   return {
-    /** Paged: an unpaged read is capped by the daemon, and a seat missing from this list is treated as gone. */
-    async open(): Promise<SeatView[]> {
-      const paseo = bound();
-      if (!paseo) return [];
-      const found: SeatView[] = [];
-      let cursor: string | undefined;
-      for (let page = 0; page < 20; page++) {
-        const result = await paseo.agents.list({ filter: { includeArchived: false }, page: cursor ? { limit: 200, cursor } : { limit: 200 } });
-        for (const entry of result.entries) {
-          const seat = entry.agent as unknown as SeatView;
-          if (!seat.archivedAt) found.push(seat);
-        }
-        if (!result.pageInfo?.hasMore || !result.pageInfo.nextCursor) break;
-        cursor = result.pageInfo.nextCursor;
-      }
-      return found;
-    },
+    open: () => openSeats(bound),
     async look(id: string): Promise<SeatLook> {
       const handle = ref(id);
       await handle.refresh();
@@ -79,6 +81,10 @@ export function seatsOn(bound: Bound): Seats {
         const output = (item.detail as { output?: { output?: unknown } } | undefined)?.output?.output;
         return item.type === "tool_call" && item.name === "AskUserQuestion" && item.status === "completed" && typeof output === "string" ? [output] : [];
       });
+    },
+    async history(id: string, limit: number) {
+      const page = await ref(id).timeline.refetch({ direction: "tail", limit });
+      return page.entries.map(({ item, seqStart, seqEnd, turnId }) => ({ item, seqStart, seq: seqEnd, epoch: page.epoch, turnId: turnId ?? null, replay: true }));
     },
     async respond(id: string, requestId: string, response: PermissionResponse): Promise<void> {
       await ref(id).respondToPermission({ requestId, response });

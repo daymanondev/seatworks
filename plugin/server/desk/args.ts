@@ -1,16 +1,20 @@
 import type { ArgSchema } from "../catalog/kit.ts";
 
-const TYPE_WORDS: Record<string, string> = { string: "text", boolean: "true or false", number: "a number", array: "a list", object: "an object" };
+const TYPE_WORDS: Record<string, string> = { string: "text", boolean: "true or false", number: "a number", integer: "a whole number", array: "a list", object: "an object" };
 
 const typeOf = (value: unknown): string => (Array.isArray(value) ? "array" : value === null ? "null" : typeof value);
+
+const isType = (value: unknown, type: string): boolean => (type === "integer" ? Number.isInteger(value) : typeOf(value) === type);
 
 const blank = (value: unknown): boolean => value === undefined || value === null || (typeof value === "string" && value.trim() === "") || (Array.isArray(value) && value.every(blank));
 
 const absent = (value: unknown): boolean => value === undefined || value === null;
 
 function fits(name: string, schema: ArgSchema, value: unknown): string[] {
-  if (schema.type && typeOf(value) !== schema.type) return [`${name} must be ${TYPE_WORDS[schema.type] ?? schema.type}`];
+  if (schema.type && !isType(value, schema.type)) return [`${name} must be ${TYPE_WORDS[schema.type] ?? schema.type}`];
   if (schema.enum && !schema.enum.includes(value)) return [`${name} must be one of ${schema.enum.join(", ")}`];
+  if (typeof value === "number" && schema.minimum !== undefined && value < schema.minimum) return [`${name} must be at least ${schema.minimum}`];
+  if (typeof value === "number" && schema.maximum !== undefined && value > schema.maximum) return [`${name} must be at most ${schema.maximum}`];
   if (!Array.isArray(value) || !schema.items) return [];
   if (schema.maxItems !== undefined && value.length > schema.maxItems) return [`${name} takes at most ${schema.maxItems}`];
   for (const item of value) {

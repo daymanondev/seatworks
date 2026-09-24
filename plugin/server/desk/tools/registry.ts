@@ -14,6 +14,7 @@ import { incidents } from "./incidents.ts";
 import { message } from "./message.ts";
 import { landLane } from "./land-lane.ts";
 import { openLane } from "./open-lane.ts";
+import { record } from "./record.ts";
 import { replaceLead } from "./replace-lead.ts";
 import { report } from "./report.ts";
 import { rework } from "./rework.ts";
@@ -44,5 +45,6 @@ export const TOOLS: ToolDef[] = [
   status,
   incidents,
   markIncident,
+  record,
   findings,
 ];

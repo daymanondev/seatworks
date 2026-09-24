@@ -176,9 +176,13 @@ test("a Codex seat has every desk and proxy tool it is given approved ahead, and
   const proxies = Object.keys(servers).filter((id) => id !== "team" && String((servers[id] as { args?: string[] }).args?.[0]).endsWith("code.mjs"));
   assert.ok(proxies.length > 0, "the shipped kit gives the Lead at least one proxied server");
   for (const id of proxies) assert.ok([...approved].some((name) => name.startsWith(`${id}.`)), id);
-  // Paseo adds its own server at launch; the tools the role is allowed there are approved too, and only those.
-  assert.ok(approved.has("paseo.get_agent_activity"));
-  assert.ok(!approved.has("paseo.create_agent"));
+  // Paseo adds its own server at launch; the tools a role is allowed there are approved too, and only those.
+  assert.deepEqual([...approved].filter((name) => name.startsWith("paseo.")), [], "the Lead is allowed none");
+  const supervisor = withHarness(all, "supervisor", kit.harnesses.codex!);
+  const asked = { provider: providerId(kit, "supervisor", "codex"), cwd: "/work/repo" } as AgentConfig;
+  const supervising = applyRole(kit, supervisor, asked, () => "PROMPT", "/state/demo", serversFor(kit, supervisor, "supervisor", context)) as unknown as { toolPolicy?: { preapproved: { server: string; tool: string }[] } };
+  const paseo = supervising.toolPolicy?.preapproved.filter((ref) => ref.server === "paseo").map((ref) => ref.tool);
+  assert.deepEqual(paseo, kit.roles.find((role) => role.role === "supervisor")!.paseoTools!.allow);
   const claude = applyRole(kit, all, { provider: providerId(kit, "lead", "claude"), cwd: "/work/repo" } as AgentConfig, () => "PROMPT", "/state/demo", serversFor(kit, all, "lead", context)) as unknown as { toolPolicy?: unknown };
   assert.equal(claude.toolPolicy, undefined);
 });

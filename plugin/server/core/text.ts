@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { mask } from "./mask.ts";
 
 /** Text from outside the team, fenced so it cannot speak as the desk: the words inside must not be able to close the fence. */
 export function outside(tag: string, text: string, limit: number): string {
@@ -24,3 +25,13 @@ export const hash = (...parts: string[]): string => createHash("sha1").update(pa
 export function clip(text: string, limit: number): string {
   return text.length <= limit ? text : `${text.slice(0, limit).trimEnd()}\n[… ${text.length - limit} more characters]`;
 }
+
+/** At most `limit` characters, never cutting a character in two. */
+export function within(text: string, limit: number): string {
+  if (text.length <= limit) return text;
+  const cut = text.slice(0, limit);
+  return /[\uD800-\uDBFF]$/.test(cut) ? cut.slice(0, -1) : cut;
+}
+
+/** Text quoted from a seat's own record on one line, its secrets masked. */
+export const oneLine = (text: string, limit = 200): string => within(mask(text).replace(/\s+/g, " ").trim(), limit);

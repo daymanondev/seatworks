@@ -43,7 +43,6 @@ const LONG_FILES: Record<string, number> = {
   "server/desk/slots.ts": 378,
   "server/runtime/control.ts": 459,
   "server/runtime/runtime.ts": 401,
-  "server/runtime/watch/facts.ts": 306,
   "test/runtime/facts.test.ts": 418,
   "test/runtime/intake.test.ts": 559,
   "test/runtime/workflow.test.ts": 1805,
@@ -62,7 +61,6 @@ const LONG_FUNCTIONS: Record<string, number> = {
   "client/team.tsx roleRows": 56,
   "client/upkeep.tsx UpkeepSection": 163,
   "mcp/code.mjs stdioBackend": 70,
-  "server/adapters/paseo/agents.ts seatsOn": 61,
   "server/adapters/paseo/agents.ts workspacesOn": 57,
   "server/catalog/team.ts resolveRole": 60,
 

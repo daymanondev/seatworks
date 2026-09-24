@@ -1,7 +1,7 @@
 import { isAbsolute, relative } from "node:path";
 import { weakened } from "../../catalog/kit.ts";
 import { globToRegex, normalize } from "../../core/scope.ts";
-import { mask } from "../../core/mask.ts";
+import { oneLine, within } from "../../core/text.ts";
 import type { Level } from "../../domain/incident.ts";
 import type { Call, Change, Unit, Window } from "./window.ts";
 
@@ -55,7 +55,6 @@ export type Rules = {
   recoverWithin: number;
 };
 
-const flat = (text: string, limit = 200): string => within(mask(text).replace(/\s+/g, " ").trim(), limit);
 const str = (value: unknown): string => (typeof value === "string" ? value : "");
 
 /** Calls to `server`: read from the field the harness records it in, or else from the name, `pattern` holding `{server}` where it goes. */
@@ -92,15 +91,15 @@ export function stuck(units: Unit[], rules: Pick<Rules, "repeatsAt">): string | 
   const n = rules.repeatsAt;
   const tail = calls.slice(-(n + 1));
   if (tail.length === n + 1 && same(tail.map(actionOf)) && same(tail.map((call) => resultOf(call)))) {
-    return `the same action with the same result ${n + 1} times: ${flat(describe(tail[0]!), 120)}`;
+    return `the same action with the same result ${n + 1} times: ${oneLine(describe(tail[0]!), 120)}`;
   }
   const errors = calls.slice(-n);
   if (errors.length === n && same(errors.map(actionOf)) && errors.every((call) => failed(call))) {
-    return `the same action failing ${n} times: ${flat(describe(errors[0]!), 120)}`;
+    return `the same action failing ${n} times: ${oneLine(describe(errors[0]!), 120)}`;
   }
   const spoken = recent.filter((unit) => unit.kind !== "thought");
   for (const said of [spoken.slice(-n), spoken.slice(-n - 1, -1)]) {
-    if (said.length === n && said.every((unit) => unit.kind === "said") && same(said.map((unit) => (unit.kind === "said" ? flat(unit.text, 2000) : "")))) {
+    if (said.length === n && said.every((unit) => unit.kind === "said") && same(said.map((unit) => (unit.kind === "said" ? oneLine(unit.text, 2000) : "")))) {
       return `the same words ${n} times with nothing done between them`;
     }
   }
@@ -109,7 +108,7 @@ export function stuck(units: Unit[], rules: Pick<Rules, "repeatsAt">): string | 
     const actions = cycle.map(actionOf);
     const results = cycle.map((call) => resultOf(call));
     const alternates = actions[0] !== actions[1] && actions.every((action, index) => action === actions[index % 2]) && results.every((result, index) => result === results[index % 2]);
-    if (alternates) return `alternating between two actions ${n} times: ${flat(describe(cycle[0]!), 60)} / ${flat(describe(cycle[1]!), 60)}`;
+    if (alternates) return `alternating between two actions ${n} times: ${oneLine(describe(cycle[0]!), 60)} / ${oneLine(describe(cycle[1]!), 60)}`;
   }
   return undefined;
 }
@@ -150,16 +149,10 @@ export function onDetail(call: Call, rules: Rules): Fact[] {
   const risky = str(call.detail.command)
     .split(/&&|\|\||;|\n/)
     .find((part) => rules.destructive.test(part) && !scratchOnly(part, rules.temp));
-  return risky ? [fact("destructive", around(flat(risky, Infinity), rules.destructive, 200))] : [];
+  return risky ? [fact("destructive", around(oneLine(risky, Infinity), rules.destructive, 200))] : [];
 }
 
 const PROSE = /\.(md|mdx|markdown|txt|rst|adoc)$/i;
-
-function within(text: string, limit: number): string {
-  if (text.length <= limit) return text;
-  const cut = text.slice(0, limit);
-  return /[\uD800-\uDBFF]$/.test(cut) ? cut.slice(0, -1) : cut;
-}
 
 /** Cuts around the match, not from the front: what makes a long command irreversible is often at its end. */
 function around(text: string, pattern: RegExp | undefined, limit: number): string {
@@ -211,7 +204,7 @@ function onSettle(call: Call, rules: Rules, known?: (path: string) => string | u
   const detail = call.detail;
   const bad = failed(call);
   // The desk's refusals already told the seat why and what instead, and the desk records them.
-  if (bad && !rules.desk?.(call)) facts.push(fact(isGate(call, rules.gates) ? "gate-failed" : "call-failed", flat(describe(call))));
+  if (bad && !rules.desk?.(call)) facts.push(fact(isGate(call, rules.gates) ? "gate-failed" : "call-failed", oneLine(describe(call))));
   const writes = detail.type === "edit" || detail.type === "write";
   const both = writes && !bad ? sides(detail, known) : undefined;
   if (both) {
@@ -219,17 +212,17 @@ function onSettle(call: Call, rules: Rules, known?: (path: string) => string | u
     const [before, after] = both;
     if (rules.testPath.test(path) && (before || after)) {
       const how = weakened(before, after, rules);
-      if (how) facts.push(fact("test-weakened", `${flat(path)}: ${how}`));
+      if (how) facts.push(fact("test-weakened", `${oneLine(path)}: ${how}`));
     }
     if (!PROSE.test(path)) {
       const was = hits(before, rules.suppressed);
       const now = hits(after, rules.suppressed);
       const added = now.find((hit) => now.filter((other) => other === hit).length > was.filter((other) => other === hit).length);
-      if (added) facts.push(fact("suppressed", `${flat(path)}: adds ${flat(added, 60)}`));
+      if (added) facts.push(fact("suppressed", `${oneLine(path)}: adds ${oneLine(added, 60)}`));
     }
   }
   if (writes && outside(str(detail.filePath), rules)) {
-    facts.push(fact("outside-scope", flat(str(detail.filePath))));
+    facts.push(fact("outside-scope", oneLine(str(detail.filePath))));
   }
   return facts;
 }
@@ -260,7 +253,7 @@ export class Recovery {
     this.open.steps += 1;
     if (this.open.told || this.open.steps < rules.recoverWithin) return [];
     this.open.told = true;
-    return [fact("no-recovery", `${rules.recoverWithin} steps since \`${flat(this.open.command, 100)}\` failed, and neither it nor the gate has passed since`)];
+    return [fact("no-recovery", `${rules.recoverWithin} steps since \`${oneLine(this.open.command, 100)}\` failed, and neither it nor the gate has passed since`)];
   }
 
   reset(): void {
@@ -287,7 +280,7 @@ export function unverified(window: Window, rules: Rules, heard: boolean): Fact[]
   const { calls, inside, lastWrite, lastGate } = lastWriteAndGate(window, rules);
   if (lastWrite < 0 || lastGate > lastWrite) return [];
   const written = new Set(calls.filter(inside).map((call) => str(call.detail.filePath)));
-  return [fact("unverified", `${written.size} file${written.size === 1 ? "" : "s"} written and \`${flat(named, 100)}\` not run after the last of them`)];
+  return [fact("unverified", `${written.size} file${written.size === 1 ? "" : "s"} written and \`${oneLine(named, 100)}\` not run after the last of them`)];
 }
 
 /** A hand-back that says the work is complete when the check it ran after its last edit failed: the record, not the claim, is what settles it. */
@@ -296,7 +289,7 @@ export function contradicted(window: Window, rules: Rules, outcome: string | und
   const { calls, lastWrite, lastGate } = lastWriteAndGate(window, rules);
   const check = calls[lastGate];
   if (!check || lastGate < lastWrite || !failed(check)) return [];
-  return [fact("claim-contradicted", `handed back as complete, but \`${flat(str(check.detail.command), 100)}\` failed the last time it ran, after the last edit`)];
+  return [fact("claim-contradicted", `handed back as complete, but \`${oneLine(str(check.detail.command), 100)}\` failed the last time it ran, after the last edit`)];
 }
 
 export function afterChange(change: Change, rules: Rules, known?: (path: string) => string | undefined): Fact[] {

@@ -1,6 +1,6 @@
 import { type Kit, can, seatOf } from "../catalog/kit.ts";
 import { answerWith, midTurn, questionsIn } from "../core/paseo.ts";
-import type { SeatLook, SeatView, Seats } from "../core/ports.ts";
+import type { SeatLook, SeatView, Seats, StreamRow } from "../core/ports.ts";
 import type { Intents } from "./intents.ts";
 import { type Project, projectOf } from "./project.ts";
 
@@ -34,6 +34,10 @@ export class Roster {
 
   typed(agentId: string): Promise<string[]> {
     return this.seats.typed(agentId);
+  }
+
+  history(agentId: string, limit: number): Promise<StreamRow[]> {
+    return this.seats.history(agentId, limit);
   }
 
   /** A seat stopped on a question reads nothing until it is answered, so a message answers it. `waiting`: only the Human can. */

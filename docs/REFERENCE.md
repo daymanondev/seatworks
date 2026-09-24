@@ -17,8 +17,8 @@ schema. A call that doesn't fit is refused, with what is wrong.
 <!-- drawn from the code: verbs -->
 | Role | Tools |
 |---|---|
-| Supervisor | `open_lane` `message` `answer` `land_lane` `drop_lane` `amend_lane` `replace_lead` `set_project` `status` `incidents` `mark_incident` |
-| Lead | `add_tasks` `start_review` `message` `answer` `accept` `rework` `amend_task` `cut` `ask` `report` `status` `incidents` `mark_incident` |
+| Supervisor | `open_lane` `message` `answer` `land_lane` `drop_lane` `amend_lane` `replace_lead` `set_project` `status` `incidents` `mark_incident` `record` |
+| Lead | `add_tasks` `start_review` `message` `answer` `accept` `rework` `amend_task` `cut` `ask` `report` `status` `incidents` `mark_incident` `record` |
 | Peer, Reviewer | `done` `ask` |
 | Critic | `findings` |
 <!-- end -->
@@ -44,6 +44,7 @@ schema. A call that doesn't fit is refused, with what is wrong.
 | `answer` | Closes an open ask. The Supervisor may answer any ask, others only their own |
 | `incidents` | Lists the 50 most recent open or unmarked incidents, with each one's brief. With `closed`, it adds the 20 most recently marked. A Lead sees only its own lane's |
 | `mark_incident` | Marks an incident `useful`, `noise` or `unknown`, with an optional note, and closes it. Noise also silences the same words on that seat and kind from then on |
+| `record` | What a lane's Lead, or a task's Peer or reviewer, ran, read, changed and said, one numbered step a line, without output or diffs. A Lead reads only its own lane's tasks. Once the seat is archived it shows what the desk kept instead, since Paseo starts an archived agent again to read its history |
 | `status` | Lanes, tasks, working copies and open asks. A Lead sees its own lane |
 | `findings` | The Critic hands in where the Human's words and the lane may not agree, each quote checked against what it read. The Supervisor gets them, and the Critic is archived |
 

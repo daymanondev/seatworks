@@ -1,7 +1,8 @@
 import { type Kit, can, seatOf } from "../../catalog/kit.ts";
 import type { Seen, SeatView, Seats, Stream } from "../../core/ports.ts";
 import { type Fact, Recovery, type Rules, afterChange, contradicted, fact, stuck, unverified } from "./facts.ts";
-import { type Quirks, Window } from "./window.ts";
+import type { Quirks } from "../../catalog/timeline.ts";
+import { Window } from "./window.ts";
 
 export type WatchedSeat = { id: string; provider: string; cwd: string; title?: string | null };
 
