@@ -97,7 +97,7 @@
     },
     {
       "name": "message",
-      "description": "Send a Lead (by lane id) or, for a recovery, a Peer (by task id) one message. It reaches the recipient as soon as it can take it and never interrupts it; one stopped on a question gets it as the answer. A message to a Peer is copied to its Lead. Refused if it names or quotes an open incident about the seat it goes to: say what you read in the record in your own words.",
+      "description": "Send one decision or one question to a Lead (by lane id) or, only when its Lead cannot carry it, a Peer (by task id; its Lead is told). It arrives when the seat can take it: inside a running turn on agents that take that, else when its turn ends; one stopped on a question gets it as the answer. Refused if it names or quotes an open incident about the seat it goes to: say what you read in the record in your own words.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -117,7 +117,7 @@
     },
     {
       "name": "answer",
-      "description": "Answer an open ask by its id. The asker gets the answer when idle and the ask closes.",
+      "description": "Answer an open ask by its id; the ask closes, and the asker gets the answer as soon as it can take it.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -487,7 +487,7 @@
     },
     {
       "name": "message",
-      "description": "Send one of your Peers (by task id) a message. It reaches the Peer as soon as it can take it and never interrupts it; a Peer stopped on a question gets it as the answer. Refused if it names or quotes an open incident about the seat it goes to: say what you read in the record in your own words.",
+      "description": "Send one of your Peers (by task id) one message. It arrives when the Peer can take it: inside a running turn on agents that take that, else when its turn ends; one stopped on a question gets it as the answer. Refused if it names or quotes an open incident about the seat it goes to: say what you read in the record in your own words.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -506,7 +506,7 @@
     },
     {
       "name": "answer",
-      "description": "Answer a Peer's open ask by its id.",
+      "description": "Answer a Peer's open ask by its id; the ask closes, and the Peer gets the answer as soon as it can take it.",
       "inputSchema": {
         "type": "object",
         "properties": {
