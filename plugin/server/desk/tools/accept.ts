@@ -33,7 +33,7 @@ export const accept = defineTool({
     if (task.kind !== "code") return no(`${task.id} is a review; cut it when you are done with it.`);
     if (!TASK.may(task.status, task.mode === "parallel" ? "queue" : "accept")) return no(`${task.id} is ${task.status}.`);
     if (task.mode === "parallel") {
-      const queued = ctx.moveTask(project, task.id, "queue", (entry) => (entry.queuedAt = Date.now()));
+      const queued = ctx.moveTask(project, task.id, "queue", (entry) => (entry.acceptedAt = Date.now()));
       if (typeof queued !== "object") return no(`${task.id} is ${queued ?? "gone"}.`);
       const ahead = Object.values(loadLedger(project.state).tasks).filter((entry) => IN_QUEUE.includes(entry.status)).length - 1;
       merges.enqueue(project, task.id);
@@ -60,7 +60,7 @@ export const accept = defineTool({
     const counts = await diffCounts(lane.worktree, task.startSha ?? lane.base, "HEAD", fileKinds(ctx.kit));
     // Not rerun: a per-task gate already gave the Lead its verdict with the hand-back.
     const gate = gateNote(project, task);
-    const updated = ctx.moveTask(project, task.id, "accept");
+    const updated = ctx.moveTask(project, task.id, "accept", (entry) => (entry.acceptedAt = Date.now()));
     if (typeof updated !== "object") return no(`${task.id} is ${updated ?? "gone"}.`);
     await ctx.post(lane.lead, letters.merged(task, counts, outsideOwned(counts?.files ?? [], task.owned), gate));
     await agents.retire(project, updated, lane.branch);

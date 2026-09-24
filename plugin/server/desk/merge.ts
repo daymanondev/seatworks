@@ -52,7 +52,7 @@ export class MergeQueue {
 
   private async takeUp(project: Project): Promise<void> {
     const ledger = loadLedger(project.state);
-    const left = Object.values(ledger.tasks).filter((task) => IN_QUEUE.includes(task.status)).sort((a, b) => (a.queuedAt ?? 0) - (b.queuedAt ?? 0));
+    const left = Object.values(ledger.tasks).filter((task) => IN_QUEUE.includes(task.status)).sort((a, b) => (a.acceptedAt ?? 0) - (b.acceptedAt ?? 0));
     for (const task of left) {
       const lane = ledger.lanes[task.lane];
       if (task.status === "merging" && lane && (await this.cutOff(project, task, lane))) continue;

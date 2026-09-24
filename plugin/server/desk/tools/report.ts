@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { no, ok, str, strs } from "../context.ts";
 import { laneGate } from "../gates.ts";
+import { reviewFacts } from "../landing.ts";
 import { laneOfLead, loadLedger } from "../ledger.ts";
 import { letters } from "../letters.ts";
 import { putOnHold } from "../hold.ts";
@@ -40,17 +41,15 @@ export const report = defineTool({
     if (!still) return no(`Lane ${lane.id} is no longer yours to report on: it closed, or has another Lead, while this was asked.`);
     const to = await roster.supervisorFor(caller.project, lane.opener);
     const parked = args.ready === true ? await parkAtCheckpoint(desk, caller.project, lane.id) : undefined;
-    const letter = letters.report(lane, summary, args.ready === true, strs(args.carried), gate, parked);
+    const reviews = args.ready === true ? reviewFacts(loadLedger(caller.project.state), lane) : [];
+    const letter = letters.report(lane, summary, args.ready === true, strs(args.carried), { gate, parked, reviews });
     const posted = await ctx.post(to, letter);
     ctx.event(caller.project, { kind: "lane.report", lane: lane.id, ready: args.ready === true, gate: gate?.ok, to: to ?? null, text: posted === "nobody" ? letter.text : undefined });
     // With nobody supervising seated the post goes nowhere; it is kept in the event log and the Lead told so.
     if (posted === "nobody") {
       return ok(`Nobody supervising this project is seated, so the report reached no one. It is kept in ${caller.project.state}/events.log for whoever comes back; there is nothing to wait for until someone does.`);
     }
-    return ok(
-      gate && !gate.ok
-        ? `Reported to ${to}, with what the gate did in it. Stay quiet until mail arrives.`
-        : `Reported to ${to}. Stay quiet until mail arrives.`,
-    );
+    const also = reviews.length > 0 ? ` It also carries what the record has of the lane's reviews: ${reviews.join(" ")}` : "";
+    return ok(`Reported to ${to}${gate && !gate.ok ? ", with what the gate did in it" : ""}.${also} Stay quiet until mail arrives.`);
   },
 });

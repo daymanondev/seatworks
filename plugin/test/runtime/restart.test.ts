@@ -17,7 +17,7 @@ async function handedBack() {
   await h.call(task.peer!, "peer", "done", { outcome: "complete", summary: "c" });
   const stopped = (status: "queued" | "merging") => {
     const ledger = h.ledger();
-    Object.assign(ledger.tasks["L1-T2"]!, { status, queuedAt: Date.now() });
+    Object.assign(ledger.tasks["L1-T2"]!, { status, acceptedAt: Date.now() });
     saveLedger(h.project.state, ledger);
   };
   return { ...lane, task, stopped };

@@ -81,7 +81,7 @@ export type Task = {
   held?: { why: string; tried?: boolean };
   amended?: Amendment[];
   reworks?: number;
-  queuedAt?: number;
+  acceptedAt?: number;
   silent: number;
   peerGone?: boolean;
 };

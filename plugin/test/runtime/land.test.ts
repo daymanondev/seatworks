@@ -86,7 +86,7 @@ test("with the check on, a risky lane waits for the Human: nothing lands, its Le
     minutes: 0,
     approved: false,
     signals: ["src/auth/login.ts is a path this project counts as risky."],
-    evidence: ["1 commit; 1 file, 1 line changed.", "Gate: passed on the lane."],
+    evidence: ["1 commit; 1 file, 1 line changed.", "Gate: passed on the lane.", "No review of the whole lane is on record."],
   });
 
   assert.match(await decide(h, true, "fine, it only renames"), /Approved: Lane L1 closed and its agents archived; squashed lane\/l1-cart into one commit on main[^]*Land check \(on\): the Human approved it\./);

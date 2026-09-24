@@ -197,10 +197,12 @@ export const letters = {
     return mail("incident", [incident.id, incident.opened, incident.level], lines.join("\n"));
   },
 
-  report(lane: Lane, summary: string, ready: boolean, carried: string[] | undefined, gate?: { ok: boolean; text: string }, parked?: string): Letter {
+  /** `found` is what the desk read itself rather than took from the Lead: the gate, a park, and what the lane's reviews leave standing. */
+  report(lane: Lane, summary: string, ready: boolean, carried: string[] | undefined, found: { gate?: { ok: boolean; text: string }; parked?: string; reviews: string[] }): Letter {
     const lines = [`REPORT ${lane.id} (${lane.title}): ${ready ? "ready to land" : "not ready"}`];
-    if (parked) lines.push("", parked);
-    if (gate) lines.push("", `Gate: ${gate.text}`);
+    if (found.parked) lines.push("", found.parked);
+    if (found.gate) lines.push("", `Gate: ${found.gate.text}`);
+    if (found.reviews.length > 0) lines.push("", "Reviews, as the record has them:", list(found.reviews));
     lines.push("", clip(summary, 2000), "", "Carried:", list(carried));
     return mail("report", [lane.id, hash(summary)], lines.join("\n"));
   },

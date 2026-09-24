@@ -2,7 +2,7 @@ import type { Checkpoints } from "../catalog/team.ts";
 import { commitsAhead, diffCounts, git, kindOf, outsideOwned } from "../core/git.ts";
 import { globToRegex } from "../core/scope.ts";
 import { loadIncidents } from "./incidents.ts";
-import { type Lane, type Ledger, tasksOf } from "./ledger.ts";
+import { type Lane, type Ledger, type Task, tasksOf } from "./ledger.ts";
 import { type Kit, fileKinds, testMarkers, weakened } from "../catalog/kit.ts";
 import { type Project, serialOnlyOf } from "./project.ts";
 
@@ -12,6 +12,30 @@ export const NOT_READY = "Its Lead has not reported it ready as it now stands: n
 export const GATE_FAILED = "The gate failed on the lane, and landing was asked for over it.";
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
+
+type Reviewed = Task & { handback: NonNullable<Task["handback"]> };
+
+/**
+ * What a lane's reviews leave standing, read from the record: no review of the whole lane, a latest review that did not
+ * accept, and a task accepted over its own review's changes. Evidence for whoever lands it, never a refusal.
+ */
+export function reviewFacts(ledger: Ledger, lane: Lane): string[] {
+  const tasks = tasksOf(ledger, lane.id);
+  const reviews = tasks.filter((task): task is Reviewed => task.kind === "review" && task.handback !== undefined).sort((a, b) => a.handback.at - b.handback.at);
+  const accepted = tasks.filter((task): task is Task & { acceptedAt: number } => task.kind === "code" && task.status === "merged" && task.acceptedAt !== undefined);
+  const facts = reviews.some((review) => !review.of) ? [] : ["No review of the whole lane is on record."];
+  const latest = reviews.at(-1);
+  if (latest && latest.handback.outcome !== "accept") {
+    const since = accepted.filter((task) => task.acceptedAt > latest.handback.at).map((task) => task.id);
+    const after = since.length > 0 ? `; ${since.join(", ")} ${since.length === 1 ? "was" : "were"} accepted after it, with no review since.` : ", and nothing was accepted after it.";
+    facts.push(`The lane's latest review, ${latest.id}, ended in ${latest.handback.outcome}${after}`);
+  }
+  for (const task of accepted) {
+    const own = reviews.filter((review) => review.of === task.id && review.handback.at < task.acceptedAt).at(-1);
+    if (own && own.handback.outcome !== "accept") facts.push(`${task.id} was accepted over ${own.id}, a review of it that ended in ${own.handback.outcome}.`);
+  }
+  return facts;
+}
 
 async function changed(root: string, range: string, filter: "D" | "M"): Promise<string[]> {
   const run = await git(root, ["diff", "-z", "--name-only", `--diff-filter=${filter}`, range]);
@@ -59,6 +83,7 @@ export async function landCheck(kit: Kit, project: Project, ledger: Ledger, lane
     `Gate: ${!gate.set ? "none set" : gate.ok ? "passed on the lane" : "failed on the lane"}.`,
     ...(tests.length > 0 ? [`Tests changed: ${tests.join(", ")}.`] : []),
     ...tasks.filter((task) => task.kind === "review" && task.handback).map((task) => `${task.id} review: ${task.handback!.outcome}.`),
+    ...reviewFacts(ledger, lane),
   ];
   return { signals, evidence };
 }

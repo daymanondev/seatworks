@@ -52,7 +52,7 @@ test("a lane with nothing in it to worry about lands on evidence alone: what cha
   commit();
   const checked = await landCheck(kit, project, ledger, lane, passed, checks);
   assert.deepEqual(checked.signals, []);
-  assert.deepEqual(checked.evidence, ["1 commit; 2 files, 5 lines changed.", "Gate: passed on the lane.", "Tests changed: test/cart.test.ts."]);
+  assert.deepEqual(checked.evidence, ["1 commit; 2 files, 5 lines changed.", "Gate: passed on the lane.", "Tests changed: test/cart.test.ts.", "No review of the whole lane is on record."]);
 });
 
 test("each thing that should reach a person before a lane lands is named, one enough to hold it", async () => {
