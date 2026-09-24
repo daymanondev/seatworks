@@ -8,7 +8,7 @@ import { planFindings, readPlan } from "../plan.ts";
 import { serialOnlyOf } from "../project.ts";
 import { defineTool } from "../services.ts";
 import { startWaiting } from "../waiting.ts";
-import { recordTask, workRoleFor } from "./lane-task.ts";
+import { recordWaiting, workRoleFor } from "./lane-task.ts";
 
 /** Records a lane's tasks at once, each waiting for what it names, and starts what can start; what would collide is told, not refused. */
 export const planTasks = defineTool({
@@ -32,7 +32,7 @@ export const planTasks = defineTool({
     const ids = new Map<string, string>();
     for (const task of plan) {
       const after = task.after.map((id) => ids.get(id) ?? id);
-      const recorded = recordTask(desk, project, lane, task.args, task.parallel, undefined, { after, role: roles.get(task.key)! });
+      const recorded = recordWaiting(desk, project, lane, task.args, task.parallel, { after, role: roles.get(task.key)! });
       ids.set(task.key, recorded.id);
     }
     ctx.event(project, { kind: "plan.recorded", lane: lane.id, tasks: [...ids.values()], findings: findings.length });

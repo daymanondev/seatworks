@@ -15,40 +15,44 @@ export function laneTask(ledger: Ledger, caller: Caller, id: string): { lane: La
   return { lane, task };
 }
 
-export function recordTask(desk: DeskServices, project: Project, lane: Lane, args: Args, parallel: boolean, startSha: string | undefined, waiting?: { after: string[]; role: string }): Task {
+/** The task as asked for, put on record in `ledger`: running and marked seating, or waiting with what it waits for. */
+export function addTask(desk: DeskServices, project: Project, ledger: Ledger, lane: Lane, args: Args, parallel: boolean, startSha: string | undefined, waiting?: { after: string[]; role: string }): Task {
   const title = str(args.title);
-  return desk.ctx.transact(project, (current) => {
-    const id = nextTaskId(current.lanes[lane.id]!, "code");
-    const now = Date.now();
-    const task: Task = {
-      id,
-      lane: lane.id,
-      kind: "code",
-      mode: parallel ? "parallel" : "lane",
-      title,
-      goal: str(args.goal),
-      acceptance: strs(args.acceptance),
-      owned: strs(args.owned),
-      outOfScope: strs(args.outOfScope),
-      context: str(args.context) || undefined,
-      skills: strs(args.skills),
-      branch: parallel ? `task/${id.toLowerCase()}-${slugify(title, 24)}` : lane.branch,
-      worktree: parallel ? undefined : lane.worktree,
-      slot: parallel ? undefined : lane.slot,
-      startSha,
-      status: waiting ? "waiting" : "running",
-      after: waiting?.after,
-      // Who takes it, kept for when it starts: the call that asked for it is long gone by then.
-      opening: waiting && { role: waiting.role },
-      openedAt: now,
-      updatedAt: now,
-      silent: 0,
-    };
-    current.tasks[id] = task;
-    // Marked where it is recorded running, so a round cannot take it for one a stop left half started.
-    if (!waiting) desk.ctx.seating.add(seatingKey(project, id));
-    return { ...task };
-  });
+  const id = nextTaskId(lane, "code");
+  const now = Date.now();
+  const task: Task = {
+    id,
+    lane: lane.id,
+    kind: "code",
+    mode: parallel ? "parallel" : "lane",
+    title,
+    goal: str(args.goal),
+    acceptance: strs(args.acceptance),
+    owned: strs(args.owned),
+    outOfScope: strs(args.outOfScope),
+    context: str(args.context) || undefined,
+    skills: strs(args.skills),
+    branch: parallel ? `task/${id.toLowerCase()}-${slugify(title, 24)}` : lane.branch,
+    worktree: parallel ? undefined : lane.worktree,
+    slot: parallel ? undefined : lane.slot,
+    startSha,
+    status: waiting ? "waiting" : "running",
+    after: waiting?.after,
+    // Who takes it, kept for when it starts: the call that asked for it is long gone by then.
+    opening: waiting && { role: waiting.role },
+    openedAt: now,
+    updatedAt: now,
+    silent: 0,
+  };
+  ledger.tasks[id] = task;
+  // Marked where it is recorded running, so a round cannot take it for one a stop left half started.
+  if (!waiting) desk.ctx.seating.add(seatingKey(project, id));
+  return { ...task };
+}
+
+/** Records a task that waits for others, in its own transaction; one that starts now is placed in the transaction that adds it. */
+export function recordWaiting(desk: DeskServices, project: Project, lane: Lane, args: Args, parallel: boolean, waiting: { after: string[]; role: string }): Task {
+  return desk.ctx.transact(project, (current) => addTask(desk, project, current, current.lanes[lane.id]!, args, parallel, undefined, waiting));
 }
 
 /** The role that takes a task, or why none can: a skill it lacks is refused here, since the Lead's context does not list them. */

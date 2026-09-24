@@ -3,7 +3,7 @@ import { DECIDED } from "../../domain/task.ts";
 import { given, no, ok, str } from "../context.ts";
 import { amend, loadLedger } from "../ledger.ts";
 import { letters } from "../letters.ts";
-import { parallelProblem } from "../opening.ts";
+import { parallelProblem, serialIn } from "../opening.ts";
 import { defineTool } from "../services.ts";
 import { laneTask } from "./lane-task.ts";
 
@@ -15,18 +15,17 @@ export const amendTask = defineTool({
     const changes = given(args, ["goal"], ["acceptance", "outOfScope", "owned"]);
     if (changes.goal === "" || changes.acceptance?.length === 0) return no("A task keeps a goal and at least one acceptance line; give what it asks now.");
     if (changes.owned?.length === 0) return no("A task keeps at least one owned path; give every path it owns now.");
-    const ledger = loadLedger(caller.project.state);
-    const current = laneTask(ledger, caller, str(args.task));
-    // Checked as a start is: a task beside others that takes more paths could take what another is writing. A waiting one is checked when it starts.
-    if (typeof current !== "string" && changes.owned && current.task.mode === "parallel" && current.task.status !== "waiting") {
-      const problem = await parallelProblem(ctx.kit, caller.project, ledger, current.lane, changes.owned as string[], current.task.id);
-      if (problem) return no(`${problem.why} Leave those paths out of ${current.task.id}.`);
-    }
+    const asked = laneTask(loadLedger(caller.project.state), caller, str(args.task));
+    const beside = typeof asked !== "string" && changes.owned !== undefined && asked.task.mode === "parallel";
+    const serial = beside ? await serialIn(ctx.kit, caller.project, asked.lane.worktree ?? caller.project.root) : [];
     const done = ctx.transact(caller.project, (ledger) => {
       const found = laneTask(ledger, caller, str(args.task));
       if (typeof found === "string") return found;
-      const { task } = found;
+      const { lane, task } = found;
       if (DECIDED.includes(task.status)) return `${task.id} is ${task.status}; start a task for what is asked now.`;
+      // Checked as a start is, where it is written: a task beside others that takes more paths could take what another writes. A waiting one is checked when it starts.
+      const problem = beside && task.status !== "waiting" ? parallelProblem(ledger, lane, changes.owned as string[], serial, task.id) : undefined;
+      if (problem) return `${problem.why} Leave those paths out of ${task.id}.`;
       const amendment = amend(task, changes, caller.id, str(args.why));
       if (!amendment) return `Nothing about ${task.id} would change; pass the fields it asks differently now.`;
       task.updatedAt = Date.now();

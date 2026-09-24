@@ -13,9 +13,14 @@ import { type Project, loadConfig, serialOnlyOf } from "./project.ts";
 import type { DeskServices } from "./services.ts";
 
 /** Why a lane cannot open, and what open_lane would do instead: the reason is shared, the advice is not. */
-type Refusal = { why: string; instead: string };
+export type Refusal = { why: string; instead: string };
 
-function scopeProblem(serial: string[], open: Lane[], writeSet: string[], contracts: string[]): Refusal | undefined {
+/** The paths of `cwd` that one writer at a time may write, as git tracks them now: read before a placement is decided. */
+export async function serialIn(kit: Kit, project: Project, cwd: string): Promise<string[]> {
+  return serialPaths(await trackedFiles(cwd), serialOnlyOf(project, kit));
+}
+
+export function scopeProblem(serial: string[], open: Lane[], writeSet: string[], contracts: string[]): Refusal | undefined {
   if (open.length === 0) return undefined;
   const mine = serialReach(writeSet, serial);
   for (const other of open) {
@@ -36,11 +41,6 @@ function scopeProblem(serial: string[], open: Lane[], writeSet: string[], contra
     if (clash) return { why: `This lane overlaps lane ${other.id} at ${clash}.`, instead: `Fold it in or open it after ${other.id} lands.` };
   }
   return undefined;
-}
-
-export async function overlap(kit: Kit, project: Project, open: Lane[], writeSet: string[], contracts: string[]): Promise<Refusal | undefined> {
-  const serial = open.length > 0 ? serialPaths(await trackedFiles(project.root), serialOnlyOf(project, kit)) : [];
-  return scopeProblem(serial, open, writeSet, contracts);
 }
 
 export const seatingKey = (project: Project, lane: string) => `${project.slug}:${lane}`;
@@ -64,15 +64,15 @@ export function openedReply(project: Project, lane: Lane, slot: { id?: string },
   return `Lane ${lane.id} ${on}, and its Lead ${lead} is starting. Gate: ${gate}. Reports and asks arrive as mail; nothing to wait for now.${issueText}`;
 }
 
-/** Where a lane opens given the project as it is now, or why it cannot; asked again when a waiting lane's turn comes. */
-export async function placement(kit: Kit, project: Project, lane: Pick<Lane, "onBranch" | "writeSet" | "contracts" | "detourOf">, isolate: boolean, self?: string): Promise<{ ownCopy: boolean } | Refusal> {
-  const lanes = Object.values(loadLedger(project.state).lanes).filter((entry) => entry.id !== self);
+/** Where a lane opens given the ledger as it stands, or why it cannot: decided in the transaction that records or opens it. */
+export function placement(ledger: Ledger, lane: Pick<Lane, "onBranch" | "writeSet" | "contracts" | "detourOf">, isolate: boolean, serial: string[], self?: string): { ownCopy: boolean } | Refusal {
+  const lanes = Object.values(ledger.lanes).filter((entry) => entry.id !== self);
   const open = lanes.filter((entry) => entry.status === "open");
   const holder = ownCopyHolder(lanes);
   if (lane.onBranch && holder) return { why: `Lane ${holder.id} is working in the project's own copy on ${holder.branch}, and one checkout holds one branch.`, instead: `Carry this branch on once ${holder.id} closes, or open the lane on a branch of its own.` };
   // A detour must name a real open lane, or the letter back out of it has nowhere to go.
   if (lane.detourOf && !open.some((entry) => entry.id === lane.detourOf)) return { why: `There is no open lane ${lane.detourOf} for this one to clear the way for.`, instead: "" };
-  const problem = await overlap(kit, project, open, lane.writeSet, lane.contracts);
+  const problem = scopeProblem(serial, open, lane.writeSet, lane.contracts);
   if (problem) return problem;
   // One checkout is one branch, so whether to wait for it or take a copy is the Supervisor's call; a detour cannot wait.
   if (holder && !isolate && !lane.onBranch && !lane.detourOf) {
@@ -145,8 +145,8 @@ export function holderOf(ledger: Ledger, lane: Lane, except?: string): Task | un
   );
 }
 
-/** Where a task may start in its lane now, or why not; asked again when a waiting task's turn comes. */
-export async function taskPlacement(kit: Kit, project: Project, ledger: Ledger, lane: Lane, owned: string[], parallel: boolean): Promise<Refusal | undefined> {
+/** Where a task may start in its lane, or why not: decided in the transaction that starts it. `serial` counts for a parallel task. */
+export function taskPlacement(ledger: Ledger, lane: Lane, owned: string[], parallel: boolean, serial: string[]): Refusal | undefined {
   if (!parallel) {
     const holder = holderOf(ledger, lane);
     if (!holder) return undefined;
@@ -154,13 +154,13 @@ export async function taskPlacement(kit: Kit, project: Project, ledger: Ledger, 
       ? { why: `${holder.id} has handed back and is waiting on you, and it still holds the lane's working copy — rework would wake its Peer in there.`, instead: "Accept or cut it first, or set parallel only for owned paths independent of it." }
       : { why: `${holder.id} is still writing in the lane's working copy, and it holds one writer at a time.`, instead: `Pass after ${holder.id} to start this once it is accepted, or set parallel only for owned paths independent of it.` };
   }
-  return parallelProblem(kit, project, ledger, lane, owned);
+  return parallelProblem(ledger, lane, owned, serial);
 }
 
 /** What a parallel task owning these paths would collide with: a path one writer at a time may write, or a task running beside it. */
-export async function parallelProblem(kit: Kit, project: Project, ledger: Ledger, lane: Lane, owned: string[], self?: string): Promise<Refusal | undefined> {
-  const serial = serialHits(owned, serialPaths(await trackedFiles(lane.worktree ?? project.root), serialOnlyOf(project, kit)));
-  if (serial.length > 0) return { why: `A parallel task can't own ${serial.join(", ")}.`, instead: "Run it in the lane's working copy instead." };
+export function parallelProblem(ledger: Ledger, lane: Lane, owned: string[], serial: string[], self?: string): Refusal | undefined {
+  const hits = serialHits(owned, serial);
+  if (hits.length > 0) return { why: `A parallel task can't own ${hits.join(", ")}.`, instead: "Run it in the lane's working copy instead." };
   for (const task of activeTasks(ledger, lane.id).filter((entry) => entry.kind === "code" && entry.id !== self)) {
     const clash = firstOverlap(owned, task.owned);
     if (clash) return { why: `The owned paths overlap ${task.id} at ${clash}.`, instead: `Pass after ${task.id} instead of running it in parallel.` };

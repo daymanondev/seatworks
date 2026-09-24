@@ -4,11 +4,11 @@ import { branchExists, currentBranch } from "../../core/git.ts";
 import { blockUncommitted } from "../../catalog/project-files.ts";
 import { type Args, type Caller, no, ok, str, strs } from "../context.ts";
 import { type Issue, fetchIssue } from "../issue.ts";
-import { type Lane, loadLedger, nextLaneId, slugify } from "../ledger.ts";
+import { type Lane, type Ledger, loadLedger, nextLaneId, slugify } from "../ledger.ts";
 import { clip } from "../../core/text.ts";
 import { type Project, configFile, detectGate, loadConfig, saveConfig } from "../project.ts";
 import { type DeskServices, defineTool } from "../services.ts";
-import { openedReply, placement, seatingKey, startLead } from "../opening.ts";
+import { type Refusal, openedReply, placement, seatingKey, serialIn, startLead } from "../opening.ts";
 import { waitsFor } from "../waiting.ts";
 import { seatCritic } from "../critique.ts";
 
@@ -20,36 +20,54 @@ async function readIssue(args: Args, project: Project): Promise<{ issue?: Issue;
   return "error" in fetched ? { unread: `${ref} could not be read: ${fetched.error}` } : { issue: fetched };
 }
 
-function recordLane(desk: DeskServices, caller: Caller, args: Args, place: { base: string; onBranch: boolean; branch?: string }, issue: Issue | undefined, after?: string[]): Lane {
+type Place = { base: string; onBranch: boolean; branch?: string };
+
+/** The lane as asked for, numbered in `ledger` but not yet on record there. */
+function laneOf(ledger: Ledger, caller: Caller, args: Args, place: Place, issue: Issue | undefined, after?: string[]): Lane {
   const title = str(args.title);
+  const id = nextLaneId(ledger);
+  return {
+    id,
+    title,
+    outcome: str(args.outcome),
+    acceptance: strs(args.acceptance),
+    appetite: str(args.appetite) || undefined,
+    deadline: str(args.deadline) || undefined,
+    outOfScope: strs(args.outOfScope),
+    issue: issue?.url,
+    base: place.base,
+    branch: place.branch ?? `lane/${id.toLowerCase()}-${slugify(title, 24)}`,
+    detourOf: str(args.detourOf).trim().toUpperCase() || undefined,
+    onBranch: place.onBranch || undefined,
+    writeSet: strs(args.writeSet),
+    contracts: strs(args.contracts),
+    opener: caller.id,
+    status: after ? "waiting" : "open",
+    after,
+    // What decides how it opens, kept for when it does: the call that asked for it is long gone by then.
+    opening: after && (args.isolate === true || str(args.role)) ? { isolate: args.isolate === true || undefined, role: str(args.role) || undefined } : undefined,
+    openedAt: Date.now(),
+    tasks: 0,
+  };
+}
+
+function recordWaiting(desk: DeskServices, caller: Caller, args: Args, place: Place, issue: Issue | undefined, after: string[]): Lane {
   return desk.ctx.transact(caller.project, (ledger) => {
-    const id = nextLaneId(ledger);
-    const lane: Lane = {
-      id,
-      title,
-      outcome: str(args.outcome),
-      acceptance: strs(args.acceptance),
-      appetite: str(args.appetite) || undefined,
-      deadline: str(args.deadline) || undefined,
-      outOfScope: strs(args.outOfScope),
-      issue: issue?.url,
-      base: place.base,
-      branch: place.branch ?? `lane/${id.toLowerCase()}-${slugify(title, 24)}`,
-      detourOf: str(args.detourOf).trim().toUpperCase() || undefined,
-      onBranch: place.onBranch || undefined,
-      writeSet: strs(args.writeSet),
-      contracts: strs(args.contracts),
-      opener: caller.id,
-      status: after ? "waiting" : "open",
-      after,
-      // What decides how it opens, kept for when it does: the call that asked for it is long gone by then.
-      opening: after && (args.isolate === true || str(args.role)) ? { isolate: args.isolate === true || undefined, role: str(args.role) || undefined } : undefined,
-      openedAt: Date.now(),
-      tasks: 0,
-    };
-    ledger.lanes[id] = lane;
-    if (!after) desk.ctx.seating.add(seatingKey(caller.project, id));
+    const lane = laneOf(ledger, caller, args, place, issue, after);
+    ledger.lanes[lane.id] = lane;
     return { ...lane };
+  });
+}
+
+/** Placed where it is recorded: two lanes opened at once would otherwise both find the project's own copy free. */
+function recordOpen(desk: DeskServices, caller: Caller, args: Args, place: Place, issue: Issue | undefined, serial: string[]): { lane: Lane; ownCopy: boolean } | Refusal {
+  return desk.ctx.transact(caller.project, (ledger) => {
+    const lane = laneOf(ledger, caller, args, place, issue);
+    const placed = placement(ledger, lane, args.isolate === true, serial);
+    if ("why" in placed) return placed;
+    ledger.lanes[lane.id] = lane;
+    desk.ctx.seating.add(seatingKey(caller.project, lane.id));
+    return { lane: { ...lane }, ownCopy: placed.ownCopy };
   });
 }
 
@@ -82,15 +100,19 @@ export const openLane = defineTool({
     const place = { base, onBranch, branch: onBranch ? base : undefined };
     if (pending.length > 0) {
       const { issue } = await readIssue(args, project);
-      const lane = recordLane(desk, caller, args, place, issue, after);
+      const lane = recordWaiting(desk, caller, args, place, issue, after);
       desk.ctx.event(project, { kind: "lane.waiting", lane: lane.id, after });
       await seatCritic(desk, project, lane);
       return ok(`Lane ${lane.id} waits for ${pending.map((entry) => `${entry.id} (${entry.status})`).join(", ")}. It opens by itself once they have all landed, checked again against the lanes open then; if it cannot, or one closes without landing, you get a letter. Close it to drop it.`);
     }
-    const placed = await placement(desk.ctx.kit, project, { onBranch, writeSet: strs(args.writeSet), contracts: strs(args.contracts), detourOf: str(args.detourOf).trim().toUpperCase() || undefined }, args.isolate === true);
-    if ("why" in placed) return no(`${placed.why} ${placed.instead}`.trim());
+    const serial = await serialIn(desk.ctx.kit, project, project.root);
+    // Asked before the issue is fetched, which a refusal would waste; recording the lane asks again.
+    const early = placement(loadLedger(project.state), { onBranch, writeSet: strs(args.writeSet), contracts: strs(args.contracts), detourOf: str(args.detourOf).trim().toUpperCase() || undefined }, args.isolate === true, serial);
+    if ("why" in early) return no(`${early.why} ${early.instead}`.trim());
     const { issue, unread } = await readIssue(args, project);
-    const lane = recordLane(desk, caller, args, place, issue);
+    const placed = recordOpen(desk, caller, args, place, issue, serial);
+    if ("why" in placed) return no(`${placed.why} ${placed.instead}`.trim());
+    const { lane } = placed;
     const started = await startLead(desk, project, lane, { ownCopy: placed.ownCopy, failed: "close", from: newBranch ? here : undefined, role: str(args.role), parent: caller.id, issue });
     if (typeof started === "string") return no(started);
     await seatCritic(desk, project, lane);

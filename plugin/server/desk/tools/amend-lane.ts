@@ -3,7 +3,7 @@ import { given, no, ok, str } from "../context.ts";
 import { amend, findLane, loadLedger } from "../ledger.ts";
 import { letters } from "../letters.ts";
 import { defineTool } from "../services.ts";
-import { overlap } from "../opening.ts";
+import { scopeProblem, serialIn } from "../opening.ts";
 
 /** Changes what a lane is asked while it is open or waiting, keeping what it was asked before; its Lead is told what moved. */
 export const amendLane = defineTool({
@@ -13,22 +13,25 @@ export const amendLane = defineTool({
     const { project } = caller;
     const changes = given(args, ["outcome"], ["acceptance", "outOfScope", "writeSet", "contracts"]);
     if (changes.outcome === "" || changes.acceptance?.length === 0) return no("A lane keeps an outcome and at least one acceptance line; give what it is asked now.");
-    const ledger = loadLedger(project.state);
-    const lane = findLane(ledger, str(args.lane));
+    const lane = findLane(loadLedger(project.state), str(args.lane));
     if (!lane) return no(`There is no lane ${str(args.lane)}.`);
-    if (lane.status === "closed") return no(`Lane ${lane.id} is closed; ask for the work again with open_lane.`);
-    if (lane.status === "open" && (changes.writeSet || changes.contracts)) {
-      const others = Object.values(ledger.lanes).filter((entry) => entry.status === "open" && entry.id !== lane.id);
-      const problem = await overlap(ctx.kit, project, others, (changes.writeSet ?? lane.writeSet) as string[], (changes.contracts ?? lane.contracts) as string[]);
-      if (problem) return no(`${problem.why} Leave those paths out of this lane, or ask for that work in a lane that waits for the other.`);
-    }
+    const scoped = Boolean(changes.writeSet || changes.contracts);
+    const serial = scoped ? await serialIn(ctx.kit, project, project.root) : [];
+    // Checked where it is written: a lane opened meanwhile may already hold the paths this one would take.
     const done = ctx.transact(project, (current) => {
       const entry = current.lanes[lane.id];
-      const amendment = entry && entry.status !== "closed" ? amend(entry, changes, caller.id, str(args.why)) : undefined;
-      if (amendment) delete entry!.ready;
-      return amendment && { lane: { ...entry! }, amendment };
+      if (!entry || entry.status === "closed") return `Lane ${lane.id} is closed; ask for the work again with open_lane.`;
+      if (entry.status === "open" && scoped) {
+        const others = Object.values(current.lanes).filter((other) => other.status === "open" && other.id !== lane.id);
+        const problem = scopeProblem(serial, others, (changes.writeSet ?? entry.writeSet) as string[], (changes.contracts ?? entry.contracts) as string[]);
+        if (problem) return `${problem.why} Leave those paths out of this lane, or ask for that work in a lane that waits for the other.`;
+      }
+      const amendment = amend(entry, changes, caller.id, str(args.why));
+      if (!amendment) return `Nothing about lane ${lane.id} would change; pass the fields it is asked differently now.`;
+      delete entry.ready;
+      return { lane: { ...entry }, amendment };
     });
-    if (!done) return no(`Nothing about lane ${lane.id} would change; pass the fields it is asked differently now.`);
+    if (typeof done === "string") return no(done);
     ctx.event(project, { kind: "lane.amended", lane: lane.id, fields: Object.keys(done.amendment.was), by: caller.id });
     if (done.lane.status === "waiting") return ok(`Lane ${lane.id} is amended; it opens as it is now.`);
     const posted = await ctx.post(done.lane.lead, `amended:${lane.id}:${done.lane.amended!.length}`, letters.amended(done.lane, done.amendment, "lead"));

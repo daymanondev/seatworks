@@ -5,7 +5,7 @@ import { hash } from "./context.ts";
 import { fetchIssue } from "./issue.ts";
 import { type Lane, type Ledger, type Task, loadLedger } from "./ledger.ts";
 import { letters } from "./letters.ts";
-import { leadSeatOf, openedReply, placement, seatingKey, startLead, startPeer, taskPlacement } from "./opening.ts";
+import { type Refusal, leadSeatOf, openedReply, placement, seatingKey, serialIn, startLead, startPeer, taskPlacement } from "./opening.ts";
 import type { Project } from "./project.ts";
 import type { DeskServices } from "./services.ts";
 
@@ -79,19 +79,24 @@ export async function startWaiting(desk: DeskServices, project: Project, retryHe
   }
 }
 
-/** As `release`, for a task: checked with nothing taken, claimed under the ledger lock, and back to waiting if its Peer cannot start. */
+/** As `release`, for a task: placed and claimed in one transaction, and back to waiting if its Peer cannot start. */
 async function releaseTask(desk: DeskServices, project: Project, lane: Lane, task: Task): Promise<Task["held"]> {
-  const problem = await taskPlacement(desk.ctx.kit, project, loadLedger(project.state), lane, task.owned, task.mode === "parallel");
-  if (problem) return { why: `${problem.why} It starts by itself once that clears; amend it, or cut it to drop it.` };
-  const startSha = task.mode === "parallel" ? undefined : await headSha(lane.worktree!);
-  const claimed = desk.ctx.transact(project, (ledger) => {
+  const parallel = task.mode === "parallel";
+  const serial = parallel ? await serialIn(desk.ctx.kit, project, lane.worktree!) : [];
+  const startSha = parallel ? undefined : await headSha(lane.worktree!);
+  const claimed = desk.ctx.transact(project, (ledger): Task | Refusal | undefined => {
     const entry = ledger.tasks[task.id];
-    if (!entry || !TASK.move(entry, "start")) return undefined;
+    const now = ledger.lanes[lane.id];
+    if (!entry || !now || !TASK.may(entry.status, "start")) return undefined;
+    const problem = taskPlacement(ledger, now, entry.owned, parallel, serial);
+    if (problem) return problem;
+    TASK.move(entry, "start");
     Object.assign(entry, { startSha, updatedAt: Date.now() });
     desk.ctx.seating.add(seatingKey(project, entry.id));
     return { ...entry };
   });
   if (!claimed) return undefined;
+  if ("why" in claimed) return { why: `${claimed.why} It starts by itself once that clears; amend it, or cut it to drop it.` };
   const started = await startPeer(desk, project, lane, claimed, { role: claimed.opening!.role, parent: lane.lead, failed: "wait" });
   if (typeof started === "string") return { why: `${started} It is tried again when a task is accepted or cut; cut it to drop it.`, tried: true };
   desk.ctx.setTask(project, task.id, (entry) => {
@@ -101,22 +106,27 @@ async function releaseTask(desk: DeskServices, project: Project, lane: Lane, tas
   return undefined;
 }
 
-/** Asked first with nothing taken, so a round can ask every time; then claimed under the ledger lock, so nothing opens it twice. */
+/** Placed and claimed in one transaction, so a round can ask every time and nothing opens it twice or beside another in one copy. */
 async function release(desk: DeskServices, project: Project, lane: Lane): Promise<Lane["held"]> {
   const here = await currentBranch(project.root);
-  const placed = lane.onBranch && here !== lane.branch
+  const moved = lane.onBranch && here !== lane.branch
     ? `it carries on ${lane.branch}, and the project's own copy is on ${here ?? "no branch"} now.`
     : !lane.onBranch && !(await branchExists(project.root, lane.base))
       ? `its base branch ${lane.base} no longer exists.`
-      : await placement(desk.ctx.kit, project, lane, lane.opening?.isolate === true, lane.id);
-  if (typeof placed === "string" || "why" in placed) return { why: `${typeof placed === "string" ? placed : placed.why} It opens by itself once that clears; amend it, or close it to drop it.` };
-  const claimed = desk.ctx.transact(project, (ledger) => {
+      : undefined;
+  const serial = moved ? [] : await serialIn(desk.ctx.kit, project, project.root);
+  const placed = moved ?? desk.ctx.transact(project, (ledger): { claimed: Lane; ownCopy: boolean } | Refusal | undefined => {
     const entry = ledger.lanes[lane.id];
-    if (!entry || !LANE.move(entry, "open")) return undefined;
+    if (!entry || !LANE.may(entry.status, "open")) return undefined;
+    const where = placement(ledger, entry, entry.opening?.isolate === true, serial, entry.id);
+    if ("why" in where) return where;
+    LANE.move(entry, "open");
     desk.ctx.seating.add(seatingKey(project, lane.id));
-    return { ...entry };
+    return { claimed: { ...entry }, ownCopy: where.ownCopy };
   });
-  if (!claimed) return undefined;
+  if (!placed) return undefined;
+  if (typeof placed === "string" || "why" in placed) return { why: `${typeof placed === "string" ? placed : placed.why} It opens by itself once that clears; amend it, or close it to drop it.` };
+  const { claimed } = placed;
   const fetched = claimed.issue ? await fetchIssue(claimed.issue, project.root) : undefined;
   const issue = fetched && !("error" in fetched) ? fetched : undefined;
   const started = await startLead(desk, project, claimed, { ownCopy: placed.ownCopy, failed: "wait", role: claimed.opening?.role, parent: claimed.opener, issue });
