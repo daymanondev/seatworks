@@ -23,7 +23,7 @@ type Props = {
 };
 
 const ADD = "__add__";
-const EXAMPLE = '{\n  "mcp": {\n    "context7": {\n      "type": "local",\n      "command": ["npx", "-y", "@upstash/context7-mcp"],\n      "enabled": true\n    }\n  }\n}';
+const EXAMPLE = '{\n  "mcp": {\n    "filesystem": {\n      "type": "local",\n      "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "."],\n      "enabled": true\n    }\n  }\n}';
 
 function Tuning({ entry, current, disabled, save, labelOf }: {
   entry: Entry;

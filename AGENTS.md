@@ -61,9 +61,9 @@ runs in a HOME of its own, and a `console.error` the test did not ask for fails 
 - **Fail first.** For every fix, put the old behaviour back and watch the new test fail. Green suites
   here have agreed with bugs before.
 - **No dormant machinery:** no framework, abstraction or setting without a real consumer today.
-- **`test/architecture.test.ts` is a ratchet** on import layers, cycles, file and function sizes and
-  unused exports. Its lists of known breaches only shrink: split or move the code, never add an entry or
-  raise a number.
+- **`test/architecture.test.ts` is a ratchet** on import layers, cycles, file and function sizes,
+  unused exports, and agent or server names in code. Its lists of known breaches only shrink: split or
+  move the code, never add an entry or raise a number.
 - **No docs or decision records unless asked.** Git history is the record; the owner's decisions,
   and the exceptions to these conventions, live in `../v3/DECISIONS.md`.
 - **Comments are few and short.** At most one docstring per function, method, class or type, one or

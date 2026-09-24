@@ -149,6 +149,9 @@ export const RolesFile = z.strictObject({
   roles: z.array(Role),
 });
 
+/** The tools Paseo gives every agent, as a list the plugin keeps in step with Paseo. */
+export const PaseoFile = z.strictObject({ tools: z.array(text).min(1) });
+
 const Gate = z.strictObject({
   files: z.array(text).min(1),
   script: text.optional(),

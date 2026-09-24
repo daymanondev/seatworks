@@ -7,11 +7,11 @@ import { renderPrompt } from "../../server/catalog/content.ts";
 import { HarnessFile } from "../../server/catalog/schema.ts";
 import { tempDir } from "../tempdir.ts";
 
-/** A kit of the test's own, holding the shipped ecosystem: gates and lockfiles are no fixture's to make up. */
+/** A kit of the test's own, holding the shipped ecosystem and Paseo's tools, which are no fixture's to make up. */
 function kitDir(prefix: string): string {
   const dir = tempDir(prefix);
   mkdirSync(join(dir, "catalog"), { recursive: true });
-  copyFileSync(new URL("../../catalog/ecosystem.json", import.meta.url), join(dir, "catalog", "ecosystem.json"));
+  for (const name of ["ecosystem.json", "paseo.json"]) copyFileSync(new URL(`../../catalog/${name}`, import.meta.url), join(dir, "catalog", name));
   return dir;
 }
 

@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { renderPrompt } from "../../server/catalog/content.ts";
-import { PASEO_TOOLS, loadKit, providerId, toolsOf } from "../../server/catalog/kit.ts";
+import { loadKit, providerId, toolsOf } from "../../server/catalog/kit.ts";
 import { applyRole, stateWrites } from "../../server/catalog/launch.ts";
 import type { AgentConfig } from "../../server/core/ports.ts";
 import { desiredProvider, seatPairs } from "../../server/catalog/providers.ts";
@@ -254,7 +254,7 @@ test("a prompt never tells a seat to use something that seat cannot reach", () =
     const allowed = role.paseoTools?.allow;
 
     for (const name of ticked) {
-      if (PASEO_TOOLS.includes(name)) {
+      if (kit.paseoTools.includes(name)) {
         const reachable = allowed ? allowed.includes(name) : role.paseoTools?.enabled !== false;
         assert.ok(reachable, `${role.role}'s prompt says to use the Paseo tool ${name}, which its policy denies it`);
       }
@@ -266,7 +266,7 @@ test("a prompt never tells a seat to use something that seat cannot reach", () =
         assert.ok(given.has(name), `${role.role}'s prompt says to open the skill ${name}, which it is not given`);
       }
       const deskTool = Object.values(tools).some((set) => set.some((entry) => entry.name === name));
-      if (deskTool && !PASEO_TOOLS.includes(name)) {
+      if (deskTool && !kit.paseoTools.includes(name)) {
         assert.ok(ownTools.has(name), `${role.role}'s prompt says to call ${name}, which belongs to another seat's set`);
       }
     }

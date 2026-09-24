@@ -11,7 +11,6 @@ import {
   type ProxySpec,
   type RoleSpec,
   PASEO_SERVER,
-  PASEO_TOOLS,
   TEAM_SERVER,
   can,
   supportsRole,
@@ -168,7 +167,7 @@ function resolveRole(kit: Kit, role: RoleSpec, layers: Layer[], mcp: Record<stri
       `The ${role.label} is given the tool set ${role.tools}, which this kit does not have. A seat with no tools starts, offers none and can never answer; the sets it can be given are ${Object.keys(kit.toolSets).sort().join(", ") || "none"}.`,
     );
   }
-  const unknownTools = (role.paseoTools?.allow ?? []).filter((tool) => !PASEO_TOOLS.includes(tool));
+  const unknownTools = (role.paseoTools?.allow ?? []).filter((tool) => !kit.paseoTools.includes(tool));
   if (unknownTools.length > 0) {
     errors.push(
       `The ${role.label} is allowed Paseo tools this kit does not know: ${unknownTools.join(", ")}. An allow list is applied by denying everything else, so an unknown name denies the ${role.label} every Paseo tool rather than granting it one.`,
@@ -326,8 +325,8 @@ export function preapprovedFor(kit: Kit, team: Team, roleName: string): { kind: 
   const refs = (server: string, tools: string[]) => tools.map((tool) => ({ kind: "mcp" as const, server, tool }));
   const approved = seat.role.tools ? refs(TEAM_SERVER, toolsOf(kit, seat.role)) : [];
   // Paseo adds its own server at launch, unless a seat's config already names one; only the tools this role is allowed there.
-  const paseo = paseoToolsPolicy(seat.role);
-  if (paseo?.enabled !== false) approved.push(...refs(PASEO_SERVER, PASEO_TOOLS.filter((tool) => !paseo?.disabledTools?.includes(tool))));
+  const paseo = paseoToolsPolicy(kit, seat.role);
+  if (paseo?.enabled !== false) approved.push(...refs(PASEO_SERVER, kit.paseoTools.filter((tool) => !paseo?.disabledTools?.includes(tool))));
   for (const id of seat.mcp) {
     const state = team.mcp[id]!;
     if (state.entry?.kind === "proxy") approved.push(...refs(id, (state.tools ?? state.entry.tools)?.[roleName] ?? []));

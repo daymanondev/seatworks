@@ -50,7 +50,7 @@ export function desiredProvider(kit: Kit, team: Team, role: RoleSpec, harness: H
   if (command.length > 0) entry.command = command;
   const models = defaultModel(harness, choiceFor(team, role, harness));
   if (models.length > 0) entry.additionalModels = models;
-  const tools = paseoToolsPolicy(role);
+  const tools = paseoToolsPolicy(kit, role);
   if (tools) entry.paseoTools = tools;
   return entry;
 }

@@ -37,6 +37,11 @@ const UPWARD = [
   "server/desk/notice.ts > server/runtime/watch/findings.ts",
 ];
 
+const NAMED = [
+  "server/catalog/project-files.ts > claude",
+  "server/desk/tools/supervisor.ts > claude",
+];
+
 const LIMITS = { file: 300, testFile: 400, function: 50 };
 
 const LONG_FILES: Record<string, number> = {
@@ -88,7 +93,7 @@ const LONG_FUNCTIONS: Record<string, number> = {
 const ENTRIES = ["index.server.ts", "index.client.tsx"];
 
 type Import = { to: string; names: Set<string> | "all" };
-type Source = { lines: number; imports: Import[]; exports: Map<string, number>; functions: Map<string, number> };
+type Source = { lines: number; imports: Import[]; exports: Map<string, number>; functions: Map<string, number>; words: string[] };
 
 /** The code files under `dir`, leaving out what the plugin does not run: `content/` is for the seats to read, and a fixture is data. */
 function codeIn(dir: string): string[] {
@@ -140,7 +145,7 @@ function read(path: string): Source {
     const named = (spec as ts.StringLiteral).text;
     return named.startsWith(".") ? relative(PLUGIN, resolve(PLUGIN, dirname(path), named)) : named;
   };
-  const source: Source = { lines: text.split("\n").length - (text.endsWith("\n") ? 1 : 0), imports: [], exports: new Map(), functions: new Map() };
+  const source: Source = { lines: text.split("\n").length - (text.endsWith("\n") ? 1 : 0), imports: [], exports: new Map(), functions: new Map(), words: [] };
   const namespaces = new Map<string, Import>();
   for (const statement of file.statements) {
     if (ts.isImportDeclaration(statement)) {
@@ -172,6 +177,7 @@ function read(path: string): Source {
     if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && node.arguments[0] && ts.isStringLiteral(node.arguments[0])) {
       source.imports.push({ to: target(node.arguments[0]), names: "all" });
     }
+    if (ts.isIdentifier(node) || ts.isStringLiteralLike(node) || ts.isTemplateLiteralToken(node) || ts.isJsxText(node)) source.words.push(node.text);
     const parent = node.parent;
     const entry = ts.isIdentifier(node) ? namespaces.get(node.text) : undefined;
     if (entry && entry.names !== "all" && !ts.isNamespaceImport(parent) && !((ts.isPropertyAssignment(parent) || ts.isPropertyAccessExpression(parent)) && parent.name === node)) {
@@ -287,4 +293,17 @@ test("everything the plugin exports is imported by another file", () => {
       .map(([name, line]) => `${path}:${line} ${name}`);
   });
   assert.deepEqual(unused, [], "Drop the export of what only its own file uses, and delete what nothing uses.");
+});
+
+test("the plugin's code names no agent or MCP server its catalog describes, apart from what NAMED still lists", () => {
+  const names = [...readdirSync(join(PLUGIN, "harness")), ...readdirSync(join(PLUGIN, "catalog", "mcp"))];
+  const found = new Set<string>();
+  for (const path of product) {
+    for (const name of names) if (sources.get(path)!.words.some((word) => new RegExp(`\\b${name}\\b`, "i").test(word))) found.add(`${path} > ${name}`);
+  }
+  const problems = [
+    ...[...found].filter((entry) => !NAMED.includes(entry)).map((entry) => `${entry}: an agent or a server is data; say what the code needs of it in its catalog file instead. NAMED only ever shrinks.`),
+    ...NAMED.filter((entry) => !found.has(entry)).map((entry) => `${entry} is gone: take it off NAMED.`),
+  ];
+  assert.deepEqual(problems, []);
 });

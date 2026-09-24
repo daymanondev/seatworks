@@ -4,7 +4,7 @@ import { z } from "zod";
 import { ATTENTION, type Attention } from "./attention.ts";
 import { hiddenWordsIn } from "./hidden-words.ts";
 import type { FileKinds } from "../core/git.ts";
-import { EcosystemFile, HarnessFile, McpFile, RolesFile } from "./schema.ts";
+import { EcosystemFile, HarnessFile, McpFile, PaseoFile, RolesFile } from "./schema.ts";
 
 type ThinkingSpec = { id: string; label: string; isDefault?: boolean };
 export type ModelSpec = { id: string; label: string; isDefault?: boolean; thinkingOptions?: ThinkingSpec[] };
@@ -31,6 +31,7 @@ export type Kit = {
   own?: string;
   attention: Attention;
   ecosystem: Ecosystem;
+  paseoTools: string[];
 };
 
 function subdirs(root: string): string[] {
@@ -115,6 +116,7 @@ export function loadKit(dir: string, stateDir?: string): Kit {
     own,
     attention: { ...ATTENTION, destructive: ecosystem.watch.destructive, testPath: ecosystem.watch.testPath, suppressed: ecosystem.watch.suppressed, ...raw.attention },
     ecosystem,
+    paseoTools: parsed(PaseoFile, chosen(join(dir, "catalog", "paseo.json"), stateDir), "paseo.json").tools,
   };
 }
 
@@ -241,21 +243,11 @@ export function supportsRole(kit: Kit, harness: HarnessSpec, role: RoleSpec): bo
   return existsSync(roleSettingsFile(kit, harness, role)) && Object.values(harnessFileSources(kit, harness, role)).every((sources) => sources.every((source) => existsSync(source)));
 }
 
-export const PASEO_TOOLS = [
-  "create_workspace", "list_workspaces", "archive_workspace", "create_agent", "send_agent_prompt", "get_agent_status",
-  "list_agents", "cancel_agent", "archive_agent", "kill_agent", "update_agent", "rename_workspace", "list_workspace_scripts",
-  "start_workspace_script", "stop_workspace_script", "list_terminals", "create_terminal", "kill_terminal", "capture_terminal",
-  "send_terminal_keys", "create_schedule", "create_heartbeat", "delete_heartbeat", "list_schedules", "inspect_schedule",
-  "pause_schedule", "resume_schedule", "delete_schedule", "update_schedule", "schedule_logs", "run_schedule_once",
-  "list_providers", "list_models", "list_profiles", "inspect_provider", "get_agent_activity", "set_agent_mode",
-  "list_pending_permissions", "respond_to_permission",
-];
-
-/** `allow` disables each PASEO_TOOLS name it omits, so a tool Paseo adds that the list lacks stays on: keep the list in step with Paseo. */
-export function paseoToolsPolicy(role: RoleSpec): { enabled?: boolean; disabledTools?: string[] } | undefined {
+/** `allow` disables each of Paseo's tools it omits, so a tool Paseo adds that `catalog/paseo.json` lacks stays on: keep the list in step. */
+export function paseoToolsPolicy(kit: Kit, role: RoleSpec): { enabled?: boolean; disabledTools?: string[] } | undefined {
   const policy = role.paseoTools;
   if (!policy) return undefined;
-  if (policy.allow) return { disabledTools: PASEO_TOOLS.filter((tool) => !policy.allow!.includes(tool)) };
+  if (policy.allow) return { disabledTools: kit.paseoTools.filter((tool) => !policy.allow!.includes(tool)) };
   const { allow: _allow, ...rest } = policy;
   return rest;
 }
