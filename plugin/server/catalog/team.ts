@@ -11,7 +11,9 @@ import {
   type ProxySpec,
   type RoleSpec,
   type SensorSpec,
+  PASEO_SERVER,
   PASEO_TOOLS,
+  TEAM_SERVER,
   can,
   supportsRole,
   agentDefault,
@@ -105,6 +107,10 @@ function resolveMcp(kit: Kit, layers: Layer[], errors: string[]): Record<string,
   const states: Record<string, McpState> = {};
   const ids = new Set([...Object.keys(kit.mcp), ...layers.flatMap((layer) => Object.keys(layer.mcp ?? {}))]);
   for (const id of ids) {
+    if (id === TEAM_SERVER || id === PASEO_SERVER) {
+      errors.push(`The MCP server ${id} has the name of a server every seat already has, so it would replace that one; it is left out: paste it again under another name`);
+      continue;
+    }
     const entry = kit.mcp[id];
     const choices = layers.map((layer) => layer.mcp?.[id]).filter((choice): choice is McpChoice => choice !== undefined);
     const settings: Record<string, SettingValue> = {};
@@ -317,7 +323,7 @@ export function serversFor(kit: Kit, team: Team, roleName: string, context: { no
   const seat = team.roles[roleName];
   if (!seat) return {};
   const desk = teamServer(kit, seat.role, context.spool, context.node);
-  const servers: McpServers = desk.team && seat.harness.mcp.desk ? { team: { ...(desk.team as object), ...seat.harness.mcp.desk } } : { ...desk };
+  const servers: McpServers = desk[TEAM_SERVER] && seat.harness.mcp.desk ? { [TEAM_SERVER]: { ...(desk[TEAM_SERVER] as object), ...seat.harness.mcp.desk } } : { ...desk };
   for (const id of seat.mcp) {
     const state = team.mcp[id]!;
     const { entry } = state;
@@ -338,10 +344,10 @@ export function preapprovedFor(kit: Kit, team: Team, roleName: string): { kind: 
   const seat = team.roles[roleName];
   if (!seat) return [];
   const refs = (server: string, tools: string[]) => tools.map((tool) => ({ kind: "mcp" as const, server, tool }));
-  const approved = seat.role.tools ? refs("team", toolsOf(kit, seat.role)) : [];
-  // Paseo adds its own server at launch, named "paseo"; only the tools this role is allowed there.
+  const approved = seat.role.tools ? refs(TEAM_SERVER, toolsOf(kit, seat.role)) : [];
+  // Paseo adds its own server at launch, unless a seat's config already names one; only the tools this role is allowed there.
   const paseo = paseoToolsPolicy(seat.role);
-  if (paseo?.enabled !== false) approved.push(...refs("paseo", PASEO_TOOLS.filter((tool) => !paseo?.disabledTools?.includes(tool))));
+  if (paseo?.enabled !== false) approved.push(...refs(PASEO_SERVER, PASEO_TOOLS.filter((tool) => !paseo?.disabledTools?.includes(tool))));
   for (const id of seat.mcp) {
     const state = team.mcp[id]!;
     if (state.entry?.kind === "proxy") approved.push(...refs(id, (state.tools ?? state.entry.tools)?.[roleName] ?? []));

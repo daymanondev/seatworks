@@ -222,3 +222,14 @@ test("the panel is shown who reads a new lane and, for a project, what each chec
     land: { lines: ["Not enough yet to judge: 0 of the 30 runs it takes."], state: null },
   });
 });
+
+test("a pasted MCP server under the name of the team's own server or Paseo's is left out and reported, since it would replace that server for every seat", () => {
+  const connect = { type: "http", url: "http://example.invalid/mcp" } as const;
+  const team = resolveTeam(kit, {}, { mcp: { team: { connect }, paseo: { connect }, team_x: { connect } } });
+  const text = team.errors.join("\n");
+  assert.match(text, /The MCP server team has the name of a server every seat already has/);
+  assert.match(text, /The MCP server paseo has the name of a server every seat already has/);
+  assert.deepEqual(Object.keys(team.mcp).filter((id) => id.startsWith("team") || id === "paseo"), ["team_x"]);
+  const servers = serversFor(kit, team, "peer", context) as Record<string, any>;
+  assert.notEqual(servers.team.url, connect.url, "the Peer keeps the team's own server");
+});
