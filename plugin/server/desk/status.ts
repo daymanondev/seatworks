@@ -3,7 +3,7 @@ import type { SeatView } from "../core/paseo.ts";
 import { AT_WORK } from "../domain/task.ts";
 import { runsOf } from "./checkpoints.ts";
 import { type Lane, type Ledger, ownCopyHolder } from "./ledger.ts";
-import { type Project, type ProjectConfig, projectOf } from "./project.ts";
+import { type LaneHome, type Project, type ProjectConfig, laneHomeFor, projectOf } from "./project.ts";
 
 
 const minutes = (now: number, at: number | string) => Math.max(0, Math.round((now - (typeof at === "string" ? Date.parse(at) : at)) / 60_000));
@@ -21,6 +21,8 @@ export type OwnCopy = { branch?: string; head?: string; work?: string[] };
 const SHOWN_FILES = 10;
 const SHOWN_OUTCOME = 300;
 
+const HOMES: Record<LaneHome, string> = { onBranch: "carrying on the branch this copy is on", newBranch: "on a new branch off the base in this copy", isolate: "in a copy of their own" };
+
 /** Names a choice for the Human only where one is real: uncommitted work, or a branch that is not the base, with no lane in the copy. */
 function ownCopyLines(project: Project, ledger: Ledger, config: ProjectConfig, copy: OwnCopy): string[] {
   const at = copy.branch ? `on ${copy.branch}` : `not on a branch (detached at ${copy.head ?? "an unknown commit"})`;
@@ -30,10 +32,9 @@ function ownCopyLines(project: Project, ledger: Ledger, config: ProjectConfig, c
   const holder = ownCopyHolder(Object.values(ledger.lanes));
   const held = holder?.status === "open" ? `Lane ${holder.id} is working in it.` : holder ? `Lane ${holder.id} is closed, and its Lead is ending a turn in it; it goes back to ${holder.base} after.` : "No lane is working in it.";
   const lines = ["## The project's own copy", "", `${project.root} is ${at}, ${state}.`, held];
-  if (!holder && copy.branch && work) {
-    if (work.length > 0) lines.push(`The Human decides where the next lane works, before it opens: carry on ${copy.branch} here, a new branch that takes the uncommitted work along, or a new branch that leaves it where it is.`);
-    else if (config.base && copy.branch !== config.base) lines.push(`The Human decides where the next lane works, before it opens: carry on ${copy.branch} here, or a new branch off ${config.base}.`);
-  }
+  if (config.laneHome) lines.push(`Lanes open ${HOMES[config.laneHome]}, as the Human chose for every lane (laneHome).`);
+  const home = holder ? undefined : laneHomeFor(undefined, config, copy.branch, work);
+  if (typeof home === "object") lines.push(`The Human decides where the next lane works, before it opens: ${home.question}.`);
   lines.push("");
   return lines;
 }

@@ -63,9 +63,10 @@ Your move is small: one open question with what you saw, a second reviewer, or t
    A change that makes a lane's outcome pointless is not an amendment: the Human decides to close it.
 
 Before the first lane: read `status` (the first lane detects a gate; `set_project` only to correct
-it). When it says the Human decides where the next lane works, ask before `open_lane`: carry on
-that branch (`onBranch`), a new branch taking the work along (`onBranch` + `newBranch`, name
-agreed), or a new branch leaving it. Ask the Human in your first message to commit the team block the desk writes into
+it). When it says the Human decides where the next lane works, ask them before `open_lane`, which
+refuses until they say: carry on that branch (`onBranch`), a new branch taking the work along
+(`onBranch` + `newBranch`, name agreed), a new branch off the base in their copy (`isolate` false), or
+a copy of its own (`isolate`). An answer for every lane goes into `set_project` `laneHome`. Ask the Human in your first message to commit the team block the desk writes into
 `AGENTS.md` and `CLAUDE.md`: isolated lanes don't see it until then, and `open_lane` says when one missed it. Sample data in designs is a placeholder.
 
 ## Mail

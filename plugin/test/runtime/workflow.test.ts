@@ -168,7 +168,7 @@ test("the Supervisor's status shows the Human's own copy, names a choice only wh
   const offBase = await status();
   assert.match(offBase, /is on fix\/login, clean\./);
   assert.match(offBase, choice, "the reported case: a clean branch that is not the base");
-  assert.match(offBase, /carry on fix\/login here, or a new branch off main/);
+  assert.match(offBase, /carry on fix\/login here \(onBranch\), a new branch off main here \(isolate false\), or a copy of its own \(isolate\)\./);
 
   for (let n = 1; n <= 12; n++) writeFileSync(join(h.root, `wip-${String(n).padStart(2, "0")}.txt`), "half done\n");
   writeFileSync(join(h.root, "a.txt"), "edited\n");
@@ -1287,7 +1287,7 @@ test("a seat opening in a project writes the team's block there, and the first l
   writeFileSync(join(h.root, "AGENTS.md"), `Use pnpm.\n\n${readFileSync(join(h.root, "AGENTS.md"), "utf-8")}`);
   const second = await h.call(sup, "supervisor", "open_lane", { title: "Second", outcome: "x", acceptance: ["y"], outOfScope: ["z"] });
   assert.equal(second.ok, false);
-  assert.match(second.text, /uncommitted changes/);
+  assert.match(second.text, /The Human decides where this lane works, and has not said: carry on main here \(onBranch\), a new branch that takes the uncommitted work along/);
 });
 
 test("the team's block left uncommitted in the project's own copy does not hold up accepting or reporting the lane there", async () => {

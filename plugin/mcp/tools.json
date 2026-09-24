@@ -2,7 +2,7 @@
   "supervisor": [
     {
       "name": "open_lane",
-      "description": "Open a lane for one outcome: by default it takes over the project's own working copy, creates the lane branch there and starts a Lead with this directive, so nothing is created and nothing is left to clean up. Any number of lanes may be open at once; while another lane is in the project's copy, pass isolate or after, since one checkout holds one branch. A writeSet is yours to declare or leave out: when this lane declares one, it is checked against the open lanes' writeSets and contracts and against the paths the project keeps to one writer; a lane that declares none is not checked.",
+      "description": "Open a lane for one outcome: by default it takes over the project's own working copy, creates the lane branch there and starts a Lead with this directive, so nothing is created and nothing is left to clean up. Any number of lanes may be open at once; while another lane is in the project's copy, pass isolate or after, since one checkout holds one branch. A writeSet is yours to declare or leave out: when this lane declares one, it is checked against the open lanes' writeSets and contracts and against the paths the project keeps to one writer; a lane that declares none is not checked. Refused, with the choices, when the Human's own copy has uncommitted work or is on a branch other than the base and neither this call nor the project's laneHome says where the lane works: ask the Human.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -43,7 +43,7 @@
           },
           "isolate": {
             "type": "boolean",
-            "description": "Give this lane a working copy of its own instead of the project's: to start now while another lane is in the project's copy, when the Human wants their checkout back, or to keep this lane out of it. The Human sees its work in their checkout only once it lands. The copy is torn down when the lane closes."
+            "description": "Give this lane a working copy of its own instead of the project's: to start now while another lane is in the project's copy, when the Human wants their checkout back, or to keep this lane out of it. The Human sees its work in their checkout only once it lands. The copy is torn down when the lane closes. false: in the project's own copy, on a lane branch off the base, when the Human chose that."
           },
           "base": {
             "type": "string",
@@ -288,6 +288,15 @@
               "ff"
             ],
             "description": "How a landed lane goes onto its base, as the Human's repository does it. squash (default): one commit per lane. merge: a merge commit keeping the lane's commits. ff: every commit of the lane, fast-forwarded."
+          },
+          "laneHome": {
+            "type": "string",
+            "enum": [
+              "onBranch",
+              "newBranch",
+              "isolate"
+            ],
+            "description": "Where lanes work unless a call says otherwise, as the Human chose once for every lane: onBranch carries on the branch their copy is on; newBranch starts a lane branch off the base in their copy; isolate gives each lane a copy of its own and leaves theirs alone."
           }
         }
       }

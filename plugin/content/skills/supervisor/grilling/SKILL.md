@@ -51,6 +51,15 @@ Write each answer that settles a behavior or a term into `$SEATWORKS_STATE/CONTE
 is settled, shaped by `$SEATWORKS_KIT/content/guides/CONTEXT_FORMAT.md`. An answer that changes an
 earlier one replaces its line. Create the file with the first settled answer, not before.
 
+## Read-back
+
+Before the first lane opens, give the Human one screen to correct: the lanes you will open, each
+with its outcome and acceptance, what you assumed, and what will bring them back (a question only they
+can answer, an act that cannot be undone). With it, settle what the desk keeps for every lane: where
+lanes work when their copy makes that a question (`set_project` `laneHome`). A correction is a settled
+answer like any other; what they want to be woken for, in their words, goes in
+`$SEATWORKS_STATE/notebook.md`.
+
 ## Ends in
 
 Every branch visited, nothing about the concept silently assumed, and the Human's confirmation that

@@ -10,8 +10,12 @@ export type Project = { root: string; slug: string; state: string };
 
 type GateOn = "lane" | "task";
 
+export const LANE_HOMES = ["onBranch", "newBranch", "isolate"] as const;
+/** Where a lane works when the call opening it does not say: the Human's standing answer to the question status asks. */
+export type LaneHome = (typeof LANE_HOMES)[number];
+
 /** `serialOnly` is the project's own list when it set one; without one the kit's holds, so a change to the kit reaches it. */
-export type ProjectConfig = { base?: string; gate?: string; gateTimeoutMinutes: number; gateOn: GateOn; serialOnly?: string[]; landAs: LandAs };
+export type ProjectConfig = { base?: string; gate?: string; gateTimeoutMinutes: number; gateOn: GateOn; serialOnly?: string[]; landAs: LandAs; laneHome?: LaneHome };
 
 const cache = new Map<string, Project>();
 
@@ -102,7 +106,22 @@ export function loadConfig(state: string): ProjectConfig {
     gateOn: stored.gateOn === "task" ? "task" : "lane",
     serialOnly: Array.isArray(stored.serialOnly) ? stored.serialOnly.map(String) : undefined,
     landAs: LAND_AS.find((as) => as === stored.landAs) ?? "squash",
+    laneHome: LANE_HOMES.find((home) => home === stored.laneHome),
   };
+}
+
+/**
+ * Where the next lane works in a project whose own copy is free: as its call or the Human's standing choice says, or else the
+ * question the Human answers first, which is real only over uncommitted work or a branch that is not the base.
+ */
+export function laneHomeFor(asked: LaneHome | undefined, config: ProjectConfig, branch: string | undefined, work: string[] | undefined): LaneHome | { question: string } {
+  const chosen = asked ?? config.laneHome;
+  if (chosen === "onBranch" || chosen === "isolate") return chosen;
+  // A new branch here would be switched to over the Human's uncommitted work, so that choice cannot hold while there is some.
+  if (!branch || !work || (chosen === "newBranch" && work.length === 0)) return "newBranch";
+  if (work.length > 0) return { question: `carry on ${branch} here (onBranch), a new branch that takes the uncommitted work along (onBranch with newBranch), or a copy of its own that leaves it where it is (isolate)` };
+  if (!config.base || branch === config.base) return "newBranch";
+  return { question: `carry on ${branch} here (onBranch), a new branch off ${config.base} here (isolate false), or a copy of its own (isolate)` };
 }
 
 /** The paths only one writer at a time may write in this project. */

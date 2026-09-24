@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { configFault } from "../../core/config-file.ts";
 import { branchExists, currentBranch } from "../../core/git.ts";
-import { blockUncommitted } from "../../catalog/project-files.ts";
+import { blockUncommitted, uncommittedWork } from "../../catalog/project-files.ts";
 import { type Args, type Caller, no, ok, str, strs } from "../context.ts";
 import { type Issue, fetchIssue } from "../issue.ts";
-import { type Lane, type Ledger, loadLedger, nextLaneId, slugify } from "../ledger.ts";
+import { type Lane, type Ledger, loadLedger, nextLaneId, ownCopyHolder, slugify } from "../ledger.ts";
 import { clip } from "../../core/text.ts";
-import { type Project, configFile, detectGate, loadConfig, saveConfig } from "../project.ts";
+import { type LaneHome, type Project, type ProjectConfig, configFile, detectGate, laneHomeFor, loadConfig, saveConfig } from "../project.ts";
 import { type DeskServices, defineTool } from "../services.ts";
 import { type Refusal, openedReply, placement, seatingKey, serialIn, startLead } from "../opening.ts";
 import { waitsFor } from "../waiting.ts";
@@ -71,18 +71,31 @@ function recordOpen(desk: DeskServices, caller: Caller, args: Args, place: Place
   });
 }
 
+/** Where this lane works, as its call or the Human's standing choice says, or why the Human is asked first: only of a lane taking their copy now. */
+async function homeOf(project: Project, config: ProjectConfig, asked: Args, opensNow: boolean, here: string | undefined): Promise<LaneHome | undefined | { refused: string }> {
+  const said: LaneHome | undefined = asked.onBranch === true ? "onBranch" : asked.isolate === true ? "isolate" : asked.isolate === false || str(asked.base) ? "newBranch" : undefined;
+  // A waiting lane opens into whatever the copy is by then, and one the copy is taken from takes a copy of its own or waits.
+  if (!opensNow || ownCopyHolder(Object.values(loadLedger(project.state).lanes))) return said ?? config.laneHome;
+  const home = laneHomeFor(said, config, here, await uncommittedWork(project.root));
+  if (typeof home !== "object") return home;
+  return { refused: `The Human decides where this lane works, and has not said: ${home.question}. Ask them, and keep their answer for every lane with set_project laneHome if they give one.` };
+}
+
 export const openLane = defineTool({
   name: "open_lane",
   input: z.strictObject({ title: z.string().max(60), outcome: z.string(), acceptance: z.array(z.string()), appetite: z.string().optional(), deadline: z.string().optional(), outOfScope: z.array(z.string()), issue: z.string().optional(), isolate: z.boolean().optional(), base: z.string().optional(), onBranch: z.boolean().optional(), newBranch: z.string().optional(), writeSet: z.array(z.string()).optional(), contracts: z.array(z.string()).optional(), after: z.array(z.string()).optional(), detourOf: z.string().optional(), role: z.string().optional() }),
-  async handle(desk, caller, args) {
+  async handle(desk, caller, asked) {
     const { project } = caller;
     const config = loadConfig(project.state);
-    const onBranch = args.onBranch === true;
-    const newBranch = str(args.newBranch).trim();
-    const after = [...new Set(strs(args.after).map((id) => id.trim().toUpperCase()))];
+    const after = [...new Set(strs(asked.after).map((id) => id.trim().toUpperCase()))];
     const here = await currentBranch(project.root);
-    if (newBranch && !onBranch) return no("newBranch goes with onBranch: it starts the branch the lane then carries on.");
-    if (onBranch && (args.isolate === true || str(args.base))) return no("onBranch carries on the branch the project's own copy is on, in that copy, so it takes no base and no isolate.");
+    const newBranch = str(asked.newBranch).trim();
+    if (newBranch && asked.onBranch !== true && config.laneHome !== "onBranch") return no("newBranch goes with onBranch: it starts the branch the lane then carries on.");
+    if (asked.onBranch === true && (asked.isolate !== undefined || str(asked.base))) return no("onBranch carries on the branch the project's own copy is on, in that copy, so it takes no base and no isolate.");
+    const home = await homeOf(project, config, asked, after.length === 0, here);
+    if (typeof home === "object") return no(home.refused);
+    const args = { ...asked, onBranch: home === "onBranch" || undefined, isolate: home === "isolate" || undefined };
+    const onBranch = args.onBranch === true;
     if (onBranch && !here) return no("The project's own copy is not on a branch, so there is no branch to carry on; open the lane without onBranch to start one.");
     if (newBranch && after.length > 0) return no("A lane that waits cannot start a branch from the copy as it is now: that is not the copy it will open in. Wait without newBranch, and start the branch when its turn comes.");
     if (newBranch && (await branchExists(project.root, newBranch))) return no(`The branch ${newBranch} already exists; carry it on after switching to it, or pick another name with the Human.`);
