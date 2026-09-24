@@ -16,7 +16,7 @@ test("with no settings every role gets its catalog defaults and the MCP servers 
   assert.equal(team.roles.supervisor!.harness.id, "claude");
   assert.equal(team.roles.supervisor!.model!.id, "opus");
   assert.equal(team.roles.supervisor!.thinking, "high");
-  assert.equal(team.roles.peer!.harness.id, "devin");
+  assert.equal(team.roles.peer!.harness.id, "omp");
   assert.equal(team.roles.peer!.thinking, undefined);
   assert.deepEqual(team.roles.lead!.mcp, ["ide"]);
   assert.deepEqual(team.roles.supervisor!.mcp, []);
@@ -27,12 +27,12 @@ test("with no settings every role gets its catalog defaults and the MCP servers 
 
 test("the project layer overrides the machine layer, and switching harness drops the other harness's model", () => {
   const machine = { mcp: { docs: { enabled: true }, ide: { settings: { port: 1234 } } }, rules: "Write tests first." };
-  const project = { roles: { lead: { harness: "devin" } }, mcp: { ide: { roles: ["peer"] } }, rules: "Use pnpm." };
+  const project = { roles: { lead: { harness: "omp" } }, mcp: { ide: { roles: ["peer"] } }, rules: "Use pnpm." };
   const team = resolveTeam(kit, machine, project);
   assert.deepEqual(team.errors, []);
   const lead = team.roles.lead!;
-  assert.equal(lead.harness.id, "devin");
-  assert.equal(lead.model!.id, "swe");
+  assert.equal(lead.harness.id, "omp");
+  assert.equal(lead.model!.id, "glm");
   assert.equal(lead.thinking, undefined);
   assert.deepEqual(lead.mcp, ["docs"]);
   assert.deepEqual(team.roles.peer!.mcp, ["ide", "docs"]);
@@ -52,14 +52,14 @@ test("settings that can't describe a working team are reported, not guessed arou
   const team = resolveTeam(
     kit,
     { roles: { scout: {}, lead: { model: "gpt" } }, mcp: { nope: {}, ide: { settings: { port: "x", host: "h" } } } },
-    { roles: { supervisor: { harness: "devin" }, peer: { thinking: "high" } }, mcp: { docs: { roles: ["scribe"] } } },
+    { roles: { supervisor: { harness: "omp" }, peer: { thinking: "high" } }, mcp: { docs: { roles: ["scribe"] } } },
   );
   const text = team.errors.join("\n");
   assert.match(text, /unknown role scout/);
   assert.match(text, /The MCP server nope has nothing to connect to/);
   assert.match(text, /IDE setting port must be a number/);
   assert.match(text, /IDE has no setting named host/);
-  assert.match(text, /Devin CLI has no supervisor settings/);
+  assert.match(text, /Oh My Pi has no supervisor settings/);
   assert.match(text, /Docs can't be given to the scribe role/);
 });
 
@@ -88,19 +88,17 @@ test("a seat may run a model the harness catalog does not list", () => {
   assert.equal(team.roles.lead!.model?.id, "gpt-5.6-sol");
 });
 
-test("rules gather each enabled server's rule, the role's tools and notes, harness hints and the Human's rules", () => {
+test("rules gather each enabled server's rule, the role's tools and notes, and the Human's rules", () => {
   const team = resolveTeam(kit, { rules: "Keep diffs small." });
   const peer = rulesFor(team, "peer");
   assert.match(peer, /^# Working rules/);
   assert.match(peer, /Prefer the IDE for navigation\./);
   assert.match(peer, /Your IDE tools: `ide_find_references`, `ide_refactor_rename`\./);
   assert.match(peer, /Check diagnostics before handing back\./);
-  assert.match(peer, /List a server's tools once/);
   assert.match(peer, /## Rules from the Human\n\nKeep diffs small\./);
-  assert.doesNotMatch(rulesFor(team, "lead"), /List a server's tools/);
   const scribe = rulesFor(team, "scribe");
   assert.match(scribe, /## Rules from the Human\n\nKeep diffs small\./);
-  assert.doesNotMatch(scribe, /IDE|ide_find_references|List a server's tools/);
+  assert.doesNotMatch(scribe, /IDE|ide_find_references/);
   assert.equal(rulesFor(resolveTeam(kit), "supervisor"), "");
 });
 
@@ -110,21 +108,21 @@ test("a server's skills follow it: on when it is enabled for the role, gone when
 });
 
 test("a seat opened on another harness than the settings choose gets that harness's default model", () => {
-  const team = withHarness(resolveTeam(kit), "lead", kit.harnesses.devin!);
-  assert.equal(team.roles.lead!.harness.id, "devin");
-  assert.equal(team.roles.lead!.model!.id, "swe");
+  const team = withHarness(resolveTeam(kit), "lead", kit.harnesses.omp!);
+  assert.equal(team.roles.lead!.harness.id, "omp");
+  assert.equal(team.roles.lead!.model!.id, "glm");
   assert.equal(team.roles.lead!.thinking, undefined);
 });
 
 test("a role that follows another takes that role's agent, model and thinking in force until it is given its own", () => {
-  assert.deepEqual(kit.roles.find((role) => role.role === "scribe")!.defaults, { harness: "devin", model: "swe" }, "and reads as that role's kit defaults to anything asking the kit");
+  assert.deepEqual(kit.roles.find((role) => role.role === "scribe")!.defaults, { harness: "omp", model: "glm" }, "and reads as that role's kit defaults to anything asking the kit");
   const seatOf = (team: ReturnType<typeof resolveTeam>) => [team.roles.scribe!.harness.id, team.roles.scribe!.model?.id, team.roles.scribe!.thinking];
-  assert.deepEqual(seatOf(resolveTeam(kit)), ["devin", "swe", undefined]);
+  assert.deepEqual(seatOf(resolveTeam(kit)), ["omp", "glm", undefined]);
   const machine = { roles: { peer: { harness: "claude", model: "opus", thinking: "medium" } } };
   assert.deepEqual(seatOf(resolveTeam(kit, machine)), ["claude", "opus", "medium"], "the Peer's own settings, not only the kit's");
   assert.deepEqual(seatOf(resolveTeam(kit, machine, { roles: { scribe: { model: "haiku" } } })), ["claude", "haiku", undefined], "a model of its own on the agent it followed to");
-  assert.deepEqual(seatOf(resolveTeam(kit, machine, { roles: { scribe: { harness: "devin" } } })), ["devin", "swe", undefined], "an agent of its own drops what it followed");
-  const away = { roles: { ...machine.roles, scribe: { harness: "devin" } } };
+  assert.deepEqual(seatOf(resolveTeam(kit, machine, { roles: { scribe: { harness: "omp" } } })), ["omp", "glm", undefined], "an agent of its own drops what it followed");
+  const away = { roles: { ...machine.roles, scribe: { harness: "omp" } } };
   assert.deepEqual(seatOf(resolveTeam(kit, away, { roles: { scribe: { harness: "claude" } } })), ["claude", "opus", "medium"], "and coming back to the followed role's agent brings back what it chose there");
   assert.deepEqual(resolveTeam(kit, machine).errors.filter((error) => /scribe/i.test(error)), [], "and it can run wherever it follows to");
 });
@@ -146,10 +144,10 @@ test("a seat pointed at a tool set the kit does not have is reported, not seated
 });
 
 test("putting a role back on its own harness brings back what the kit chose for it there", () => {
-  const team = resolveTeam(kit, { roles: { supervisor: { harness: "devin" } } }, { roles: { supervisor: { harness: "claude" } } });
+  const team = resolveTeam(kit, { roles: { supervisor: { harness: "omp" } } }, { roles: { supervisor: { harness: "claude" } } });
   assert.deepEqual(team.errors, []);
   assert.deepEqual([team.roles.supervisor!.model!.id, team.roles.supervisor!.thinking], ["opus", "high"]);
-  assert.equal(withHarness(resolveTeam(kit, { roles: { supervisor: { harness: "devin" } } }), "supervisor", kit.harnesses.claude!).roles.supervisor!.thinking, "high");
+  assert.equal(withHarness(resolveTeam(kit, { roles: { supervisor: { harness: "omp" } } }), "supervisor", kit.harnesses.claude!).roles.supervisor!.thinking, "high");
 });
 
 test("a model outside the catalog keeps the thinking the owner chose for it", () => {
@@ -162,13 +160,13 @@ test("a model outside the catalog keeps the thinking the owner chose for it", ()
 test("a harness with no models and none chosen is refused where the owner can see it", () => {
   const bare = {
     ...kit,
-    harnesses: { ...kit.harnesses, devin: { ...kit.harnesses.devin!, models: undefined } },
-    roles: kit.roles.map((role) => (role.role === "peer" ? { ...role, defaults: { harness: "devin" } } : role)),
+    harnesses: { ...kit.harnesses, omp: { ...kit.harnesses.omp!, models: undefined } },
+    roles: kit.roles.map((role) => (role.role === "peer" ? { ...role, defaults: { harness: "omp" } } : role)),
   };
   // Paseo starts an agent only as provider/model, so a bare provider failed later at every open_lane.
   const team = resolveTeam(bare as typeof kit);
   assert.ok(team.errors.some((error) => /listed no models for .* yet and none is chosen for the Peer/.test(error)), team.errors.join("\n"));
-  assert.deepEqual(resolveTeam(bare as typeof kit, { roles: { peer: { model: "swe-3" } } }).errors, [], "and choosing one is enough");
+  assert.deepEqual(resolveTeam(bare as typeof kit, { roles: { peer: { model: "glm-6" } } }).errors, [], "and choosing one is enough");
 });
 
 test("a server that needs something the project lacks is left off its seats, with everything that tells them to use it", () => {

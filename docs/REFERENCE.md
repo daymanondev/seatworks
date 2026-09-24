@@ -141,23 +141,20 @@ only you can answer.
 | Field | Drives |
 |---|---|
 | `id`, `label` | The harness's name, and the agent half of a provider's label |
-| `baseProvider` | The Paseo provider it extends: `claude`, `codex`, `pi` or `acp` |
+| `baseProvider` | The Paseo provider it extends: `claude`, `codex`, `pi` or `omp` |
 | `configDirEnv`, `profileRoot` | The variable that points the agent at its seat directory, and where those live |
-| `systemPrompt`, `promptFile` | Whether the prompt goes in the launch config or into a file |
 | `contextFile` | The file in the seat directory that gets the working rules |
 | `skillsDir` | Where skills are linked, each to its copy under `content/` |
-| `settings` | Base settings, the per-role overlay, the paths the plugin owns in an existing file, and `inherits`: keys taken from your own config for that agent |
+| `settings` | Base settings, the per-role overlay, and `inherits`: keys taken from your own config for that agent. The plugin writes the seat's settings file whole |
 | `mcp` | The MCP file, how servers are delivered, transports, seed and clear rules, and `desk` fields |
 | `links`, `files` | Files linked from your own setup (logins, history), and files composed per role |
 | `modelCatalog` | A command whose model list is written as the agent's catalog |
 | `stateWrites` | Where the seat's writable state paths go |
 | `projectContextOption` | The provider option that receives the working directory |
 | `steers` | Whether mail may be steered into a running turn |
-| `exitPattern` | How the agent writes a failed exit, so the watch can tell failure from output |
 | `mcpCall`, `mcpServerField` | How the agent names a call to an MCP server, or the field that holds the server's name, so a call to the desk is known as one |
-| `timeline` | Where the agent's timeline differs from the rest: a prefix it puts on a written path, calls it sends that are not the seat's, and the marks of an input that was not JSON |
+| `timeline` | Where the agent's timeline differs from the rest: calls it sends that are not the seat's, and the marks of an input that was not JSON |
 | `checks` | Files the Health tab looks for |
-| `hasThinking` | Whether the agent takes a thinking level |
 | `provider` | Env, launch command, `forceFlags`, and the starting mode |
 
 Required: `id`, `label`, `baseProvider`, `configDirEnv`, `profileRoot`, `skillsDir`, `settings`,
@@ -173,13 +170,12 @@ settings revision changes, its settings file is gone, or a login appeared since.
 | Claude Code | `~/.claude/profiles/…` | `settings.json` (deny rules, sandbox), `.claude.json` (its own MCP servers cleared), `skills/`, a `projects` link, `CLAUDE.md` for working rules | `bin/seat-room` with `--setting-sources user`, so the project's settings, hooks and skills stay out |
 | Codex | `~/.codex/seats/…` | `config.toml` (`model_provider` and `model_providers` from your own `~/.codex/config.toml`; `workspace-write`, or `read-only` for Reviewer and Critic; `approval_policy = "never"`; subagents off), `model-catalog.json`, `rules/seatworks.rules`, `skills/`, an `auth.json` link, `AGENTS.md` | Paseo's Codex provider |
 | Pi | `~/.pi/seats/…` | `settings.json` (`pi-mcp-adapter`, project trust off, tool lists for Reviewer and Critic), `mcp.json`, `skills/`, links to login, models and npm | Paseo's Pi provider |
-| Devin CLI | `~/.devin/seats/…` | `devin/config.json` (permissions, command denials, subagents off, other tools' config off), `devin/AGENTS.md`, `devin/mcp_config.json`, `devin/skills/`, a link to your git config | `bin/seat-room acp`, over Paseo's ACP provider |
+| Oh My Pi | `~/.omp/seats/…` | `config.yml` (command denials in `bash.patterns`, tool denials, subagents, questions, memory and other agents' config off), `mcp.json`, `AGENTS.md`, `skills/`, links to its login and models | Paseo's omp provider |
 
 - **Claude Code** still reads the project's `CLAUDE.md`: the working directory is passed as an
   additional directory.
 - **Codex** needs the `codex` CLI to build a seat, because the build asks it for its models.
-- **Devin** uses `XDG_CONFIG_HOME` as its config variable. Without `~/.config/git`, a Devin seat
-  commits as whoever git resolves.
+- **Oh My Pi** reads `config.yml` as YAML; the plugin writes it as JSON, which YAML reads too.
 
 ## MCP servers
 
@@ -274,8 +270,7 @@ it is given its own. Each role still needs its settings files under `harness/<ag
 | **Health** | The machine's checks and, on a project, its lanes' status |
 | **Plugin** | Updates, Migrate and Clean up, for the whole machine |
 
-Models and modes come from Paseo, which asks each agent. An ACP seat started without the plugin's
-hooks answers only that listing, from the agent itself, and refuses a prompt. The plugin lists them once a load, and **Refresh**
+Models and modes come from Paseo, which asks each agent. The plugin lists them once a load, and **Refresh**
 under the Team tab asks again. A role's chosen model is written as that provider's default in
 Paseo (`additionalModels`), so Paseo's own picker offers every model and starts on the role's.
 
@@ -329,12 +324,12 @@ it:
 
 ## Known limits
 
-- **Devin can't be steered.** Mail to a running Devin seat waits for its turn to end.
-- **Pi and Devin have no sandbox.** Pi has no command rules either, so a Pi seat is held only by its
-  tools. Devin has command denials, such as `git push` and `gh`, but no path rules.
-- **Reading an archived Devin seat's history leaves a `devin acp` running.** Paseo resumes the
-  agent to serve it and never closes it; `paseo logs` or the app's history view does this. The watch
-  stops rather than read a seat once it is archived.
+- **Oh My Pi can't be steered through Paseo.** Mail to a running omp seat waits for its turn to end.
+- **Pi and Oh My Pi have no sandbox.** Pi has no command rules either, so a Pi seat is held only by
+  its tools. Oh My Pi has command denials, such as `git push` and `gh`, but no path rules.
+- **Reading an archived seat's history leaves its agent running.** Paseo resumes the agent to serve
+  it and never closes it; `paseo logs` or the app's history view does this. The watch stops rather
+  than read a seat once it is archived.
 - **A Codex seat can call only the tools the kit can name.** Codex refuses any MCP call not
   approved ahead, so the desk's tools and proxied servers are approved at launch; a server you add
   whose tools the kit doesn't know stays out of reach on Codex.

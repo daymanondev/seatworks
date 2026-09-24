@@ -7,7 +7,6 @@
   "contextFile": "AGENTS.md",
   "skillsDir": "skills",
   "steers": true,
-  "systemPrompt": "config",
   "mcp": {
     "file": "mcp.json",
     "delivery": "file",

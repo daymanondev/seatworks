@@ -42,8 +42,8 @@ The step-by-step picture is in [A lane, end to end](docs/ARCHITECTURE.md#a-lane)
 |---|---|---|
 | Supervisor | Your intent, across lanes: opens and closes them, answers Leads | Claude Code · `claude-opus-5` · high |
 | Lead | One lane: its tasks, their order, and what is accepted | Claude Code · `claude-opus-5` · medium |
-| Peer | One task, and the engineering judgement inside it | Devin CLI · `swe-2-max` |
-| Reviewer | A read-only review of one change | Devin CLI · `swe-2-max` |
+| Peer | One task, and the engineering judgement inside it | Claude Code · `claude-opus-5` · medium |
+| Reviewer | A read-only review of one change | Claude Code · `claude-opus-5` · medium |
 
 Roles are data in `plugin/roles.json`, not code. Each role's tools are in
 [the reference](docs/REFERENCE.md#desk-verbs).
@@ -58,10 +58,10 @@ thinking level where the agent offers them.
 | Claude Code | `claude` signed in | yes | yes |
 | Codex | `codex login` once. The `codex` CLI must be on the machine that runs the daemon | yes | yes |
 | Pi | `pi` signed in, and `pi install npm:pi-mcp-adapter` once. That adapter is how a Pi seat reaches the desk | no | yes |
-| Devin CLI | `devin` signed in | no | no, it waits for the turn to end |
+| Oh My Pi | `omp` signed in once, outside any seat (`/login`) | no | no, it waits for the turn to end |
 
 Every seat reads your project's own instructions: Claude reads `CLAUDE.md`, and the others read
-`AGENTS.md`. Claude Code, Codex and Devin seats are denied `git push`, `gh`, `paseo` and starting
+`AGENTS.md`. Claude Code, Codex and Oh My Pi seats are denied `git push`, `gh`, `paseo` and starting
 other agents. A Pi seat is held only by the tools it is given. The shipped Claude settings answer in
 Vietnamese: change `language` in `plugin/harness/claude/settings.json` for another language. The details are under
 [seat directories](docs/REFERENCE.md#seat-directories) and
@@ -137,8 +137,8 @@ Supervisor's chip in the **Team** tab. How it all works is in
 
 - **Opening an archived seat's history starts its agent again, and leaves it running.** Paseo
   resumes an archived agent to show its history, from the app or `paseo logs`, and never closes it.
-  A Devin seat leaves a `devin acp` process, a Pi seat a `pi` process. The plugin never reads an
-  archived seat itself. To be rid of them: `pkill -f "devin acp"` or `pkill -f "pi --mode rpc"`,
+  A Pi seat leaves a `pi` process, an Oh My Pi seat an `omp` one. The plugin never reads an
+  archived seat itself. To be rid of them: `pkill -f "pi --mode rpc"` or `pkill -f "omp --mode rpc-ui"`,
   with no seat of yours running.
 - **An agent gets only the provider keys Paseo's daemon has.** A key set in your shell, such as
   `NVIDIA_API_KEY` for Pi, does not reach the daemon, so those models are neither listed nor usable.

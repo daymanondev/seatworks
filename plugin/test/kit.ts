@@ -41,7 +41,7 @@ export function makeKit(): Kit {
         label: "Peer",
         can: ["work"],
         tools: "peer",
-        defaults: { harness: "devin", model: "swe" },
+        defaults: { harness: "omp", model: "glm" },
         prompt: "prompts/PEER.md",
         skills: "peer",
         extraSkills: ["supervisor:plan-check"],
@@ -63,10 +63,8 @@ export function makeKit(): Kit {
     baseProvider: "claude",
     configDirEnv: "CLAUDE_CONFIG_DIR",
     profileRoot: "HOME/.claude/profiles",
-    promptFile: "CLAUDE.md",
     contextFile: "CLAUDE.md",
     skillsDir: "skills",
-    systemPrompt: "config",
     stateWrites: { path: "settings.sandbox.filesystem.allowWrite", delivery: "launch" },
     projectContextOption: "additionalDirectories",
     settings: { file: "settings.json", source: "settings.json", roleSource: "settings/ROLE.settings.json" },
@@ -88,27 +86,25 @@ export function makeKit(): Kit {
   put(dir, "harness/claude/settings/supervisor.settings.json", { askUserQuestionTimeout: "never" });
   put(dir, "harness/claude/settings/lead.settings.json", { permissions: { deny: ["Agent"] } });
   put(dir, "harness/claude/settings/scribe.settings.json", {});
-  put(dir, "harness/devin/harness.json", {
-    id: "devin",
-    label: "Devin CLI",
-    baseProvider: "acp",
-    configDirEnv: "XDG_CONFIG_HOME",
-    profileRoot: "HOME/.devin/seats",
-    promptFile: "devin/AGENTS.md",
-    skillsDir: "devin/skills",
-    hasThinking: false,
-    systemPrompt: "file",
-    settings: { file: "devin/config.json", source: "settings.json", roleSource: "settings/ROLE.settings.json", ownedPaths: ["permissions", "read_config_from"] },
+  put(dir, "harness/omp/harness.json", {
+    id: "omp",
+    label: "Oh My Pi",
+    baseProvider: "omp",
+    configDirEnv: "PI_CODING_AGENT_DIR",
+    profileRoot: "HOME/.omp/seats",
+    contextFile: "AGENTS.md",
+    skillsDir: "skills",
+    settings: { file: "config.yml", source: "settings.json", roleSource: "settings/ROLE.settings.json" },
     links: [{ link: "git", target: "HOME/.config/git", optional: true }],
-    models: [{ id: "swe", label: "SWE" }],
-    mcp: { file: "devin/mcp_config.json", delivery: "file", key: "mcpServers", rule: "List a server's tools once before your first call to it, so you can call them.", transports: ["stdio", "http"] },
-    provider: { env: { SEATWORKS_HARNESS: "devin", SEATWORKS_AGENT_BIN: "devin" }, profileModeId: "bypass", command: ["KIT/bin/seat-room", "acp"] },
-    checks: [{ path: "HOME/.devin/credentials.toml", help: "Log in to Devin once, outside any seat." }],
+    models: [{ id: "glm", label: "GLM" }],
+    mcp: { file: "mcp.json", delivery: "file", key: "mcpServers", transports: ["stdio", "http"] },
+    provider: { env: { SEATWORKS_HARNESS: "omp", SEATWORKS_AGENT_BIN: "omp" }, profileModeId: "full" },
+    checks: [{ path: "HOME/.omp/agent/agent.db", help: "Log in with omp once, outside any seat." }],
   });
-  put(dir, "harness/devin/settings.json", { read_config_from: { claude: false }, notify: "never", permissions: { deny: ["Exec(git push)"] } });
-  put(dir, "harness/devin/settings/lead.settings.json", {});
-  put(dir, "harness/devin/settings/peer.settings.json", {});
-  put(dir, "harness/devin/settings/scribe.settings.json", { permissions: { deny: ["exec"] } });
+  put(dir, "harness/omp/settings.json", { ask: { enabled: false }, bash: { patterns: [{ match: "git push*", approval: "deny" }] } });
+  put(dir, "harness/omp/settings/lead.settings.json", {});
+  put(dir, "harness/omp/settings/peer.settings.json", {});
+  put(dir, "harness/omp/settings/scribe.settings.json", { tools: { approval: { bash: "deny" } } });
   put(dir, "catalog/mcp/ide/mcp.json", {
     id: "ide",
     label: "IDE",

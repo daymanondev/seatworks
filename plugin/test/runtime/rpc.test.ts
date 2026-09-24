@@ -56,8 +56,8 @@ test("the plugin serves the catalog, settings, projects, team and status over RP
     "seatworks.upkeep.update",
   ]);
   const catalog = await call("seatworks.catalog.read");
-  assert.deepEqual(catalog.roles.find((role: any) => role.id === "lead").harnesses, ["claude", "devin"]);
-  assert.deepEqual(catalog.roles.find((role: any) => role.id === "scribe").harnesses, ["claude", "devin"]);
+  assert.deepEqual(catalog.roles.find((role: any) => role.id === "lead").harnesses, ["claude", "omp"]);
+  assert.deepEqual(catalog.roles.find((role: any) => role.id === "scribe").harnesses, ["claude", "omp"]);
   assert.deepEqual(catalog.mcp.map((entry: any) => [entry.id, entry.transport]), [["ide", "stdio"], ["docs", "http"]]);
 });
 
@@ -89,13 +89,13 @@ test("a web app turns a server on for the machine and switches a role's harness 
   assert.deepEqual(await call("seatworks.projects.list"), [{ slug: "shop-abc123", root: "/work/shop" }]);
   const projectRead = await call("seatworks.settings.read", { project: "shop-abc123" });
   assert.deepEqual(projectRead.machine, { mcp: { docs: { enabled: true } } });
-  const projectSaved = await call("seatworks.settings.write", { project: "shop-abc123", revision: projectRead.revision, values: { roles: { lead: { harness: "devin" } }, mcp: { ide: { enabled: false } } } });
+  const projectSaved = await call("seatworks.settings.write", { project: "shop-abc123", revision: projectRead.revision, values: { roles: { lead: { harness: "omp" } }, mcp: { ide: { enabled: false } } } });
   assert.equal(projectSaved.status, "saved");
   team = await call("seatworks.team.read", { project: "shop-abc123" });
-  assert.equal(team.roles.lead.harness, "devin");
-  assert.equal(team.roles.lead.provider, "sw2-lead-devin");
+  assert.equal(team.roles.lead.harness, "omp");
+  assert.equal(team.roles.lead.provider, "sw2-lead-omp");
   assert.deepEqual(team.roles.lead.mcp, ["docs"]);
-  assert.match(team.roles.lead.rules, /List a server's tools once/);
+  assert.match(team.roles.lead.rules, /Look library APIs up in the docs\./);
   assert.equal((await call("seatworks.team.read")).roles.lead.harness, "claude");
   const status = await call("seatworks.status.read", { project: "shop-abc123" });
   assert.match(status.text, /No open lanes\./);
@@ -104,9 +104,9 @@ test("a web app turns a server on for the machine and switches a role's harness 
 test("settings a team can't run on are refused with the reason, and stale writes conflict", async () => {
   const { call } = served();
   const read = await call("seatworks.settings.read");
-  const refused = await call("seatworks.settings.write", { revision: read.revision, values: { roles: { supervisor: { harness: "devin" } } } });
+  const refused = await call("seatworks.settings.write", { revision: read.revision, values: { roles: { supervisor: { harness: "omp" } } } });
   assert.equal(refused.status, "invalid");
-  assert.match(refused.error, /Devin CLI has no supervisor settings/);
+  assert.match(refused.error, /Oh My Pi has no supervisor settings/);
   assert.equal((await call("seatworks.settings.write", { revision: read.revision, values: { rules: "one" } })).status, "saved");
   assert.equal((await call("seatworks.settings.write", { revision: read.revision, values: { rules: "two" } })).status, "conflict");
   const unknown = await call("seatworks.settings.read", { project: "nowhere" });
@@ -126,9 +126,9 @@ test("a project can be registered by its path before any agent has run in it", a
 
   const read = await call("seatworks.settings.read", { project: added.slug });
   assert.equal(read.status, "ready");
-  const saved = await call("seatworks.settings.write", { project: added.slug, revision: read.revision, values: { roles: { peer: { harness: "devin" } } } });
+  const saved = await call("seatworks.settings.write", { project: added.slug, revision: read.revision, values: { roles: { peer: { harness: "omp" } } } });
   assert.equal(saved.status, "saved");
-  assert.equal((await call("seatworks.team.read", { project: added.slug })).roles.peer.harness, "devin");
+  assert.equal((await call("seatworks.team.read", { project: added.slug })).roles.peer.harness, "omp");
 
   const missing = await call("seatworks.projects.add", { root: join(root, "nowhere") });
   assert.match(missing.error, /is not a directory/);
@@ -140,7 +140,7 @@ test("attaching a project is undone by detaching it, unless work is still runnin
   execFileSync("git", ["init", "-q", root]);
   const added = await call("seatworks.projects.add", { root });
   const read = await call("seatworks.settings.read", { project: added.slug });
-  await call("seatworks.settings.write", { project: added.slug, revision: read.revision, values: { roles: { peer: { harness: "devin" } } } });
+  await call("seatworks.settings.write", { project: added.slug, revision: read.revision, values: { roles: { peer: { harness: "omp" } } } });
 
   const state = join(stateRoot(), "projects", added.slug);
   writeFileSync(join(state, "ledger.json"), JSON.stringify({ lanes: { L1: { id: "L1", status: "open" } }, tasks: {} }));

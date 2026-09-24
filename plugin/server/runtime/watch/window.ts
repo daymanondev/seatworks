@@ -41,12 +41,6 @@ const TERMINAL = new Set(["completed", "failed", "canceled"]);
 /** How a harness writes its timeline where it differs from the rest, as its harness file says. */
 export type Quirks = NonNullable<HarnessSpec["timeline"]>;
 
-/** A path given with the harness's own prefix is read bare: the path is what every reader of a write compares. */
-function withPath(detail: Detail, prefix: string | undefined): Detail {
-  const path = detail.filePath;
-  return prefix && typeof path === "string" && path.startsWith(prefix) ? { ...detail, filePath: path.slice(prefix.length) } : detail;
-}
-
 /** A call Paseo marks as its own, or one the harness sends that is no call the seat made. */
 function pseudo(item: Record<string, unknown>, quirks: Quirks): boolean {
   const metadata = item.metadata as { synthetic?: unknown } | undefined;
@@ -121,7 +115,7 @@ export class Window {
     const item = row.item;
     const id = text(item.callId) || `seq-${row.seq}`;
     const status = text(item.status) || "running";
-    const detail = withPath((item.detail && typeof item.detail === "object" ? item.detail : {}) as Detail, this.quirks.writePathPrefix);
+    const detail = (item.detail && typeof item.detail === "object" ? item.detail : {}) as Detail;
     const seen = this.calls.get(id);
     if (!seen) {
       const call: Call = {

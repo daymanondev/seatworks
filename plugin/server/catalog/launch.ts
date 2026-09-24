@@ -43,9 +43,9 @@ export function applyRole(kit: Kit, team: Team, config: AgentConfig, render: Ren
   const next: AgentConfig = { ...config };
   if (model) next.model = model.id;
   if (harness.provider.profileModeId) next.modeId = harness.provider.profileModeId;
-  const options = harness.hasThinking === false ? [] : (model?.thinkingOptions ?? []);
+  const options = model?.thinkingOptions ?? [];
   if (options.length === 0) {
-    const owned = harness.hasThinking === false ? undefined : sameHarness && chosen?.model?.id === model?.id ? chosen?.thinking : undefined;
+    const owned = sameHarness && chosen?.model?.id === model?.id ? chosen?.thinking : undefined;
     if (owned) next.thinkingOptionId = owned;
     else delete next.thinkingOptionId;
   }
@@ -54,10 +54,8 @@ export function applyRole(kit: Kit, team: Team, config: AgentConfig, render: Ren
     const valid = (id: string | undefined) => Boolean(id) && options.some((option) => option.id === id);
     next.thinkingOptionId = [config.thinkingOptionId, preferred].find(valid) ?? (options.find((option) => option.isDefault) ?? options[0])!.id;
   }
-  if (harness.systemPrompt === "config") {
-    const prompt = render(role);
-    next.systemPrompt = config.systemPrompt ? `${prompt}\n\n${config.systemPrompt}` : prompt;
-  }
+  const prompt = render(role);
+  next.systemPrompt = config.systemPrompt ? `${prompt}\n\n${config.systemPrompt}` : prompt;
   if (harness.mcp.delivery === "launch" && Object.keys(servers).length > 0) {
     next.mcpServers = { ...(config.mcpServers ?? {}), ...servers };
     if (harness.mcp.preapprove) next.toolPolicy = { preapproved: preapprovedFor(kit, team, role.role).filter((ref) => ref.server in servers || ref.server === "paseo") };

@@ -154,7 +154,6 @@ const kit = loadKit(join(dirname(fileURLToPath(import.meta.url)), "..", ".."));
 const thinking = ["low", "medium", "high"].map((id) => ({ id, label: id }));
 applyModels(kit, {
   claude: { at: "", error: null, models: [{ id: "claude-opus-5", label: "Opus 5", thinkingOptions: thinking }] },
-  devin: { at: "", error: null, models: [{ id: "swe-2-max", label: "SWE-2 Max" }] },
 });
 
 export const ideCalls: { kind: "open" | "sync" | "close"; path: string }[] = [];

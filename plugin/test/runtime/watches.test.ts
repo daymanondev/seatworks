@@ -27,7 +27,7 @@ const seat = (id: string, provider: string): SeatView => ({ id, provider, cwd: "
 test("a seat created while the round sweeps is followed once, and only the roles that are watched", () => {
   const timelines = new Map<string, FakeTimeline>();
   const watches = new Watches({ kit, seats: seatsWith(timelines), context: () => undefined, found: () => {}, log: () => {} });
-  const peer = seat("p1", "sw2-peer-devin/swe-2-max");
+  const peer = seat("p1", "sw2-peer-claude/claude-opus-5");
   watches.follow(peer);
   watches.sync([peer, seat("s1", "sw2-supervisor-claude/claude-opus-5"), seat("r1", "sw2-reviewer-claude/claude-opus-5"), seat("l1", "sw2-lead-claude/claude-opus-5")]);
   watches.follow(peer);
@@ -42,13 +42,13 @@ test("a seat archived while it is being joined leaves no subscription behind, an
   slow.ready = new Promise((resolve) => (open = resolve));
   timelines.set("p1", slow);
   const watches = new Watches({ kit, seats: seatsWith(timelines), context: () => undefined, found: () => {}, log: () => {} });
-  watches.follow(seat("p1", "sw2-peer-devin/swe-2-max"));
+  watches.follow(seat("p1", "sw2-peer-claude/claude-opus-5"));
   watches.drop("p1");
   open();
   await settle();
   assert.equal(slow.listeners.size, 0);
   assert.equal((watches.get("p1") !== undefined), false);
-  watches.sync([seat("p1", "sw2-peer-devin/swe-2-max")]);
+  watches.sync([seat("p1", "sw2-peer-claude/claude-opus-5")]);
   assert.equal((watches.get("p1") !== undefined), true);
 });
 
@@ -58,10 +58,10 @@ test("a seat the round no longer sees is let go, and one that failed to join is 
   broken.refetch = async () => ({ epoch: "e", entries: [], error: "no such agent" });
   timelines.set("p2", broken);
   const watches = new Watches({ kit, seats: seatsWith(timelines), context: () => undefined, found: () => {}, log: () => {} });
-  watches.sync([seat("p1", "sw2-peer-devin/swe-2-max"), seat("p2", "sw2-peer-devin/swe-2-max")]);
+  watches.sync([seat("p1", "sw2-peer-claude/claude-opus-5"), seat("p2", "sw2-peer-claude/claude-opus-5")]);
   await settle();
   assert.equal((watches.get("p2") !== undefined), false, "a join that failed is not held as followed");
-  watches.sync([seat("p2", "sw2-peer-devin/swe-2-max")]);
+  watches.sync([seat("p2", "sw2-peer-claude/claude-opus-5")]);
   assert.equal((watches.get("p1") !== undefined), false);
   assert.equal(timelines.get("p1")!.listeners.size, 0);
   assert.equal(broken.subscriptions, 2);
@@ -70,7 +70,7 @@ test("a seat the round no longer sees is let go, and one that failed to join is 
 test("a seat whose stream failed is followed again the next round", async () => {
   const timelines = new Map<string, FakeTimeline>();
   const watches = new Watches({ kit, seats: seatsWith(timelines), context: () => undefined, found: () => {}, log: () => {} });
-  const peer = seat("p1", "sw2-peer-devin/swe-2-max");
+  const peer = seat("p1", "sw2-peer-claude/claude-opus-5");
   watches.sync([peer]);
   await settle();
   timelines.get("p1")!.fail("socket closed");
@@ -94,9 +94,9 @@ test("a refusal from the desk reaches no one as a failed call, while a command t
   const { h, timeline } = await laneWithPeer({ attention: { watch: true } });
   timeline.beat("turn_started", "t1");
   timeline.add({ type: "user_message", text: "Clean the build" }, "t1");
-  // As a Devin Peer's refused hand-back was recorded live.
+  // A refused hand-back, as a Peer's call to the team server records it.
   const refusal = "MCP tool 'done' returned an error: [\n  {\n    \"type\": \"text\",\n    \"text\": \"This task is already accepted; there is nothing to hand back.\"\n  }\n]";
-  timeline.add({ type: "tool_call", callId: "r1", name: "Calling done from team", status: "failed", detail: { type: "plain_text", label: "Calling done from team", text: refusal }, error: { message: "Tool call failed" } }, "t1");
+  timeline.add({ type: "tool_call", callId: "r1", name: "mcp__team__done", status: "failed", detail: { type: "plain_text", label: "done", text: refusal }, error: { message: "Tool call failed" } }, "t1");
   timeline.add({ type: "tool_call", callId: "c1", name: "Bash", status: "failed", detail: { type: "shell", command: "cat ./missing.txt", output: "" } }, "t1");
   await settle();
   const facts = readFileSync(join(h.project.state, "events.log"), "utf-8").split("\n").filter(Boolean).map((line) => JSON.parse(line)).filter((event) => event.kind === "watch.fact");

@@ -73,7 +73,7 @@ function roleRows({ catalog, team, values, machine, layer, theme, disabled, save
   const model = seat?.model ?? models[0]?.id ?? "";
   const row = modelRow(model, models);
   const stray = row.stray;
-  const thinking = harness?.thinking === false ? [] : (models.find((entry) => entry.id === model)?.thinkingOptions ?? []);
+  const thinking = models.find((entry) => entry.id === model)?.thinkingOptions ?? [];
   const source = (field: keyof RoleChoice) => sourceOf(values, machine, (entry) => entry.roles?.[role.id]?.[field], layer);
   const rows: ReactElement[] = [
     <SettingsSelect

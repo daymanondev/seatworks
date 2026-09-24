@@ -13,7 +13,7 @@ type ModelView = { id: string; label: string; isDefault?: boolean; thinkingOptio
 
 export type Catalog = {
   roles: { id: string; label: string; description: string; can: string[]; concern: string | null; defaults: { harness: string; model?: string; thinking?: string }; follows: string | null; harnesses: string[] }[];
-  harnesses: { id: string; label: string; models: ModelView[]; thinking: boolean; transports: string[] }[];
+  harnesses: { id: string; label: string; models: ModelView[]; transports: string[] }[];
   mcp: { id: string; label: string; description: string; kind: string; transport: string; settings: Record<string, SettingSpec>; defaults: { enabled: boolean }; roles: string[] }[];
 };
 

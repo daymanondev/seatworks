@@ -33,20 +33,19 @@ test("a valid model and thinking option are kept and a caller prompt is appended
   assert.equal(next.systemPrompt, "ROLE PROMPT\n\nextra");
 });
 
-test("a Devin Peer gets no thinking option and no system prompt", () => {
-  const config = { provider: "sw2-peer-devin", cwd: "/repo", thinkingOptionId: "high" } as AgentConfig;
+test("a Peer whose model lists no thinking options is given none, and still its prompt", () => {
+  const config = { provider: "sw2-peer-omp", cwd: "/repo", thinkingOptionId: "high" } as AgentConfig;
   const next = applyRole(kit, team, config, render);
-  assert.equal(next.model, "swe");
-  assert.equal(next.modeId, "bypass");
+  assert.equal(next.model, "glm");
+  assert.equal(next.modeId, "full");
   assert.equal("thinkingOptionId" in next, false);
-  assert.equal(next.systemPrompt, undefined);
+  assert.equal(next.systemPrompt, "ROLE PROMPT");
 });
 
-test("a Lead opened on Devin follows that harness, whatever the settings choose", () => {
-  const next = applyRole(kit, team, { provider: "sw2-lead-devin", cwd: "/repo", model: "opus" } as AgentConfig, render);
-  assert.equal(next.model, "swe");
-  assert.equal(next.modeId, "bypass");
-  assert.equal(next.systemPrompt, undefined);
+test("a Lead opened on another harness follows that harness, whatever the settings choose", () => {
+  const next = applyRole(kit, team, { provider: "sw2-lead-omp", cwd: "/repo", model: "opus" } as AgentConfig, render);
+  assert.equal(next.model, "glm");
+  assert.equal(next.modeId, "full");
 });
 
 test("a seat's shell may write every place under state its own content names, and none of the desk's own files", () => {
@@ -82,7 +81,7 @@ test("a seat's shell may write every place under state its own content names, an
     assert.ok(deny.includes(rule), `nothing keeps a Claude seat's file tools off ${owned}`);
   }
 
-  const peer = applyRole(kit, team, { provider: "sw2-peer-devin", cwd: "/repo" } as AgentConfig, render, "/state/repo");
+  const peer = applyRole(kit, team, { provider: "sw2-peer-omp", cwd: "/repo" } as AgentConfig, render, "/state/repo");
   assert.equal(peer.providerOptions, undefined, "a harness that declares no write list is untouched");
 });
 
@@ -92,7 +91,7 @@ test("a seat is handed its own working directory where its harness reads a proje
   assert.deepEqual(next.providerOptions.additionalDirectories, ["/elsewhere", "/repo"]);
   const again = applyRole(kit, team, { ...config, providerOptions: next.providerOptions } as unknown as AgentConfig, render) as unknown as { providerOptions: { additionalDirectories: string[] } };
   assert.deepEqual(again.providerOptions.additionalDirectories, ["/elsewhere", "/repo"], "a seat opened again is not handed its directory twice");
-  const peer = applyRole(kit, team, { provider: "sw2-peer-devin", cwd: "/repo" } as AgentConfig, render);
+  const peer = applyRole(kit, team, { provider: "sw2-peer-omp", cwd: "/repo" } as AgentConfig, render);
   assert.equal(peer.providerOptions, undefined, "a harness that reads the project on its own is left alone");
 });
 
@@ -101,7 +100,7 @@ test("a harness that takes MCP servers at launch gets them in the launch config;
   const servers = { team: { type: "stdio", command: "node", args: ["team.mjs", "lead", "/spool"] } };
   const next = applyRole(kit, team, config, render, undefined, servers) as unknown as { mcpServers: Record<string, unknown> };
   assert.deepEqual(Object.keys(next.mcpServers).sort(), ["other", "team"]);
-  const peer = applyRole(kit, team, { provider: "sw2-peer-devin", cwd: "/repo" } as AgentConfig, render, undefined, servers);
+  const peer = applyRole(kit, team, { provider: "sw2-peer-omp", cwd: "/repo" } as AgentConfig, render, undefined, servers);
   assert.equal(peer.mcpServers, undefined);
 });
 
@@ -112,11 +111,11 @@ test("providers outside the kit are left untouched", () => {
 });
 
 test("a seat's session gets its config directory and project variables", () => {
-  const request = { agentId: "a", workspaceId: null, provider: "sw2-peer-devin", cwd: "/repo", reason: "create", purpose: "interactive", env: { KEEP: "1" } } as SessionOpen;
-  const next = seatEnv(kit, request, "/seats/peer-devin-repo", { root: "/repo", state: "/state/repo" });
+  const request = { agentId: "a", workspaceId: null, provider: "sw2-peer-omp", cwd: "/repo", reason: "create", purpose: "interactive", env: { KEEP: "1" } } as SessionOpen;
+  const next = seatEnv(kit, request, "/seats/peer-omp-repo", { root: "/repo", state: "/state/repo" });
   assert.deepEqual(next.env, {
     KEEP: "1",
-    XDG_CONFIG_HOME: "/seats/peer-devin-repo",
+    PI_CODING_AGENT_DIR: "/seats/peer-omp-repo",
     SEATWORKS_ROLE: "peer",
     SEATWORKS_PROJECT: "/repo",
     SEATWORKS_STATE: "/state/repo",
@@ -124,12 +123,12 @@ test("a seat's session gets its config directory and project variables", () => {
 });
 
 test("a seat keeps its own harness's model and thinking when the settings put that role on another harness", () => {
-  const onDevin = resolveTeam(kit, { roles: { lead: { harness: "devin", model: "swe" } } });
-  assert.equal(onDevin.roles.lead!.harness.id, "devin");
-  const devinSeat = applyRole(kit, onDevin, { provider: "sw2-lead-devin", cwd: "/repo" } as AgentConfig, render);
-  assert.equal(devinSeat.model, "swe");
-  const claudeSeat = applyRole(kit, onDevin, { provider: "sw2-lead-claude", cwd: "/repo" } as AgentConfig, render);
+  const onOmp = resolveTeam(kit, { roles: { lead: { harness: "omp", model: "glm" } } });
+  assert.equal(onOmp.roles.lead!.harness.id, "omp");
+  const ompSeat = applyRole(kit, onOmp, { provider: "sw2-lead-omp", cwd: "/repo" } as AgentConfig, render);
+  assert.equal(ompSeat.model, "glm");
+  const claudeSeat = applyRole(kit, onOmp, { provider: "sw2-lead-claude", cwd: "/repo" } as AgentConfig, render);
   assert.equal(claudeSeat.model, "opus");
   assert.equal(claudeSeat.thinkingOptionId, "medium");
-  assert.equal(applyRole(kit, onDevin, { provider: "sw2-lead-claude", cwd: "/repo", model: "haiku" } as AgentConfig, render).model, "haiku");
+  assert.equal(applyRole(kit, onOmp, { provider: "sw2-lead-claude", cwd: "/repo", model: "haiku" } as AgentConfig, render).model, "haiku");
 });

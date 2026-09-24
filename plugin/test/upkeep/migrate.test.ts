@@ -74,7 +74,7 @@ test("migrate names the seats started before this kit was loaded, and changes no
   assert.ok(next.since > since);
   ctx.live.push(
     { provider: "sw2-lead-claude", slug: "shop-abc123", createdAt: new Date(NOW).toISOString(), name: "Lead · Claude Code" },
-    { provider: "sw2-peer-devin", slug: "shop-abc123", createdAt: new Date(NOW + 120_000).toISOString(), name: "Peer · Devin CLI" },
+    { provider: "sw2-peer-omp", slug: "shop-abc123", createdAt: new Date(NOW + 120_000).toISOString(), name: "Peer · Oh My Pi" },
   );
   const plan = migrate(ctx);
   assert.deepEqual(plan.steps.map((step) => [step.kind, step.auto, step.detail.slice(0, -1)]), [["seat", false, ["Lead · Claude Code"]]]);

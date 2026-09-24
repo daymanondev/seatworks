@@ -675,21 +675,18 @@ test("each project gets the agent and model its own settings choose, and the mac
   const lane = h.ledger().lanes.L1!;
   await h.call(lane.lead!, "lead", "start_task", { title: "Default peer", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] });
   const onDefaults = h.agents.get(h.ledger().tasks["L1-T1"]!.peer!)!.provider;
-  assert.equal(onDefaults, "sw2-peer-devin/swe-2-max");
+  assert.equal(onDefaults, "sw2-peer-claude/claude-opus-5");
   assert.equal(h.agents.get(lane.lead!)!.provider, "sw2-lead-claude/claude-opus-5");
 
-  writeFileSync(join(h.project.state, "settings.json"), JSON.stringify({ roles: { peer: { harness: "claude", model: "claude-opus-5" } } }));
+  writeFileSync(join(h.project.state, "settings.json"), JSON.stringify({ roles: { peer: { harness: "pi", model: "glm-5" } } }));
   await h.call(h.ledger().tasks["L1-T1"]!.peer!, "peer", "done", { outcome: "complete", summary: "done" });
   h.commit(h.root, "a.txt", "one\n");
   await h.call(lane.lead!, "lead", "accept", { task: "L1-T1" });
-  await h.call(lane.lead!, "lead", "start_task", { title: "Claude peer", goal: "g", acceptance: ["a"], owned: ["b.txt"], outOfScope: ["the rest of the repository"] });
+  await h.call(lane.lead!, "lead", "start_task", { title: "Pi peer", goal: "g", acceptance: ["a"], owned: ["b.txt"], outOfScope: ["the rest of the repository"] });
   const switched = h.agents.get(h.ledger().tasks["L1-T2"]!.peer!)!.provider;
-  assert.equal(switched, "sw2-peer-claude/claude-opus-5");
+  assert.equal(switched, "sw2-peer-pi/glm-5");
   assert.equal(h.agents.get(lane.lead!)!.provider, "sw2-lead-claude/claude-opus-5");
 });
-
-
-
 
 test("what the desk opened and nothing holds any more is swept away without being asked", async () => {
   const h = harness();
@@ -1567,6 +1564,8 @@ test("a Peer stopped on a question is answered by its Lead's message, and one st
 
 test("mail reaches a running seat inside its turn where its harness can take it there, and waits where it cannot", async () => {
   const h = harness();
+  // omp takes mail only between turns.
+  writeFileSync(join(h.project.state, "settings.json"), JSON.stringify({ roles: { peer: { harness: "omp", model: "glm-5" } } }));
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "open_lane", { title: "Pricing", outcome: "discounts round correctly", acceptance: ["a"], outOfScope: ["anything else"] });
   const lane = h.ledger().lanes.L1!;
@@ -1676,7 +1675,7 @@ test("a turn that runs long is told to the Peer's Lead", async () => {
 
 test("a day's budget holds back what is only worth attention, however many arrive at once, and never what is irreversible", async () => {
   const { h, sup } = await laneWithPeer({ attention: { watch: true, incidentsPerDay: 1 } });
-  const seat = (id: string) => ({ id, provider: "sw2-peer-devin/swe-2-max", title: id });
+  const seat = (id: string) => ({ id, provider: "sw2-peer-claude/claude-opus-5", title: id });
   const attend = (quote: string) => [{ kind: "test-weakened", level: "attend" as const, quote, facts: ["test-weakened"] }];
   await Promise.all([
     h.runtime.desk.notice(h.project, seat("p-a"), attend("one")),
@@ -1700,8 +1699,8 @@ test("two projects each hear about their own seats, though their incidents carry
   writeFileSync(join(other.state, "settings.json"), JSON.stringify({ attention: { watch: true } }));
   const supB = h.add("sw2-supervisor-claude/claude-opus-5", second.root, "sup-b");
   const page = [{ kind: "destructive", level: "page" as const, quote: "rm -rf build", facts: ["destructive"] }];
-  await h.runtime.desk.notice(h.project, { id: "p-a", provider: "sw2-peer-devin/swe-2-max" }, page);
-  await h.runtime.desk.notice(other, { id: "p-b", provider: "sw2-peer-devin/swe-2-max" }, page);
+  await h.runtime.desk.notice(h.project, { id: "p-a", provider: "sw2-peer-claude/claude-opus-5" }, page);
+  await h.runtime.desk.notice(other, { id: "p-b", provider: "sw2-peer-claude/claude-opus-5" }, page);
   await h.idle(sup);
   await h.idle(supB);
   assert.match(h.agents.get(sup)!.sent.join("\n"), /INCIDENT I1 \(destructive, page\)/);

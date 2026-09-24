@@ -18,13 +18,13 @@ function kitDir(prefix: string): string {
 const good = () => ({
   id: "acme",
   label: "Acme CLI",
-  baseProvider: "acp",
+  baseProvider: "omp",
   configDirEnv: "ACME_CONFIG_DIR",
   profileRoot: "HOME/.acme/seats",
   skillsDir: "skills",
   settings: { file: "config.json", source: "settings.json", roleSource: "settings/ROLE.settings.json" },
   mcp: { file: "mcp.json", delivery: "file", transports: ["stdio"], key: "mcpServers" },
-  provider: { command: ["KIT/bin/seat-room", "acp"], profileModeId: "bypass" },
+  provider: { profileModeId: "full" },
 });
 
 /** Each field a harness file gets wrong, by its path: an unknown field by its own name. */
@@ -41,15 +41,12 @@ test("a harness is refused for a field no contract knows or a missing one, and o
   assert.deepEqual(wrong(noLabel), ["label"]);
 });
 
-test("the way a harness takes its prompt and its servers is checked, not assumed", () => {
-  assert.deepEqual(wrong({ ...good(), systemPrompt: "stdin" }), ["systemPrompt"]);
-  assert.deepEqual(wrong({ ...good(), systemPrompt: "file" }), ["promptFile"]);
+test("the way a harness takes its servers and settings is checked, not assumed", () => {
   assert.deepEqual(wrong({ ...good(), mcp: { file: "mcp.json", delivery: "file", transports: ["stdio"] } }), ["mcp.key"]);
   assert.deepEqual(wrong({ ...good(), settings: { file: "config.json", source: "settings.json" } }), ["settings.roleSource"]);
   assert.deepEqual(wrong({ ...good(), projectContextOption: ["additionalDirectories"] }), ["projectContextOption"]);
   assert.deepEqual(wrong({ ...good(), projectContextOption: "" }), ["projectContextOption"]);
   assert.deepEqual(wrong({ ...good(), projectContextOption: "additionalDirectories" }), []);
-  assert.deepEqual(wrong({ ...good(), exitPattern: "exit \\d+" }), ["exitPattern"], "a pattern that captures no exit code");
   assert.deepEqual(wrong({ ...good(), mcpCall: "mcp__team__{tool}" }), ["mcpCall"], "a call name with nowhere for the server's name");
 });
 

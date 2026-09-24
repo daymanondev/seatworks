@@ -74,7 +74,7 @@ async function recipientFor(services: DeskServices, project: Project, seat: Noti
 async function deliver(services: DeskServices, project: Project, seat: Noticed, place: Placed, sending: Incident[], now: number): Promise<string[]> {
   const { ctx } = services;
   const harness = seatOf(ctx.kit, seat.provider)?.harness;
-  const shape = { steers: harness?.steers === true, outputless: Boolean(harness?.exitPattern) };
+  const steers = harness?.steers === true;
   const told: string[] = [];
   for (const level of ["page", "attend"] as const) {
     const batch = sending.filter((incident) => incident.level === level);
@@ -104,7 +104,7 @@ async function deliver(services: DeskServices, project: Project, seat: Noticed, 
     });
     for (const incident of batch) {
       try {
-        await ctx.post(to, `incident:${project.slug}:${incident.id}:${incident.opened}:${incident.level}`, letters.incident(incident, place, shape, as));
+        await ctx.post(to, `incident:${project.slug}:${incident.id}:${incident.opened}:${incident.level}`, letters.incident(incident, place, steers, as));
       } catch (error) {
         ctx.event(project, { kind: "incident.post-failed", id: incident.id, error: errorText(error) });
       }

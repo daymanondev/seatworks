@@ -70,7 +70,6 @@
     }
   },
   "contextFile": "CLAUDE.md",
-  "systemPrompt": "config",
   "stateWrites": {
     "path": "settings.sandbox.filesystem.allowWrite",
     "delivery": "launch"

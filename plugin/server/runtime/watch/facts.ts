@@ -46,7 +46,6 @@ export type Rules = {
   skipped: RegExp;
   assertion: RegExp;
   runners: Set<string>;
-  exit?: RegExp;
   desk?: (call: Call) => boolean;
   gates: string[];
   cwd?: string;
@@ -66,11 +65,8 @@ export function callsTo(pattern: string | undefined, field: string | undefined, 
   return name && ((call) => name.test(call.name));
 }
 
-function failed(call: Call, exit?: RegExp): boolean {
-  if (call.status === "failed") return true;
-  if (typeof call.detail.exitCode === "number") return call.detail.exitCode !== 0;
-  const code = exit?.exec(str(call.detail.output).trim())?.[1];
-  return code !== undefined && Number(code) !== 0;
+function failed(call: Call): boolean {
+  return call.status === "failed" || (typeof call.detail.exitCode === "number" && call.detail.exitCode !== 0);
 }
 
 function isGate(call: Call, gates: string[]): boolean {
@@ -85,21 +81,21 @@ function actionOf(call: Call): string | undefined {
   return Object.entries(rest).some(([key, value]) => key !== "type" && said(value)) ? `${call.name}\n${JSON.stringify(rest)}` : undefined;
 }
 
-function resultOf(call: Call, exit?: RegExp): string {
-  return `${failed(call, exit) ? "failed" : "ok"}\n${str(call.detail.output)}\n${JSON.stringify(call.error ?? null)}`;
+function resultOf(call: Call): string {
+  return `${failed(call) ? "failed" : "ok"}\n${str(call.detail.output)}\n${JSON.stringify(call.error ?? null)}`;
 }
 
-export function stuck(units: Unit[], rules: Pick<Rules, "exit" | "repeatsAt">): string | undefined {
+export function stuck(units: Unit[], rules: Pick<Rules, "repeatsAt">): string | undefined {
   const recent = units.slice(-20);
   const calls = recent.flatMap((unit) => (unit.kind === "call" && unit.call.ended && !unit.call.pseudo ? [unit.call] : []));
   const same = (list: (string | undefined)[]) => list[0] !== undefined && list.every((value) => value === list[0]);
   const n = rules.repeatsAt;
   const tail = calls.slice(-(n + 1));
-  if (!rules.exit && tail.length === n + 1 && same(tail.map(actionOf)) && same(tail.map((call) => resultOf(call)))) {
+  if (tail.length === n + 1 && same(tail.map(actionOf)) && same(tail.map((call) => resultOf(call)))) {
     return `the same action with the same result ${n + 1} times: ${flat(describe(tail[0]!), 120)}`;
   }
   const errors = calls.slice(-n);
-  if (errors.length === n && same(errors.map(actionOf)) && errors.every((call) => failed(call, rules.exit))) {
+  if (errors.length === n && same(errors.map(actionOf)) && errors.every((call) => failed(call))) {
     return `the same action failing ${n} times: ${flat(describe(errors[0]!), 120)}`;
   }
   const spoken = recent.filter((unit) => unit.kind !== "thought");
@@ -109,7 +105,7 @@ export function stuck(units: Unit[], rules: Pick<Rules, "exit" | "repeatsAt">): 
     }
   }
   const cycle = calls.slice(-2 * n);
-  if (!rules.exit && cycle.length === 2 * n) {
+  if (cycle.length === 2 * n) {
     const actions = cycle.map(actionOf);
     const results = cycle.map((call) => resultOf(call));
     const alternates = actions[0] !== actions[1] && actions.every((action, index) => action === actions[index % 2]) && results.every((result, index) => result === results[index % 2]);
@@ -213,7 +209,7 @@ function hits(text: string, pattern: RegExp): string[] {
 function onSettle(call: Call, rules: Rules, known?: (path: string) => string | undefined): Fact[] {
   const facts: Fact[] = [];
   const detail = call.detail;
-  const bad = failed(call, rules.exit);
+  const bad = failed(call);
   // The desk's refusals already told the seat why and what instead, and the desk records them.
   if (bad && !rules.desk?.(call)) facts.push(fact(isGate(call, rules.gates) ? "gate-failed" : "call-failed", flat(describe(call))));
   const writes = detail.type === "edit" || detail.type === "write";
@@ -251,7 +247,7 @@ export class Recovery {
   step(call: Call, rules: Rules): Fact[] {
     const shell = call.detail.type === "shell";
     const command = str(call.detail.command);
-    const bad = failed(call, rules.exit);
+    const bad = failed(call);
     if (shell && bad && (!this.open || head(command, rules.runners) !== this.open.head)) {
       this.open = { command, head: head(command, rules.runners), steps: 0, told: false };
       return [];
@@ -279,7 +275,7 @@ function lastWriteAndGate(window: Window, rules: Rules) {
   let lastWrite = -1;
   let lastGate = -1;
   calls.forEach((call, index) => {
-    if (inside(call) && !failed(call, rules.exit)) lastWrite = index;
+    if (inside(call) && !failed(call)) lastWrite = index;
     if (isGate(call, rules.gates)) lastGate = index;
   });
   return { calls, inside, lastWrite, lastGate };
@@ -299,7 +295,7 @@ export function contradicted(window: Window, rules: Rules, outcome: string | und
   if (outcome !== "complete") return [];
   const { calls, lastWrite, lastGate } = lastWriteAndGate(window, rules);
   const check = calls[lastGate];
-  if (!check || lastGate < lastWrite || !failed(check, rules.exit)) return [];
+  if (!check || lastGate < lastWrite || !failed(check)) return [];
   return [fact("claim-contradicted", `handed back as complete, but \`${flat(str(check.detail.command), 100)}\` failed the last time it ran, after the last edit`)];
 }
 

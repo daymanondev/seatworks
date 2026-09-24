@@ -131,7 +131,6 @@ export class Runtime implements HostHooks {
       placed,
       rules: {
         ...watchPatterns(this.kit, attention),
-        exit: found.harness.exitPattern ? new RegExp(found.harness.exitPattern) : undefined,
         desk: callsTo(found.harness.mcpCall, found.harness.mcpServerField, TEAM_SERVER),
         gates: gateCommands(seat.cwd, loadConfig(project.state).gate, this.kit.ecosystem),
         cwd: seat.cwd,

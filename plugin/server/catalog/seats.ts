@@ -62,7 +62,7 @@ export function digest(sources: string[]): string {
   return hash.digest("hex").slice(0, 12);
 }
 
-/** Copied under the state root, never linked, so it resolves outside every repo: Devin loads the AGENTS.md above a file's real path. */
+/** Copied under the state root, never linked, so it resolves outside every repo: an agent may load the AGENTS.md above a file's real path. */
 function snapshot(source: string, name: string, homeDir = home()): string {
   const target = join(contentRoot(homeDir), `${name}-${digest([source])}`);
   if (!existsSync(target)) {
@@ -107,13 +107,6 @@ function isPlain(value: unknown): value is Json {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function deepMerge(base: unknown, over: unknown): unknown {
-  if (!isPlain(base) || !isPlain(over)) return over === undefined ? base : over;
-  const out: Json = { ...base };
-  for (const [key, value] of Object.entries(over)) out[key] = deepMerge(base[key], value);
-  return out;
-}
-
 function layerSettings(base: unknown, over: unknown): unknown {
   if (Array.isArray(base) && Array.isArray(over)) return [...new Set([...base, ...over])];
   if (!isPlain(base) || !isPlain(over)) return over === undefined ? base : over;
@@ -138,15 +131,6 @@ function setPath(target: Json, path: string[], value: unknown): void {
   if (last === undefined) return;
   if (value === undefined) delete cursor[last];
   else cursor[last] = value;
-}
-
-export function composeSettings(existing: Json, kitValue: Json, owned: string[]): Json {
-  const merged = deepMerge(existing, kitValue) as Json;
-  for (const dotted of owned) {
-    const path = dotted.split(".");
-    setPath(merged, path, getPath(kitValue, path));
-  }
-  return merged;
 }
 
 function writeConfigIfChanged(path: string, value: unknown): boolean {
@@ -215,14 +199,13 @@ function inherited(harness: HarnessSpec, homeDir: string): Json {
 }
 
 function writeRoleSettings(kit: Kit, harness: HarnessSpec, role: RoleSpec, dir: string, homeDir: string, record: Recorder, extra: Json): void {
-  const { file, source, ownedPaths } = harness.settings;
+  const { file, source } = harness.settings;
   const roleFile = roleSettingsFile(kit, harness, role);
   if (!existsSync(roleFile)) throw new Error(`${role.role}: ${roleFile} is missing`);
   const kitSettings = layerSettings(readConfig<Json>(join(kit.dir, "harness", harness.id, source), {}), readConfig<Json>(roleFile, {}));
   const wanted = layerSettings(layerSettings(inherited(harness, homeDir), kitSettings), extra) as Json;
   const settingsFile = join(dir, file);
-  const next = ownedPaths ? composeSettings(isLink(settingsFile) ? {} : readConfig<Json>(settingsFile, {}), wanted, ownedPaths) : wanted;
-  record.note(writeConfigIfChanged(settingsFile, next), file);
+  record.note(writeConfigIfChanged(settingsFile, wanted), file);
 }
 
 const catalogs = new Map<string, string>();
@@ -313,15 +296,9 @@ function removeIfPresent(path: string, what: string, record: Recorder): void {
   record.removed(what);
 }
 
-function writeInstructions(kit: Kit, team: Team, roleName: string, dir: string, paths: PromptPaths, record: Recorder): void {
+function writeInstructions(team: Team, roleName: string, dir: string, paths: PromptPaths, record: Recorder): void {
   const { role, harness } = team.roles[roleName]!;
   const rules = renderText(role, rulesFor(team, roleName), paths);
-  if (harness.systemPrompt === "file" && harness.promptFile) {
-    const promptPath = join(dir, harness.promptFile);
-    const prompt = renderPrompt(kit, role, paths);
-    record.note(writeReal(promptPath, rules ? `${prompt.trimEnd()}\n\n${rules}` : prompt), harness.promptFile);
-    return;
-  }
   if (!harness.contextFile) return;
   const contextPath = join(dir, harness.contextFile);
   if (rules) record.note(writeReal(contextPath, rules), harness.contextFile);
@@ -361,7 +338,7 @@ export function seatProblems(kit: Kit, team: Team, roleName: string, paths: Prom
   const say = (error: unknown) => problems.push(errorText(error));
   try {
     renderText(seat.role, rulesFor(team, roleName), paths);
-    if (seat.harness.systemPrompt === "file" && seat.harness.promptFile) renderPrompt(kit, seat.role, paths);
+    renderPrompt(kit, seat.role, paths);
   } catch (error) {
     say(error);
   }
@@ -388,7 +365,7 @@ export function materialize(kit: Kit, team: Team, roleName: string, homeDir = ho
   writeFiles(kit, seat.harness, seat.role, dir, record);
   linkShared(seat.harness, dir, homeDir, record);
   writeMcpFile(seat.harness, dir, servers, record);
-  writeInstructions(kit, team, roleName, dir, paths, record);
+  writeInstructions(team, roleName, dir, paths, record);
   linkSkills(kit, team, roleName, dir, homeDir, record);
   return record.changes;
 }

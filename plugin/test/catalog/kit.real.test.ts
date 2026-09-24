@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -27,7 +27,7 @@ test("the shipped kit resolves to a complete team, and every role's seat builds 
   assert.deepEqual(team.errors, []);
   assert.deepEqual(kit.roles.map((role) => role.role).sort(), ["critic", "lead", "peer", "reviewer", "supervisor"]);
   assert.deepEqual(Object.keys(kit.mcp).sort(), ["code-search", "context7", "intellij-index"]);
-  const every = kit.roles.flatMap((role) => ["claude", "codex", "devin", "pi"].map((harness) => `${role.role}-${harness}`)).sort();
+  const every = kit.roles.flatMap((role) => ["claude", "codex", "omp", "pi"].map((harness) => `${role.role}-${harness}`)).sort();
   assert.deepEqual(seatPairs(kit).map((pair) => `${pair.role.role}-${pair.harness.id}`).sort(), every, "every role can sit on every agent the kit ships");
   const home = tempDir("sw2-real-home-");
   const project = { slug: "demo-000000", state: "/state/demo" };
@@ -37,15 +37,10 @@ test("the shipped kit resolves to a complete team, and every role's seat builds 
     materialize(kit, team, name, home, where, serversFor(kit, team, name, { node: "/bin/node", spool: "/spool" }));
     const dir = seatDir(kit, role, harness, home, where);
     assert.ok(existsSync(join(dir, harness.skillsDir)), `${name} skills dir`);
-    let context: string;
-    if (harness.systemPrompt === "file" && harness.promptFile) {
-      const file = join(dir, harness.promptFile);
-      assert.equal(lstatSync(file).isSymbolicLink(), false, `${name} prompt is a real file`);
-      context = readFileSync(file, "utf-8");
-    } else {
-      assert.doesNotMatch(renderPrompt(kit, role, { guides: "/guides", state: "/state" }), /\{\{/, `${name} prompt has no placeholder left`);
-      context = readFileSync(join(dir, harness.contextFile!), "utf-8");
-    }
+    assert.doesNotMatch(renderPrompt(kit, role, { guides: "/guides", state: "/state" }), /\{\{/, `${name} prompt has no placeholder left`);
+    // A seat with no rules to carry, like the Critic's, is given no context file at all.
+    const contextFile = join(dir, harness.contextFile!);
+    const context = existsSync(contextFile) ? readFileSync(contextFile, "utf-8") : "";
     assert.doesNotMatch(context, /\{\{/, `${name} seat has no placeholder left`);
     if (seat.mcp.length === 0) {
       assert.doesNotMatch(context, /intellij-index MCP tools/, `${name} takes no server, so it carries no server rule`);
@@ -85,6 +80,16 @@ test("every role builds on every agent the kit ships, each in that agent's own t
       assert.match(rules, /"git", "push"/, `${where}: carries the rules every seat has`);
       assert.equal(/"git", "commit"/.test(rules), ["supervisor", "lead"].includes(role.role), `${where}: commits only where the role commits`);
     }
+    if (harness.id === "omp") {
+      const denied = (settings.bash?.patterns ?? []).filter((rule: { approval: string }) => rule.approval === "deny").map((rule: { match: string }) => rule.match);
+      assert.ok(denied.includes("git push*") && denied.includes("git -C * push*"), `${where}: a seat does not push, with -C or without`);
+      assert.equal(denied.includes("git commit*"), ["supervisor", "lead", "reviewer"].includes(role.role), `${where}: commits only where the role may`);
+      assert.equal(settings.ask?.enabled, false, `${where}: nobody is there to answer a question that stops the turn`);
+      assert.equal(settings.tools?.approval?.task, "deny", `${where}: Paseo is the only control plane`);
+      assert.ok(settings.disabledProviders?.includes("claude"), `${where}: the owner's own Claude setup does not load in a seat`);
+      const servers = readConfig<Record<string, any>>(join(dir, harness.mcp.file), {}).mcpServers ?? {};
+      assert.equal("team" in servers, Boolean(role.tools), `${where}: the desk's tools are in the file omp reads them from`);
+    }
     if (harness.id === "pi") {
       assert.deepEqual(settings.packages, ["npm:pi-mcp-adapter"], `${where}: the desk's tools reach Pi only through the adapter`);
       assert.equal(settings.defaultProjectTrust, "never", `${where}: the repository's own .pi does not load in a seat`);
@@ -102,7 +107,7 @@ test("every role builds on every agent the kit ships, each in that agent's own t
   }
 });
 
-// Devin loads the AGENTS.md above every file it reads by real path, so seats picked up the plugin's own developer rules.
+// An agent may load the AGENTS.md above every file it reads by real path, so seats picked up the plugin's own developer rules.
 test("nothing a seat or its guides lead it to read resolves into a git repository", async () => {
   const kit = loadKit(pluginRoot);
   const home = tempDir("sw2-outside-home-");

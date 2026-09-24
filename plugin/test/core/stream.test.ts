@@ -182,7 +182,7 @@ test("a join that never becomes ready is given up and leaves nothing subscribed"
   assert.equal(timeline.listeners.size, 0);
 });
 
-// Paseo resumes an archived agent to serve history and never closes it; for Devin that left `devin acp` running for hours.
+// Paseo resumes an archived agent to serve history and never closes it; one agent was left running for hours that way.
 test("a stream stopped while a message is on its way reads no more history for it", async () => {
   const timeline = new FakeTimeline();
   const { stream } = watching(timeline);

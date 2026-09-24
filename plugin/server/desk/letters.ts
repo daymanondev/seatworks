@@ -227,7 +227,7 @@ export const letters = {
   },
 
   /** `to` is who reads it: a Lead is sent those about its own Peers, and acts on them as their Lead. */
-  incident(incident: Incident, place: { lane?: Lane; task?: Task }, harness: { steers: boolean; outputless: boolean }, to: "lead" | "supervisor" = "supervisor"): string {
+  incident(incident: Incident, place: { lane?: Lane; task?: Task }, steers: boolean, to: "lead" | "supervisor" = "supervisor"): string {
     const lines = [`INCIDENT ${incident.id} (${line(incident.kind, 40)}, ${incident.level}) on ${line(incident.where, 160)}, agent ${incident.seat}.`, ""];
     lines.push(`What was seen: ${line(incident.quote, 400)}`);
     if (incident.facts.length > 0) lines.push(`Facts behind it: ${incident.facts.join(", ")}`);
@@ -239,11 +239,10 @@ export const letters = {
     }
     lines.push(
       "",
-      harness.steers
+      steers
         ? "A message reaches this seat inside a turn that has run a minute; otherwise when the turn ends. A seat stopped on a question takes a message as its answer; one stopped on another permission reads nothing until the Human decides."
         : "This seat reads mail only when its turn ends; a message waits until then.",
     );
-    if (harness.outputless) lines.push("Its harness reports exit codes but not what commands printed, so nothing here was read from its output.");
     lines.push(
       "",
       to === "lead"

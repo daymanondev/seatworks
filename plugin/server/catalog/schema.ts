@@ -28,29 +28,15 @@ export const HarnessFile = z
     baseProvider: text,
     configDirEnv: text,
     profileRoot: text,
-    promptFile: text.optional(),
     contextFile: text.optional(),
     skillsDir: text,
-    hasThinking: z.boolean().optional(),
     steers: z.boolean().optional(),
-    systemPrompt: z.enum(["config", "file"]).optional(),
     stateWrites: z.strictObject({ path: text, delivery: z.enum(["launch", "file"]) }).optional(),
     projectContextOption: text.optional(),
-    exitPattern: z
-      .string()
-      .refine((value) => {
-        try {
-          return new RegExp(`${value}|`).exec("")!.length > 1;
-        } catch {
-          return false;
-        }
-      }, { error: "is not a pattern capturing the exit code" })
-      .optional(),
     mcpCall: z.string().includes("{server}", { error: "does not say where the server's name goes" }).optional(),
     mcpServerField: text.optional(),
     timeline: z
       .strictObject({
-        writePathPrefix: text.optional(),
         pseudoCalls: z.array(z.strictObject({ name: text, detail: text })).optional(),
         unparsed: z.strictObject({ input: text, error: pattern }).optional(),
       })
@@ -59,7 +45,6 @@ export const HarnessFile = z
       file: text,
       source: text,
       roleSource: text,
-      ownedPaths: texts.optional(),
       inherits: z.strictObject({ from: text, keys: texts }).optional(),
     }),
     links: z.array(z.strictObject({ link: text, target: text, optional: z.boolean().optional() })).optional(),
@@ -74,7 +59,6 @@ export const HarnessFile = z
       seed: Json.optional(),
       key: text.optional(),
       clear: z.strictObject({ set: Json.optional(), remove: texts.optional(), setInEach: z.record(z.string(), Json).optional() }).optional(),
-      rule: text.optional(),
       desk: Json.optional(),
     }),
     provider: z.strictObject({
@@ -84,7 +68,6 @@ export const HarnessFile = z
       forceFlags: z.record(z.string(), z.string()).optional(),
     }),
   })
-  .refine((harness) => harness.systemPrompt !== "file" || harness.promptFile, { error: "takes its prompt as a file but names no promptFile", path: ["promptFile"] })
   .refine((harness) => harness.mcp.delivery !== "file" || harness.mcp.key, { error: "delivers MCP servers in a file but names no key", path: ["mcp", "key"] });
 
 const ProxyHook = { tool: text, args: Json.optional(), when: pattern.optional(), timeoutSeconds: z.number().positive().optional() };

@@ -56,19 +56,17 @@ function play(messages: StreamMessage[], given: Rules, handed?: string, quirks?:
 
 const kinds = (facts: Fact[]) => facts.map((fact) => fact.kind);
 
+/** A completed edit to borrow the shape of: each test sets the path and text it needs. */
+const editCall = () => fixture("codex").find((message) => message.event.item?.name === "apply_patch" && message.event.item?.status === "completed")!;
+
 test("a failed shell call is seen on every harness however it says so, once, and never again from a reload's history", () => {
-  for (const harness of ["claude", "pi", "codex", "devin"]) {
-    const exit = kit.harnesses[harness]?.exitPattern;
-    const facts = play(fixture(harness), rules(exit ? { exit: new RegExp(exit) } : {}));
+  for (const harness of ["claude", "pi", "codex"]) {
+    const facts = play(fixture(harness), rules());
     const failures = facts.filter((fact) => fact.kind === "call-failed");
     assert.equal(failures.length, 1, `${harness}: ${JSON.stringify(facts)}`);
     assert.match(failures[0]!.quote, /cat \.\/does-not-exist\.txt/, harness);
     assert.ok(!kinds(facts).includes("destructive"), harness);
   }
-});
-
-test("Devin's failures are visible only through the exit pattern its harness declares", () => {
-  assert.deepEqual(kinds(play(fixture("devin"), rules())).filter((kind) => kind === "call-failed"), [], "without the pattern a failed command reads as completed");
 });
 
 test("an irreversible command is caught the moment its command is known, before the call finishes, and only once", () => {
@@ -142,7 +140,7 @@ test("a failure the seat has not climbed out of in ten steps is noticed, and a p
 });
 
 test("an edit that takes assertions out of a test, or silences a check, is noticed when it lands", () => {
-  const edit = fixture("devin").find((message) => message.event.item?.type === "tool_call" && message.event.item?.name === "edit" && message.event.item?.status === "completed")!;
+  const edit = editCall();
   const weakened = again(edit, "e1", 2, (detail) =>
     Object.assign(detail, { filePath: "test/strings.test.ts", oldString: "assert.equal(a, 1);\nassert.equal(b, 2);", newString: "assert.equal(a, 1);" }),
   );
@@ -158,7 +156,7 @@ test("an edit that takes assertions out of a test, or silences a check, is notic
 });
 
 test("a hand-back that says complete while the last check it ran after its last edit failed is contradicted, and nothing else is", () => {
-  const edit = fixture("devin").find((message) => message.event.item?.type === "tool_call" && message.event.item?.name === "edit" && message.event.item?.status === "completed")!;
+  const edit = editCall();
   const wrote = again(edit, "w", 2, (detail) => Object.assign(detail, { filePath: "src/a.ts" }));
   const red = again(piRow(11), "g", 3, (detail) => Object.assign(detail, { command: "npm test", exitCode: 1 }));
   const green = again(piRow(11), "g2", 4, (detail) => Object.assign(detail, { command: "npm test", exitCode: 0 }));
@@ -177,7 +175,7 @@ test("a hand-back that says complete while the last check it ran after its last 
 });
 
 test("a turn that reports having written files the gate never saw afterwards is unverified, and one that ran it is not", () => {
-  const edit = fixture("devin").find((message) => message.event.item?.type === "tool_call" && message.event.item?.name === "edit" && message.event.item?.status === "completed")!;
+  const edit = editCall();
   const wrote = again(edit, "w", 2, (detail) => Object.assign(detail, { filePath: "src/a.ts" }));
   const gate = again(piRow(11), "g", 3, (detail) => Object.assign(detail, { command: "npm test" }));
   const start: StreamMessage = { event: { type: "turn_started", turnId: "t" } };
@@ -227,7 +225,7 @@ test("a failure is climbed out of when the same program passes, and the latest f
 });
 
 test("a test's title saying should is not an assertion", () => {
-  const edit = fixture("devin").find((message) => message.event.item?.type === "tool_call" && message.event.item?.name === "edit" && message.event.item?.status === "completed")!;
+  const edit = editCall();
   const renamed = again(edit, "e", 2, (detail) =>
     Object.assign(detail, { filePath: "test/a.test.ts", oldString: 'it("should add", () => { assert.equal(add(1, 1), 2); });', newString: 'it("adds", () => { assert.equal(add(1, 1), 2); });' }),
   );
@@ -241,13 +239,6 @@ test("an edit that arrives as a unified diff is read for weakened tests too", ()
     Object.assign(detail, { type: "edit", filePath: "test/a.test.ts", unifiedDiff: "--- a/test/a.test.ts\n+++ b/test/a.test.ts\n@@ -1,3 +1,2 @@\n assert.equal(a, 1);\n-assert.equal(b, 2);\n+// later\n" });
   });
   assert.deepEqual(kinds(play([...opening(), patched], rules())), ["test-weakened"]);
-});
-
-test("Devin's constant exit line is not a result, so repeating a command there is not the same result four times", () => {
-  const exit = new RegExp(kit.harnesses.devin!.exitPattern!);
-  const ran = fixture("devin").find((message) => message.event.item?.type === "tool_call" && message.event.item?.status === "completed" && JSON.stringify(message).includes("Exited with code 0"))!;
-  const four = [...opening(), ...["a", "b", "c", "d"].map((id, index) => again(ran, id, index + 2, (detail) => (detail.command = "git status")))];
-  assert.deepEqual(kinds(play(four, rules({ exit }))).filter((kind) => kind === "stuck"), []);
 });
 
 test("a second loop in the same turn is reported, once the first has been broken", () => {
@@ -268,18 +259,13 @@ test("a message steered into a long turn does not make it long again", () => {
 });
 
 test("a commit message written to the temp directory is not a write the gate has to see", () => {
-  const edit = fixture("devin").find((message) => message.event.item?.type === "tool_call" && message.event.item?.name === "edit" && message.event.item?.status === "completed")!;
+  const edit = editCall();
   const wrote = again(edit, "w", 2, (detail) => Object.assign(detail, { filePath: "/work/src/a.ts" }));
   const gate = again(piRow(11), "g", 3, (detail) => Object.assign(detail, { command: "npm test" }));
   const message = again(edit, "m", 4, (detail) => Object.assign(detail, { filePath: "/var/folders/xy/T/msg" }));
   const start: StreamMessage = { event: { type: "turn_started", turnId: "t" } };
   const end: StreamMessage = { event: { type: "turn_completed", turnId: "t" } };
   assert.deepEqual(kinds(play([start, fixture("pi")[1]!, wrote, gate, message, end], rules({ gates: ["npm test"], cwd: "/work" }), "complete")).filter((kind) => kind === "unverified"), []);
-  // Devin names a file it creates "Wrote <path>", which read as a relative path inside the project.
-  const created = again(edit, "c", 5, (detail) => Object.assign(detail, { filePath: "Wrote /var/folders/xy/T/bench.mjs" }));
-  assert.deepEqual(kinds(play([start, fixture("pi")[1]!, wrote, gate, created, end], rules({ gates: ["npm test"], cwd: "/work" }), "complete", kit.harnesses.devin!.timeline)).filter((kind) => kind === "unverified"), []);
-  const inside = again(edit, "i", 5, (detail) => Object.assign(detail, { filePath: "Wrote ./src/b.ts" }));
-  assert.deepEqual(kinds(play([start, fixture("pi")[1]!, wrote, gate, inside, end], rules({ gates: ["npm test"], cwd: "/work" }), "complete", kit.harnesses.devin!.timeline)).filter((kind) => kind === "unverified"), ["unverified"]);
 });
 
 test("irreversible commands are caught where a command starts, in any flag order, and not in quoted text", () => {
@@ -302,13 +288,6 @@ test("a failure stretch ends when the same program passes, but a red gate is not
   assert.deepEqual(kinds(play([...opening(), run("a", 2, "npm run check", false), run("b", 3, "npm run lint", true), ...steps(10, 4)], rules())).filter((kind) => kind === "no-recovery"), ["no-recovery"]);
 });
 
-test("Devin's constant exit line is not a result, so alternating commands there are not stuck", () => {
-  const exit = new RegExp(kit.harnesses.devin!.exitPattern!);
-  const ran = fixture("devin").find((message) => message.event.item?.type === "tool_call" && message.event.item?.status === "completed" && JSON.stringify(message).includes("Exited with code 0"))!;
-  const cycle = [...opening(), ...Array.from({ length: 6 }, (_, index) => again(ran, `c${index}`, index + 2, (detail) => (detail.command = index % 2 ? "gh run view 123 --json status" : "sleep 30")))];
-  assert.deepEqual(kinds(play(cycle, rules({ exit }))).filter((kind) => kind === "stuck"), []);
-});
-
 test("a whole-file rewrite of a test is read against what the seat last read of it, and one with nothing to compare says nothing", () => {
   const read = { event: { type: "timeline", item: { type: "tool_call", callId: "r", name: "Read", status: "completed", detail: { type: "read", filePath: "/work/test/a.test.ts", content: "assert.equal(a, 1);\nassert.equal(b, 2);\n// eslint-disable-next-line\n" } }, turnId: "t" }, seq: 2, epoch: fixture("pi")[1]!.epoch } as StreamMessage;
   const write = (seq: number, content: string) => ({ event: { type: "timeline", item: { type: "tool_call", callId: `w${seq}`, name: "Write", status: "completed", detail: { type: "write", filePath: "/work/test/a.test.ts", content } }, turnId: "t" }, seq, epoch: fixture("pi")[1]!.epoch }) as StreamMessage;
@@ -327,7 +306,7 @@ test("a Codex diff cut short is not read as assertions removed", () => {
 });
 
 test("a suppression in prose is not one, and the one quoted is the one added", () => {
-  const edit = fixture("devin").find((message) => message.event.item?.type === "tool_call" && message.event.item?.name === "edit" && message.event.item?.status === "completed")!;
+  const edit = editCall();
   const prose = again(edit, "d", 2, (detail) => Object.assign(detail, { filePath: "README.md", oldString: "", newString: "Pass it as\nany other value." }));
   const second = again(edit, "e", 3, (detail) => Object.assign(detail, { filePath: "src/b.ts", oldString: "// eslint-disable-next-line\nf();", newString: "// eslint-disable-next-line\nf();\n// @ts-ignore\ng();" }));
   const facts = play([...opening(), prose, second], rules());
@@ -335,14 +314,14 @@ test("a suppression in prose is not one, and the one quoted is the one added", (
 });
 
 test("a write to the temp directory is scratch space, while one elsewhere outside the copy is outside its scope", () => {
-  const edit = fixture("devin").find((message) => message.event.item?.type === "tool_call" && message.event.item?.name === "edit" && message.event.item?.status === "completed")!;
+  const edit = editCall();
   const temp = again(edit, "m", 2, (detail) => Object.assign(detail, { filePath: "/var/folders/xy/T/msg" }));
   const ssh = again(edit, "k", 3, (detail) => Object.assign(detail, { filePath: "/Users/me/.ssh/config" }));
   assert.deepEqual(play([...opening(), temp, ssh], rules({ cwd: "/work", temp: "/var/folders/xy/T" })).map((fact) => [fact.kind, fact.quote]), [["outside-scope", "/Users/me/.ssh/config"]]);
 });
 
 test("the gate named in an unverified fact is masked like any other quote", () => {
-  const edit = fixture("devin").find((message) => message.event.item?.type === "tool_call" && message.event.item?.name === "edit" && message.event.item?.status === "completed")!;
+  const edit = editCall();
   const wrote = again(edit, "w", 2, (detail) => Object.assign(detail, { filePath: "src/a.ts" }));
   const gate = "GITHUB_TOKEN=ghp_0123456789abcdefghijklmn npm test";
   const facts = play([{ event: { type: "turn_started", turnId: "t" } }, fixture("pi")[1]!, wrote, { event: { type: "turn_completed", turnId: "t" } }], rules({ gates: [gate] }), "complete");
@@ -416,7 +395,6 @@ test("a refusal the desk gave a seat is not a failed call, on every harness that
   const deskOf = (harness: string) => rules({ desk: callsTo(kit.harnesses[harness]!.mcpCall, kit.harnesses[harness]!.mcpServerField, TEAM_SERVER) });
   // As each harness recorded a refused team call live.
   assert.deepEqual(kinds(play([...opening(), failing("mcp__team__start_task", 2)], deskOf("claude"))), [], "claude");
-  assert.deepEqual(kinds(play([...opening(), failing("Calling done from team", 2)], deskOf("devin"))), [], "devin");
   // Pi names a call server_tool, so a pasted team_x server's calls start the same way; the server it records tells them apart.
   const pi = [
     failing("team_plan_tasks", 2, { type: "unknown", output: { content: [{ type: "text", text: "Error: The plan was not taken" }], details: { error: "tool_error", server: "team" } } }),

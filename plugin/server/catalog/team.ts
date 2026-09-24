@@ -188,13 +188,13 @@ function resolveRole(kit: Kit, role: RoleSpec, layers: Layer[], mcp: Record<stri
   // Paseo refuses a bare provider before the daemon, which surfaced only as a format error at open_lane.
   if (!model) errors.push(`Paseo has listed no models for ${harness.label} yet and none is chosen for the ${role.label}; Paseo starts an agent only with one, so refresh the models or choose one`);
   let thinking: string | undefined;
-  const options = harness.hasThinking === false ? [] : (model?.thinkingOptions ?? []);
+  const options = model?.thinkingOptions ?? [];
   if (options.length > 0) {
     if (choice.thinking && !options.some((option) => option.id === choice.thinking)) {
       errors.push(`${model!.label} on ${harness.label} has no thinking option ${choice.thinking} for the ${role.label}`);
     }
     thinking = options.some((option) => option.id === choice.thinking) ? choice.thinking : (options.find((option) => option.isDefault) ?? options[0])!.id;
-  } else if (choice.thinking && harness.hasThinking !== false && model && !models.some((entry) => entry.id === model!.id)) {
+  } else if (choice.thinking && model && !models.some((entry) => entry.id === model!.id)) {
     // No thinking options listed is not a list of none: the owner's choice is kept.
     thinking = choice.thinking;
   }
@@ -264,9 +264,9 @@ export function withHarness(team: Team, roleName: string, harness: HarnessSpec):
   const preset = harness.id === seat.role.defaults.harness ? seat.role.defaults : undefined;
   // The kit's own model for its own harness, whether or not the catalog lists it, as resolveRole keeps it.
   const model = preset?.model ? (models.find((entry) => entry.id === preset.model) ?? { id: preset.model, label: preset.model }) : agentDefault(Object.values(team.roles).map((entry) => entry.role), harness);
-  const options = harness.hasThinking === false ? [] : (model?.thinkingOptions ?? []);
+  const options = model?.thinkingOptions ?? [];
   const offCatalog = Boolean(preset?.model) && !models.some((entry) => entry.id === preset!.model);
-  const thinking = offCatalog && harness.hasThinking !== false ? preset!.thinking : (options.find((option) => option.id === preset?.thinking) ?? options.find((option) => option.isDefault) ?? options[0])?.id;
+  const thinking = offCatalog ? preset!.thinking : (options.find((option) => option.id === preset?.thinking) ?? options.find((option) => option.isDefault) ?? options[0])?.id;
   return { ...team, roles: { ...team.roles, [roleName]: { ...seat, harness, model, thinking } } };
 }
 
@@ -350,7 +350,6 @@ export function rulesFor(team: Team, roleName: string): string {
     if (note) lines.push(note);
     if (lines.length > 0) parts.push(lines.join("\n\n"));
   }
-  if (seat.harness.mcp.rule && seat.mcp.length > 0) parts.push(seat.harness.mcp.rule);
   if (team.rules) parts.push(`## Rules from the Human\n\n${team.rules.trim()}`);
   if (seat.rules) parts.push(`## Rules from the Human, for the ${seat.role.label}\n\n${seat.rules}`);
   return parts.length > 0 ? `# Working rules\n\n${parts.join("\n\n")}\n` : "";

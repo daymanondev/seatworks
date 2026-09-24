@@ -27,7 +27,7 @@ is always a seat's call.
 |---|---|
 | Paseo daemon | `plugin/server/**`, entered through `index.server.ts` |
 | Paseo app | `plugin/client/**`, the panel, entered through `index.client.tsx` |
-| A seat: an agent started from a `sw2-<role>-<agent>` provider | Only `bin/seat-room`, the launcher for Claude and Devin seats |
+| A seat: an agent started from a `sw2-<role>-<agent>` provider | Only `bin/seat-room`, the launcher for Claude seats |
 | A seat's MCP servers | `mcp/team.mjs` (the desk tools), and `mcp/code.mjs` for proxied servers |
 
 The daemon and the seats share no memory. There are two one-way channels:
@@ -80,7 +80,7 @@ These are mostly absences, so the code won't show them to you.
 | `client/` | The Seatworks panel |
 | `shared/` | What the panel and server share: RPC contracts (`rpc.ts`) and views (`views.ts`) |
 | `mcp/` | `team.mjs`, `code.mjs`, and `tools.json` (the tool sets and their schemas) |
-| `bin/` | `seat-room` (the launcher) and `acp-catalog.mjs` (a model listing that never starts an agent) |
+| `bin/` | `seat-room`, the launcher that refuses a seat the plugin did not configure |
 | `roles.json` | The SLP preset: roles, capabilities, tool sets, prompts, skills, defaults, attention values |
 | `harness/<agent>/` | How each agent is set up: `harness.json`, plus base and per-role settings |
 | `catalog/` | Optional MCP servers; `ecosystem.json`: gates, one-writer paths, test and docs names, the watch's patterns; `paseo.json`: the tools Paseo gives every agent |
@@ -103,7 +103,7 @@ All paths are under `plugin/`.
    directory and sets `SEATWORKS_ROLE`, `SEATWORKS_PROJECT` and `SEATWORKS_STATE`. It also seeds the
    project's records, such as `notebook.md`, and writes the
    [team block](#the-concept-and-the-team-block) into the project.
-4. **`bin/seat-room`** checks the launch and then `exec`s Claude or Devin. Codex and Pi seats start
+4. **`bin/seat-room`** checks the launch and then `exec`s Claude. Codex, Pi and Oh My Pi seats start
    through Paseo's own providers.
 
 The content lint runs during the build. A role prompt, a working rule or a skill that uses a word
@@ -113,7 +113,7 @@ from the role's `hidesWords` fails the build. For example, a Peer may not read "
 The sandbox is derived from the content too. On Claude Code and Codex, a seat's shell may write under
 the project's state only where its prompt, skills or rules name that path (`{{state}}/…` or
 `$SEATWORKS_STATE/…`). The desk's own files are never granted, and only the Supervisor names
-`CONTEXT.md`. Pi and Devin have no sandbox.
+`CONTEXT.md`. Pi and Oh My Pi have no sandbox.
 
 What each agent's seat directory holds is in [the reference](REFERENCE.md#seat-directories).
 

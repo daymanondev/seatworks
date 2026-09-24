@@ -100,7 +100,6 @@ function describeCatalog(kit: Kit): unknown {
       id: harness.id,
       label: harness.label,
       models: harness.models ?? [],
-      thinking: harness.hasThinking !== false,
       transports: harness.mcp.transports,
     })),
     mcp: Object.values(kit.mcp)

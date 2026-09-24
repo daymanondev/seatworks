@@ -27,9 +27,9 @@ function choiceFor(team: Team, role: RoleSpec, harness: HarnessSpec): { model?: 
   if (seat && seat.harness.id === harness.id) return { model: seat.model?.id, thinking: seat.thinking };
   const preset = harness.id === role.defaults.harness ? role.defaults : undefined;
   const listed = harness.models?.find((entry) => entry.id === preset?.model);
-  if (preset?.model && !listed) return { model: preset.model, thinking: harness.hasThinking === false ? undefined : preset.thinking };
+  if (preset?.model && !listed) return { model: preset.model, thinking: preset.thinking };
   const model = listed ?? agentDefault(Object.values(team.roles).map((seat) => seat.role), harness);
-  const options = harness.hasThinking === false ? [] : (model?.thinkingOptions ?? []);
+  const options = model?.thinkingOptions ?? [];
   return { model: model?.id, thinking: (options.find((option) => option.id === preset?.thinking) ?? options.find((option) => option.isDefault) ?? options[0])?.id };
 }
 

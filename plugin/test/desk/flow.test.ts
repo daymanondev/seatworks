@@ -42,7 +42,7 @@ function working() {
 
 const seats = new Map<string, SeatView>([
   ["seat-lead", { id: "seat-lead", provider: "sw2-lead-claude", cwd: "/w", status: "idle", updatedAt: new Date(now - 180_000).toISOString() }],
-  ["seat-peer", { id: "seat-peer", provider: "sw2-peer-devin", cwd: "/w", status: "running", updatedAt: new Date(now - 60_000).toISOString(), pendingPermissions: [{ title: "Write outside the working copy" }] }],
+  ["seat-peer", { id: "seat-peer", provider: "sw2-peer-claude", cwd: "/w", status: "running", updatedAt: new Date(now - 60_000).toISOString(), pendingPermissions: [{ title: "Write outside the working copy" }] }],
   ["seat-sup", { id: "seat-sup", provider: "sw2-supervisor-claude", cwd: "/w", status: "idle", updatedAt: new Date(now - 600_000).toISOString() }],
 ]);
 
@@ -184,7 +184,7 @@ test("the view is plain JSON as Paseo checks it, with no field left undefined, w
 test("a Critic reading a lane is drawn with the lane it reads, and one gone or of another project is not", () => {
   const reading = new Map(seats);
   const critic = (id: string, lane: string, slug = project.slug, archivedAt?: string) =>
-    reading.set(id, { id, provider: "sw2-critic-devin", cwd: "/w", status: "running", updatedAt: new Date(now - 60_000).toISOString(), labels: { "seatworks.project": slug, "seatworks.critique": lane }, ...(archivedAt ? { archivedAt } : {}) });
+    reading.set(id, { id, provider: "sw2-critic-claude", cwd: "/w", status: "running", updatedAt: new Date(now - 60_000).toISOString(), labels: { "seatworks.project": slug, "seatworks.critique": lane }, ...(archivedAt ? { archivedAt } : {}) });
   critic("seat-critic", "L2");
   critic("seat-old", "L1", project.slug, new Date(now).toISOString());
   critic("seat-elsewhere", "L1", "other-abc123");

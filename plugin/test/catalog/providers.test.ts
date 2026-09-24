@@ -11,7 +11,7 @@ const role = (name: string) => kit.roles.find((entry) => entry.role === name)!;
 test("every role gets a provider on each harness that has settings for it", () => {
   assert.deepEqual(
     seatPairs(kit).map((pair) => `${pair.role.role}-${pair.harness.id}`).sort(),
-    ["lead-claude", "lead-devin", "peer-devin", "scribe-claude", "scribe-devin", "supervisor-claude"],
+    ["lead-claude", "lead-omp", "peer-omp", "scribe-claude", "scribe-omp", "supervisor-claude"],
   );
 });
 
@@ -27,8 +27,8 @@ test("a role provider carries its harness base, launcher, env, the model it star
   assert.deepEqual(entry.additionalModels, [{ id: "opus", label: "Opus", isDefault: true }]);
   const chosen = desiredProvider(kit, resolveTeam(kit, { roles: { lead: { model: "haiku" } } }), role("lead"), kit.harnesses.claude!);
   assert.deepEqual(chosen.additionalModels, [{ id: "haiku", label: "Haiku", isDefault: true }]);
-  assert.deepEqual(desiredProvider(kit, team, role("peer"), kit.harnesses.devin!).paseoTools, { enabled: false });
-  assert.deepEqual(desiredProfile(kit, team, role("peer"), kit.harnesses.devin!), { id: "sw2-peer-devin", name: "Peer · Devin CLI (sw2)", provider: "sw2-peer-devin", model: "swe", modeId: "bypass" });
+  assert.deepEqual(desiredProvider(kit, team, role("peer"), kit.harnesses.omp!).paseoTools, { enabled: false });
+  assert.deepEqual(desiredProfile(kit, team, role("peer"), kit.harnesses.omp!), { id: "sw2-peer-omp", name: "Peer · Oh My Pi (sw2)", provider: "sw2-peer-omp", model: "glm", modeId: "full" });
 });
 
 test("reconcile adds the role providers and profiles and is idempotent", () => {
@@ -36,16 +36,16 @@ test("reconcile adds the role providers and profiles and is idempotent", () => {
   const first = reconcile(config, kit, team);
   assert.deepEqual(first.changed.sort(), [
     "profile sw2-lead-claude",
-    "profile sw2-lead-devin",
-    "profile sw2-peer-devin",
+    "profile sw2-lead-omp",
+    "profile sw2-peer-omp",
     "profile sw2-scribe-claude",
-    "profile sw2-scribe-devin",
+    "profile sw2-scribe-omp",
     "profile sw2-supervisor-claude",
     "provider sw2-lead-claude",
-    "provider sw2-lead-devin",
-    "provider sw2-peer-devin",
+    "provider sw2-lead-omp",
+    "provider sw2-peer-omp",
     "provider sw2-scribe-claude",
-    "provider sw2-scribe-devin",
+    "provider sw2-scribe-omp",
     "provider sw2-supervisor-claude",
   ]);
   assert.equal(first.config.agents.providers.claude.env.TOKEN, "keep");
@@ -58,7 +58,7 @@ test("reconcile removes providers the kit no longer defines and keeps a user's o
     agents: {
       providers: {
         "sw2-peer": { extends: "acp" },
-        "sw2-peer-devin": { extends: "claude", env: { MY_KEY: "x", CLAUDE_CODE_DISABLE_CRON: "1", CLAUDE_CONFIG_DIR: "/old", SEATWORKS_SLUG: "old" }, description: "stale", models: [{ id: "swe", label: "SWE" }] },
+        "sw2-peer-omp": { extends: "claude", env: { MY_KEY: "x", CLAUDE_CODE_DISABLE_CRON: "1", CLAUDE_CONFIG_DIR: "/old", SEATWORKS_SLUG: "old" }, description: "stale", models: [{ id: "glm", label: "GLM" }] },
         peer: { extends: "acp" },
       },
     },
@@ -69,11 +69,11 @@ test("reconcile removes providers the kit no longer defines and keeps a user's o
   assert.ok(changed.includes("profile sw2-peer removed"));
   assert.equal("sw2-peer" in next.agents.providers, false);
   assert.ok("peer" in next.agents.providers);
-  const peer = next.agents.providers["sw2-peer-devin"];
-  assert.equal(peer.extends, "acp");
+  const peer = next.agents.providers["sw2-peer-omp"];
+  assert.equal(peer.extends, "omp");
   assert.deepEqual(Object.keys(peer.env).sort(), ["MY_KEY", "SEATWORKS_AGENT_BIN", "SEATWORKS_HARNESS", "SEATWORKS_KIT", "SEATWORKS_ROLE"]);
   assert.equal("description" in peer, false);
   // A list written over Paseo's own hid every model the agent has but the one chosen.
   assert.equal("models" in peer, false);
-  assert.deepEqual(peer.additionalModels, [{ id: "swe", label: "SWE", isDefault: true }]);
+  assert.deepEqual(peer.additionalModels, [{ id: "glm", label: "GLM", isDefault: true }]);
 });
