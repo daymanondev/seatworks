@@ -1,17 +1,28 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { currentBranch, headSha } from "../../core/git.ts";
+import { changedFiles, currentBranch, headSha, outsideOwned } from "../../core/git.ts";
 import { workState } from "../../catalog/project-files.ts";
 import { IN_QUEUE, SETTLED, TASK } from "../../domain/task.ts";
 import { type Args, type Caller, type ToolReply, no, ok, str, strs } from "../context.ts";
 import { taskGate } from "../gates.ts";
-import { type Task, loadLedger, taskOfPeer } from "../ledger.ts";
+import { type Lane, type Task, loadLedger, taskOfPeer } from "../ledger.ts";
 import { clip } from "../../core/text.ts";
 import { letters } from "../letters.ts";
 import { type DeskServices, defineTool } from "../services.ts";
 
-function handbackBody(task: Task, args: Args, commit: string | undefined, uncommitted: boolean): { outcome: string; body: string } {
+type Work = { commit?: string; uncommitted: boolean; outside: string[] };
+
+/** What a code task's copy holds as it hands back, as git says: its commit, work left uncommitted, and files changed outside its owned paths. */
+async function workOf(task: Task, lane: Lane | undefined): Promise<Work> {
+  if (task.kind === "review" || !task.worktree) return { uncommitted: false, outside: [] };
+  const range = task.mode === "parallel" ? lane && `${lane.branch}...HEAD` : task.startSha && `${task.startSha}..HEAD`;
+  const changed = range ? await changedFiles(task.worktree, range) : undefined;
+  // Only what git actually said: a copy it could not read is not a copy with work left in it.
+  return { commit: await headSha(task.worktree), uncommitted: (await workState(task.worktree)) === "dirty", outside: outsideOwned(changed ?? [], task.owned) };
+}
+
+function handbackBody(task: Task, args: Args, { commit, uncommitted, outside }: Work): { outcome: string; body: string } {
   if (task.kind === "review") {
     const outcome = str(args.verdict);
     const findings = ((args.findings ?? []) as Finding[]).map((found) => `- ${found.severity} ${found.where}: ${found.failure} Fix: ${found.fix}${found.confirmedBy ? ` Confirmed by: ${found.confirmedBy}` : ""}`);
@@ -28,6 +39,7 @@ function handbackBody(task: Task, args: Args, commit: string | undefined, uncomm
     `Checks: ${str(args.checks) || "not given"}`,
     `Left undone: ${str(args.leftUndone) || "nothing"}`,
     `Discovered: ${str(args.discovered) || "nothing"}`,
+    ...(outside.length > 0 ? [`Changed outside its owned paths: ${outside.join(", ")}`] : []),
   ];
   return { outcome, body: lines.join("\n") };
 }
@@ -56,10 +68,9 @@ async function handBack({ ctx, roster }: DeskServices, caller: Caller, args: Par
   if (SETTLED.includes(task.status)) return no(`This task is already ${task.status === "merged" ? "accepted" : "cut"}; there is nothing to hand back.`);
   const review = task.kind === "review";
   if (review && args.verdict !== "accept" && (args.findings ?? []).length === 0) return no(`A verdict of ${args.verdict} names what must change: give each finding.`);
-  const commit = review || !task.worktree ? undefined : await headSha(task.worktree);
-  // Only what git actually said: a copy it could not read is not a copy with work left in it.
-  const uncommitted = !review && task.worktree ? (await workState(task.worktree)) === "dirty" : false;
-  const handed = handbackBody(task, args, commit, uncommitted);
+  const work = await workOf(task, ledger.lanes[task.lane]);
+  const { commit } = work;
+  const handed = handbackBody(task, args, work);
   const { outcome } = handed;
   // Gated at hand-back so the Lead has the verdict in time; gating after accept undid a merge already chosen.
   const run = !review && task.worktree ? await taskGate(project, task.id, task.worktree) : undefined;
@@ -91,8 +102,9 @@ async function handBack({ ctx, roster }: DeskServices, caller: Caller, args: Par
   const reader = lead && (await roster.seated(lead)) ? lead : await roster.supervisorFor(project, ledger.lanes[task.lane]?.opener);
   await ctx.post(reader, letters.handback(heading, file, body, caller.id));
   ctx.event(project, { kind: review ? "review.done" : "task.done", task: task.id, outcome, commit });
-  const reminder = review ? "" : await reminderOf(task, ledger.lanes[task.lane]?.branch, uncommitted);
-  return ok(`Handed back.${reminder} End your turn now; if anything changes you will get a message.`);
+  const reminder = review ? "" : await reminderOf(task, ledger.lanes[task.lane]?.branch, work.uncommitted);
+  const outside = work.outside.length > 0 ? ` You changed ${work.outside.join(", ")} outside your owned paths; your Lead sees that with the hand-back.` : "";
+  return ok(`Handed back.${outside}${reminder} End your turn now; if anything changes you will get a message.`);
 }
 
 export const done = defineTool({ name: "done", input: HandBack, handle: handBack });

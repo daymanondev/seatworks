@@ -15,6 +15,10 @@
       {
         "match": "git -C * commit*",
         "approval": "deny"
+      },
+      {
+        "match": "sleep *",
+        "approval": "deny"
       }
     ]
   }

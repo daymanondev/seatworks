@@ -12,7 +12,7 @@ import { type Project, serialOnlyOf } from "../project.ts";
 import { defineTool } from "../services.ts";
 import { startWaiting } from "../waiting.ts";
 
-const Asked = z.strictObject({ key: z.string(), title: z.string(), goal: z.string(), acceptance: z.array(z.string()), owned: z.array(z.string()), outOfScope: z.array(z.string()), context: z.string().optional(), skills: z.array(z.string()).optional(), parallel: z.boolean().optional(), after: z.array(z.string()).optional(), role: z.string().optional() });
+const Asked = z.strictObject({ key: z.string(), title: z.string().max(60), goal: z.string(), acceptance: z.array(z.string()), owned: z.array(z.string()), outOfScope: z.array(z.string()), context: z.string().optional(), skills: z.array(z.string()).optional(), parallel: z.boolean().optional(), after: z.array(z.string()).optional(), role: z.string().optional() });
 
 /** The role that takes a task, or why none can: a skill it lacks is refused here, since the Lead's context does not list them. */
 function workRoleFor(ctx: DeskContext, project: Project, args: Args): RoleSpec | string {

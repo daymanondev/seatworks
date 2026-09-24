@@ -2,7 +2,8 @@ import { z } from "zod";
 import { can, roleNamed } from "../../catalog/kit.ts";
 import { ASK } from "../../domain/ask.ts";
 import { no, ok, str } from "../context.ts";
-import type { Ask } from "../ledger.ts";
+import { repeatsIncident } from "../incidents.ts";
+import { type Ask, loadLedger } from "../ledger.ts";
 import { letters } from "../letters.ts";
 import { defineTool } from "../services.ts";
 
@@ -12,6 +13,8 @@ export const answer = defineTool({
   async handle({ ctx }, caller, args) {
     const id = str(args.ask).toUpperCase();
     const text = str(args.text);
+    const refused = repeatsIncident(caller.project.state, loadLedger(caller.project.state).asks[id]?.from, text);
+    if (refused) return no(refused);
     const result = ctx.transact(caller.project, (ledger): { ask: Ask; waitingRole?: string } | string => {
       const ask = ledger.asks[id];
       if (!ask) return `There is no ask ${id}.`;

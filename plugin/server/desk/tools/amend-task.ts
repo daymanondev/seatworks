@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DECIDED } from "../../domain/task.ts";
 import { given, no, ok, str } from "../context.ts";
+import { repeatsIncident } from "../incidents.ts";
 import { amend, loadLedger } from "../ledger.ts";
 import { letters } from "../letters.ts";
 import { parallelProblem, serialIn } from "../opening.ts";
@@ -16,6 +17,8 @@ export const amendTask = defineTool({
     if (changes.goal === "" || changes.acceptance?.length === 0) return no("A task keeps a goal and at least one acceptance line; give what it asks now.");
     if (changes.owned?.length === 0) return no("A task keeps at least one owned path; give every path it owns now.");
     const asked = laneTask(loadLedger(caller.project.state), caller, str(args.task));
+    const refused = typeof asked === "string" ? undefined : repeatsIncident(caller.project.state, asked.task.peer, str(args.why), ...Object.values(changes).flat());
+    if (refused) return no(refused);
     const beside = typeof asked !== "string" && changes.owned !== undefined && asked.task.mode === "parallel";
     const serial = beside ? await serialIn(ctx.kit, caller.project, asked.lane.worktree ?? caller.project.root) : [];
     const done = ctx.transact(caller.project, (ledger) => {

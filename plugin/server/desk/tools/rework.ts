@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { TASK } from "../../domain/task.ts";
 import { no, ok, str } from "../context.ts";
-import type { Task } from "../ledger.ts";
+import { repeatsIncident } from "../incidents.ts";
+import { type Task, loadLedger } from "../ledger.ts";
 import { letters } from "../letters.ts";
 import { holderOf } from "../opening.ts";
 import { defineTool } from "../services.ts";
@@ -12,6 +13,9 @@ export const rework = defineTool({
   input: z.strictObject({ task: z.string(), text: z.string() }),
   async handle({ ctx, roster }, caller, args) {
     const text = str(args.text);
+    const asked = laneTask(loadLedger(caller.project.state), caller, str(args.task));
+    const refused = typeof asked === "string" ? undefined : repeatsIncident(caller.project.state, asked.task.peer, text);
+    if (refused) return no(refused);
     const result = ctx.transact(caller.project, (ledger): Task | string => {
       const found = laneTask(ledger, caller, str(args.task));
       if (typeof found === "string") return found;

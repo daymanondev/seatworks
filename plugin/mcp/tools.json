@@ -8,7 +8,8 @@
         "properties": {
           "title": {
             "type": "string",
-            "description": "Short name, at most 60 characters."
+            "description": "Short name, at most 60 characters.",
+            "maxLength": 60
           },
           "outcome": {
             "type": "string",
@@ -96,7 +97,7 @@
     },
     {
       "name": "message",
-      "description": "Send a Lead (by lane id) or, for a recovery, a Peer (by task id) one message. It reaches the recipient as soon as it can take it and never interrupts it; one stopped on a question gets it as the answer. A message to a Peer is copied to its Lead.",
+      "description": "Send a Lead (by lane id) or, for a recovery, a Peer (by task id) one message. It reaches the recipient as soon as it can take it and never interrupts it; one stopped on a question gets it as the answer. A message to a Peer is copied to its Lead. Refused if it names or quotes an open incident about the seat it goes to: say what you read in the record in your own words.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -293,7 +294,7 @@
     },
     {
       "name": "status",
-      "description": "The current status of every lane, task and open ask in this project.",
+      "description": "The current status of every lane, task and open ask in this project. Asked again with nothing changed, it says only that.",
       "inputSchema": {
         "type": "object",
         "properties": {}
@@ -384,7 +385,8 @@
                 },
                 "title": {
                   "type": "string",
-                  "description": "Short name, at most 60 characters."
+                  "description": "Short name, at most 60 characters.",
+                  "maxLength": 60
                 },
                 "goal": {
                   "type": "string",
@@ -470,7 +472,8 @@
           },
           "title": {
             "type": "string",
-            "description": "Optional short name, at most 60 characters."
+            "description": "Optional short name, at most 60 characters.",
+            "maxLength": 60
           },
           "role": {
             "type": "string",
@@ -484,7 +487,7 @@
     },
     {
       "name": "message",
-      "description": "Send one of your Peers (by task id) a message. It reaches the Peer as soon as it can take it and never interrupts it; a Peer stopped on a question gets it as the answer.",
+      "description": "Send one of your Peers (by task id) a message. It reaches the Peer as soon as it can take it and never interrupts it; a Peer stopped on a question gets it as the answer. Refused if it names or quotes an open incident about the seat it goes to: say what you read in the record in your own words.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -678,7 +681,7 @@
     },
     {
       "name": "status",
-      "description": "The current status of your lane's tasks and open asks.",
+      "description": "The current status of your lane's tasks and open asks. Asked again with nothing changed, it says only that.",
       "inputSchema": {
         "type": "object",
         "properties": {}

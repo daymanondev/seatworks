@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { given, no, ok, str } from "../context.ts";
+import { repeatsIncident } from "../incidents.ts";
 import { amend, findLane, loadLedger } from "../ledger.ts";
 import { letters } from "../letters.ts";
 import { defineTool } from "../services.ts";
@@ -15,6 +16,8 @@ export const amendLane = defineTool({
     if (changes.outcome === "" || changes.acceptance?.length === 0) return no("A lane keeps an outcome and at least one acceptance line; give what it is asked now.");
     const lane = findLane(loadLedger(project.state), str(args.lane));
     if (!lane) return no(`There is no lane ${str(args.lane)}.`);
+    const refused = repeatsIncident(project.state, lane.lead, str(args.why), ...Object.values(changes).flat());
+    if (refused) return no(refused);
     const scoped = Boolean(changes.writeSet || changes.contracts);
     const serial = scoped ? await serialIn(ctx.kit, project, project.root) : [];
     // Checked where it is written: a lane opened meanwhile may already hold the paths this one would take.

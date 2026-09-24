@@ -39,14 +39,14 @@ schema. A call that doesn't fit is refused, with what is wrong.
 | `cut` | Stops the task and archives its Peer. It resets the lane copy to where the task started, when nothing merged there since. It is refused while the task's merge runs |
 | `report` | Reports to the Supervisor. With `ready`, it runs the lane gate first |
 | `ask` | A Lead asks the Supervisor, with the default it works on meanwhile. A Peer asks its Lead with its best guess, which the letter shows as its default; a Reviewer asks with what it tried. Either goes to the Supervisor when the Lead is gone |
-| `done` | Hands the task back to the Lead, with a file; the commit is read from the branch. A review hands back its verdict, its answer to the focus and each finding (severity, place, failure, fix), and `changes` or `reopen` needs at least one. On a per-task-gate project, it runs the gate first. It is refused once the task is accepted, queued or cut |
-| `message` | The Supervisor messages a lane or a task, and a Lead messages a task in its own lane. A seat stopped on a question takes it as the answer |
+| `done` | Hands the task back to the Lead, with a file; the commit is read from the branch, and files changed outside the task's owned paths are named in it and to the Peer. A review hands back its verdict, its answer to the focus and each finding (severity, place, failure, fix), and `changes` or `reopen` needs at least one. On a per-task-gate project, it runs the gate first. It is refused once the task is accepted, queued or cut |
+| `message` | The Supervisor messages a lane or a task, and a Lead messages a task in its own lane. A seat stopped on a question takes it as the answer. It is refused, like `rework`, `answer`, `amend_task` and `amend_lane`, when the text names or quotes an open incident about the seat it goes to |
 | `answer` | Closes an open ask. The Supervisor may answer any ask, others only their own |
 | `incidents` | Lists the 50 most recent open or unmarked incidents, with each one's brief. With `closed`, it adds the 20 most recently marked. A Lead sees only its own lane's |
 | `mark_incident` | Marks an incident `useful`, `noise` or `unknown`, with an optional note, and closes it. Noise also silences the same words on that seat and kind from then on |
 | `record` | What a lane's Lead, or a task's Peer or reviewer, ran, read, changed and said, one numbered step a line, without output or diffs. A Lead reads only its own lane's tasks. Once the seat is archived it shows what the desk kept instead, since Paseo starts an archived agent again to read its history |
 | `note` | Writes a page into a folder the caller's role declares under the project's state (the Lead's: `plans`, `council`, `ultra-review`, `repo-refresh`), replacing one of the same name, and answers with its path. It never writes into the repository. The Lead has no file-editing tools, except on Codex, where only its prompt keeps it from editing |
-| `status` | Lanes, tasks, working copies and open asks. A Lead sees its own lane |
+| `status` | Lanes, tasks, working copies and open asks. A Lead sees its own lane. Asked again with nothing changed, it says only that |
 | `findings` | The Critic hands in where the Human's words and the lane may not agree, each quote checked against what it read. The Supervisor gets them, and the Critic is archived |
 
 Behaviour depends on a role's capabilities (`supervise`, `lead`, `work`, `write`, `review`,

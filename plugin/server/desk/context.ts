@@ -52,6 +52,8 @@ export class DeskContext {
   readonly projects = new Map<string, Project>();
   readonly seating = new Set<string>();
   readonly closing = new Set<string>();
+  /** What each seat's last status said: one that asks again with nothing changed is polling. */
+  readonly statusSeen = new Map<string, string>();
   private readonly deps: DeskDeps;
 
   constructor(deps: DeskDeps) {

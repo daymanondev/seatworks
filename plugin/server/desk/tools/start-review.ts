@@ -52,7 +52,7 @@ function recordReview(ctx: DeskContext, project: Project, lane: Lane, target: Ta
 
 export const startReview = defineTool({
   name: "start_review",
-  input: z.strictObject({ task: z.string().optional(), focus: z.string(), title: z.string().optional(), role: z.string().optional() }),
+  input: z.strictObject({ task: z.string().optional(), focus: z.string(), title: z.string().max(60).optional(), role: z.string().optional() }),
   async handle({ ctx, agents }, caller, args) {
     const { project } = caller;
     const focus = str(args.focus);

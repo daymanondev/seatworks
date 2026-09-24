@@ -45,6 +45,7 @@ test("tasks that cannot run as given are refused whole, and nothing of them is r
   assert.match(await refused([task("a", ["a.txt"], { after: ["b"] }), task("b", ["b.txt"], { after: ["a"] })]), /The tasks loop: A, B wait for each other/);
   assert.match(await refused([task("a", ["a.txt"], { skills: ["no-such-skill"] })]), /A: .*no skill called no-such-skill/);
   assert.match(await refused([task(" ", ["a.txt"])]), /Every task has a key/);
+  assert.match(await refused([task("a", ["a.txt"], { title: "t".repeat(61) })]), /title takes at most 60 characters, and has 61 in each of tasks/);
   const { goal: _, ...aimless } = task("a", ["a.txt"]);
   assert.match(await refused([aimless, task("b", ["b.txt"], { parallel: "yes", owner: "me" })]), /it needs goal \(The outcome, not the implementation\) in each of tasks\. It takes tasks\./, "each task is held to what a task takes");
   assert.match(await refused([task("b", ["b.txt"], { parallel: "yes", owner: "me" })]), /it parallel must be true or false in each of tasks; has no field owner in each of tasks\./);

@@ -73,7 +73,7 @@ function recordOpen(desk: DeskServices, caller: Caller, args: Args, place: Place
 
 export const openLane = defineTool({
   name: "open_lane",
-  input: z.strictObject({ title: z.string(), outcome: z.string(), acceptance: z.array(z.string()), appetite: z.string().optional(), deadline: z.string().optional(), outOfScope: z.array(z.string()), issue: z.string().optional(), isolate: z.boolean().optional(), base: z.string().optional(), onBranch: z.boolean().optional(), newBranch: z.string().optional(), writeSet: z.array(z.string()).optional(), contracts: z.array(z.string()).optional(), after: z.array(z.string()).optional(), detourOf: z.string().optional(), role: z.string().optional() }),
+  input: z.strictObject({ title: z.string().max(60), outcome: z.string(), acceptance: z.array(z.string()), appetite: z.string().optional(), deadline: z.string().optional(), outOfScope: z.array(z.string()), issue: z.string().optional(), isolate: z.boolean().optional(), base: z.string().optional(), onBranch: z.boolean().optional(), newBranch: z.string().optional(), writeSet: z.array(z.string()).optional(), contracts: z.array(z.string()).optional(), after: z.array(z.string()).optional(), detourOf: z.string().optional(), role: z.string().optional() }),
   async handle(desk, caller, args) {
     const { project } = caller;
     const config = loadConfig(project.state);

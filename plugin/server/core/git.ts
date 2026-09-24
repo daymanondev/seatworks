@@ -164,6 +164,12 @@ export async function diffCounts(cwd: string, from: string, to: string, kinds: F
   return run.code === 0 ? countNumstat(run.stdout, kinds, uncounted) : undefined;
 }
 
+/** The files changed across `range`, as git diff reads it, or undefined when git cannot say. */
+export async function changedFiles(cwd: string, range: string): Promise<string[] | undefined> {
+  const run = await git(cwd, ["diff", "-z", "--name-only", range]);
+  return run.code === 0 ? run.stdout.split("\0").filter(Boolean) : undefined;
+}
+
 export function outsideOwned(files: string[], owned: string[]): string[] {
   if (owned.length === 0) return [];
   // A plain path owns what is under it too, on a path boundary: an owned "src/app" is not ownership of "src/apparel/secret.ts".

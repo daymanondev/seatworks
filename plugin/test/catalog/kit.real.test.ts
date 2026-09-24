@@ -10,7 +10,7 @@ import type { AgentConfig } from "../../server/core/ports.ts";
 import { desiredProvider, seatPairs } from "../../server/catalog/providers.ts";
 import { materialize, placeGuides, seatDir, seedRecords } from "../../server/catalog/seats.ts";
 import { git } from "../../server/core/git.ts";
-import { guidesDir } from "../../server/core/paths.ts";
+import { guidesDir, stateRoot } from "../../server/core/paths.ts";
 import { resolveTeam, serversFor, withHarness } from "../../server/catalog/team.ts";
 import { readConfig } from "../../server/core/config-file.ts";
 import { realProbes } from "../../server/runtime/doctor.ts";
@@ -70,7 +70,12 @@ test("every role builds on every agent the kit ships, each in that agent's own t
     const where = `${role.role} on ${harness.id}`;
     // The Lead coordinates and keeps its pages with note; only Codex has no way to take its file tools away.
     const edits = !["reviewer", "critic", "lead"].includes(role.role);
-    if (harness.id === "claude") assert.equal(["Edit", "Write", "MultiEdit"].some((tool) => settings.permissions.deny.includes(tool)), !edits, `${where}: edits files only where the role may`);
+    // Mail wakes a coordinating seat; one that sleeps in its turn only holds the turn open.
+    const waits = !["lead", "supervisor"].includes(role.role);
+    if (harness.id === "claude") {
+      assert.equal(["Edit", "Write", "MultiEdit"].some((tool) => settings.permissions.deny.includes(tool)), !edits, `${where}: edits files only where the role may`);
+      assert.equal(settings.permissions.deny.includes("Bash(sleep *)"), !waits, `${where}: sleeps only where the role may`);
+    }
     if (harness.id === "codex") {
       assert.deepEqual(settings.features, { multi_agent: false, multi_agent_v2: false }, `${where}: Paseo is the only control plane`);
       assert.equal(settings.approval_policy, "never", `${where}: nobody is there to approve`);
@@ -82,11 +87,13 @@ test("every role builds on every agent the kit ships, each in that agent's own t
       const rules = readFileSync(join(dir, "rules", "seatworks.rules"), "utf-8");
       assert.match(rules, /"git", "push"/, `${where}: carries the rules every seat has`);
       assert.equal(/"git", "commit"/.test(rules), ["supervisor", "lead"].includes(role.role), `${where}: commits only where the role commits`);
+      assert.equal(/pattern = \["sleep"\]/.test(rules), !waits, `${where}: sleeps only where the role may`);
     }
     if (harness.id === "omp") {
       const denied = (settings.bash?.patterns ?? []).filter((rule: { approval: string }) => rule.approval === "deny").map((rule: { match: string }) => rule.match);
       assert.ok(denied.includes("git push*") && denied.includes("git -C * push*"), `${where}: a seat does not push, with -C or without`);
       assert.equal(denied.includes("git commit*"), ["supervisor", "lead", "reviewer"].includes(role.role), `${where}: commits only where the role may`);
+      assert.equal(denied.includes("sleep *"), !waits, `${where}: sleeps only where the role may`);
       assert.equal(settings.ask?.enabled, false, `${where}: nobody is there to answer a question that stops the turn`);
       assert.equal(settings.tools?.approval?.task, "deny", `${where}: Paseo is the only control plane`);
       assert.equal(["edit", "write", "ast_edit"].every((tool) => settings.tools?.approval?.[tool] === "deny"), !edits, `${where}: edits files only where the role may`);
@@ -101,6 +108,7 @@ test("every role builds on every agent the kit ships, each in that agent's own t
         assert.equal(Object.keys(bash)[0], "*", `${where}: the allow comes first, since the last rule that matches wins`);
         assert.ok(bash["git push *"] === "deny" && bash["git -C * push *"] === "deny", `${where}: a seat does not push, with -C or without`);
         assert.equal(bash["git commit *"] === "deny", ["supervisor", "lead", "reviewer"].includes(role.role), `${where}: commits only where the role may`);
+        assert.equal(bash["sleep *"] === "deny", !waits, `${where}: sleeps only where the role may`);
       }
       assert.deepEqual([task, question, outside], ["deny", "deny", "allow"], `${where}: no subagents, no question that stops the turn, and nothing waiting on a person`);
       assert.equal(settings.permission?.edit === "deny", !edits, `${where}: edits files only where the role may`);
@@ -243,6 +251,9 @@ test("only the Supervisor may write the project's concept; every other role read
   assert.ok(writes("supervisor").includes(join("/state", "CONTEXT.md")), "grilling writes what the Human settled there as it is settled");
   for (const role of kit.roles.filter((entry) => entry.role !== "supervisor")) {
     assert.ok(!writes(role.role).includes(join("/state", "CONTEXT.md")), `${role.role} could rewrite the Human's word`);
+    // The sandbox binds the shell only, so Claude's file tools are kept off it by name.
+    const deny: string[] = JSON.parse(readFileSync(join(pluginRoot, "harness", "claude", "settings", `${role.role}.settings.json`), "utf-8")).permissions?.deny ?? [];
+    assert.ok(deny.includes("Edit") || deny.includes(`Edit(${stateRoot("~")}/projects/*/CONTEXT.md)`), `${role.role} could edit the Human's word on Claude`);
   }
 });
 
