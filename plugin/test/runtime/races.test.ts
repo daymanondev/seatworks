@@ -125,3 +125,30 @@ test("a lane closed twice at once is closed once, and the second call is told it
   assert.deepEqual([first.ok, second.ok].sort(), [false, true], `${first.text}\n${second.text}`);
   assert.match((first.ok ? second : first).text, /L1 is (already being closed|already closed)/);
 });
+
+test("a READY whose gate is still running when its lane closes is not recorded on the closed lane", async () => {
+  const h = harness();
+  const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
+  await h.call(sup, "supervisor", "set_project", { gate: "sleep 1" });
+  await h.call(sup, "supervisor", "open_lane", { title: "Slow", ...scope });
+  const lead = h.ledger().lanes.L1!.lead!;
+  const reporting = h.call(lead, "lead", "report", { summary: "ready to land", ready: true });
+  assert.equal((await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false })).ok, true);
+  const reported = await reporting;
+  assert.equal(reported.ok, false, reported.text);
+  assert.equal(h.ledger().lanes.L1!.ready, undefined);
+});
+
+test("an ask from a Lead whose lane closes as it asks is not opened on the closed lane", async () => {
+  const { h, sup, lane } = await laneWithPeer();
+  const [asked] = await Promise.all([h.call(lane.lead!, "lead", "ask", { kind: "question", text: "Which one?" }), h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false })]);
+  assert.equal(asked.ok, false, asked.text);
+  assert.deepEqual(Object.values(h.ledger().asks), []);
+});
+
+test("an ask from a Peer whose task is cut as it asks is not opened", async () => {
+  const { h, lane, peer } = await laneWithPeer();
+  const [asked] = await Promise.all([h.call(peer, "peer", "ask", { question: "Which one?" }), h.call(lane.lead!, "lead", "cut", { task: "L1-T1", reason: "not needed" })]);
+  assert.match(asked.text, /L1-T1 was accepted or cut while you asked/);
+  assert.deepEqual(Object.values(h.ledger().asks), []);
+});

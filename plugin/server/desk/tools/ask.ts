@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SETTLED } from "../../domain/task.ts";
 import { no, ok, str } from "../context.ts";
 import { type Ask, type AskKind, laneOfLead, loadLedger, nextAskId, taskOfPeer } from "../ledger.ts";
 import { letters } from "../letters.ts";
@@ -14,7 +15,9 @@ export const askOwner = defineTool({
     if (!lane) return no("You have no open lane.");
     const to = await roster.supervisorFor(caller.project, lane.opener);
     if (!to) return no("Nobody above you is running to answer; keep working on your default and report when the lane is ready.");
+    // Opened on the lane the caller still leads: it may have closed while whoever answers was looked up.
     const entry = ctx.transact(caller.project, (ledger) => {
+      if (laneOfLead(ledger, caller.id)?.id !== lane.id) return undefined;
       const created: Ask = {
         id: nextAskId(ledger),
         from: caller.id,
@@ -31,6 +34,7 @@ export const askOwner = defineTool({
       ledger.asks[created.id] = created;
       return { ...created };
     });
+    if (!entry) return no("You have no open lane.");
     await ctx.post(to, `ask:${entry.id}`, letters.askTo(entry, `the Lead of ${lane.id} (${lane.title})`));
     ctx.event(caller.project, { kind: "ask.opened", ask: entry.id, from: caller.id, to });
     return ok(`Asked as ${entry.id}. Keep working on your default where you can; the answer arrives as mail.`);
@@ -51,7 +55,10 @@ export const askLead = defineTool({
     const to = (await roster.seated(lane.lead)) ? lane.lead : await roster.supervisorFor(project, lane.opener);
     if (!to) return no("Your lead is not there and nobody above it is either, so nobody can answer now. Carry on with your default where you can, and end your turn with the question.");
     const tried = str(args.tried);
+    // Opened for the task the caller still works: it may have been cut while whoever answers was looked up.
     const entry = ctx.transact(project, (current) => {
+      const now = taskOfPeer(current, caller.id);
+      if (now?.id !== task.id || SETTLED.includes(now.status)) return undefined;
       const created: Ask = {
         id: nextAskId(current),
         from: caller.id,
@@ -68,6 +75,7 @@ export const askLead = defineTool({
       current.asks[created.id] = created;
       return { ...created };
     });
+    if (!entry) return no(`${task.id} was accepted or cut while you asked, so there is nothing to ask about; end your turn.`);
     await ctx.post(to, `ask:${entry.id}`, letters.askTo(entry, `the Peer on ${task.id} (${task.title})`));
     ctx.event(project, { kind: "ask.opened", ask: entry.id, from: caller.id, to });
     return ok(`Asked as ${entry.id}${to === lane.lead ? "" : ", of the owner, because your lead is not there"}. End your turn; the answer arrives as a message.`);

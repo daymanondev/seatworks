@@ -13,12 +13,15 @@ export const report = defineTool({
     const lane = laneOfLead(loadLedger(caller.project.state), caller.id);
     if (!lane) return no("You have no open lane.");
     const gate = args.ready === true ? await laneGate(ctx, caller.project, lane) : undefined;
-    ctx.transact(caller.project, (current) => {
-      const entry = current.lanes[lane.id];
-      if (!entry) return;
+    // Recorded on the lane the caller still leads: it may have closed, or had its Lead replaced, while the gate ran.
+    const still = ctx.transact(caller.project, (current) => {
+      const entry = laneOfLead(current, caller.id);
+      if (entry?.id !== lane.id) return false;
       if (args.ready === true) entry.ready = { at: Date.now() };
       else delete entry.ready;
+      return true;
     });
+    if (!still) return no(`Lane ${lane.id} is no longer yours to report on: it closed, or has another Lead, while this was asked.`);
     const to = await roster.supervisorFor(caller.project, lane.opener);
     const letter = letters.report(lane, summary, args.ready === true, strs(args.carried), gate);
     const posted = await ctx.post(to, `report:${lane.id}:${hash(summary)}`, letter);
