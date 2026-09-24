@@ -13,8 +13,9 @@ Only the Claude Code specifics are below; everything in `AGENTS.md` applies.
   and they cost money. The suite, your reading and `~/.paseo/daemon.log` are the evidence.
 - **Never print or cat a file that can hold a key:** `~/.local/share/seatworks-v2/settings.json`,
   any project `settings.json`, `~/.paseo/config.json`. Test fixtures use fake `sk-or-v1-…` keys.
-- **`plugin/content/**` is runtime content.** Check the KEEP list in `../REBUILD-TRACKER.md` (resolve
-  it by text; its line numbers are stale) before touching a role prompt.
+- **`plugin/content/**` is runtime content.** Before touching a file the KEEP list names (prompts,
+  skills, harness settings, some code), read its row in `../v3/CONCEPT.md` §6;
+  `plugin/test/catalog/keep.test.ts` fails when one of its anchors goes.
 - **`hidesWords` fails the build** when a role's text uses a word it must not see: rephrase, don't
   remove the lint.
 - **Comments: one short docstring per function at most** (the rule is in `AGENTS.md`). A comment
@@ -23,5 +24,6 @@ Only the Claude Code specifics are below; everything in `AGENTS.md` applies.
 
 ## Writing
 
-Almost no prose, on purpose: no new markdown files, decision records or comments unless asked. Plans
-go outside the repository. If a change needs explaining, the commit message explains it.
+Almost no prose, on purpose: no new markdown files, decision records or comments unless asked (the
+owner's decision log, `../v3/DECISIONS.md`, is the exception). Plans go outside the repository. If a
+change needs explaining, the commit message explains it.

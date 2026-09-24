@@ -4,8 +4,10 @@ A Paseo plugin that serves the **SLP** working concept (Supervisor / Lead / Peer
 and a Watcher). This file holds only what the code does not tell you.
 
 - **Nothing here has shipped.** No consumers, no versions, nothing to stay compatible with.
-- **Context anchor:** `../REBUILD-TRACKER.md` holds the concept, the recovered spec, audit evidence
-  and past decisions. Read the parts your change touches before changing it.
+- **Context anchor:** `../v3/CONCEPT.md` holds the concept, the recovered spec and the KEEP list;
+  `../v3/PLAN.md` is the only list of open work; `../v3/DECISIONS.md` holds settled decisions and
+  the recorded exceptions to the conventions below. Read the parts your change touches before
+  changing it.
 
 ## The governing rule
 
@@ -58,7 +60,8 @@ No build step; tests are `node --test` over `test/**/*.test.ts`.
 - **Fail first.** For every fix, put the old behaviour back and watch the new test fail. Green suites
   here have agreed with bugs before.
 - **No dormant machinery:** no framework, abstraction or setting without a real consumer today.
-- **No docs or decision records unless asked.** Git history is the record.
+- **No docs or decision records unless asked.** Git history is the record; the owner's decisions,
+  and the exceptions to these conventions, live in `../v3/DECISIONS.md`.
 - **Comments are few and short.** At most one docstring per function, method, class or type, one or
   two lines, saying what the name and code don't: why, a hidden constraint, a platform quirk. None on
   a field, member, constant or single line, and none that restates the code. Inside a body, a `//`
@@ -89,8 +92,9 @@ No build step; tests are `node --test` over `test/**/*.test.ts`.
 ## SLP is the preset, not the plugin
 
 - **Roles are data** in `roles.json`: `can` (capabilities: supervise, lead, work, write, review,
-  watched, watch), `tools` (a set in `mcp/tools.json`), prompt, skills, defaults, `follows`. Nothing
-  in `server/` compares a role to a name; capabilities decide routing, acceptance and watching.
+  critique, watched, watch), `tools` (a set in `mcp/tools.json`), prompt, skills, defaults,
+  `follows`. Nothing in `server/` compares a role to a name; capabilities decide routing, acceptance
+  and watching.
 - **A roles file in the state root replaces the shipped one**, and may point at its own prompts and
   skills, so another arrangement needs no fork. Going your own way inherits the machinery, not the
   wording.
