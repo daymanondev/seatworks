@@ -46,7 +46,7 @@ const LONG_FILES: Record<string, number> = {
   "server/runtime/watch/facts.ts": 317,
   "test/runtime/facts.test.ts": 427,
   "test/runtime/intake.test.ts": 559,
-  "test/runtime/workflow.test.ts": 1872,
+  "test/runtime/workflow.test.ts": 1831,
 };
 
 const LONG_FUNCTIONS: Record<string, number> = {

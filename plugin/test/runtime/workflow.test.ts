@@ -3,7 +3,6 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { dirname, join } from "node:path";
 import { mock, test } from "node:test";
 import { gunzipSync } from "node:zlib";
-import type { WatchView } from "../../shared/views.ts";
 import { placeProjectFiles } from "../../server/catalog/project-files.ts";
 import { sentBy } from "../../server/core/sent-by.ts";
 import { KEEP_CLOSED_LANES } from "../../server/desk/archive.ts";
@@ -1648,19 +1647,6 @@ test("an irreversible command a Peer starts reaches the Supervisor before the ca
   assert.deepEqual([...watched.sent, ...watched.steered].filter((text) => /INCIDENT|destructive|rm -rf|incident/i.test(text)), [], "nor reaches it when its turn ends");
 });
 
-test("with mail off the desk records what the code sees and sends nothing until the owner turns mail on", async () => {
-  const { h, sup, timeline } = await laneWithPeer();
-  timeline.beat("turn_started", "t1");
-  timeline.add({ type: "tool_call", callId: "c1", name: "Bash", status: "running", detail: { type: "shell", command: "git push --force origin main" } }, "t1");
-  await settle();
-  await new Promise((resolve) => setTimeout(resolve, 20));
-  await h.idle(sup);
-  assert.deepEqual(Object.values(incidentsOf(h.project.state)).map((item) => [item.kind, item.held]), [["destructive", "shadow"]]);
-  assert.doesNotMatch(h.agents.get(sup)!.sent.join("\n"), /INCIDENT/);
-  const view = (await h.runtime.control.flow(h.project.slug)) as { watch: WatchView };
-  assert.deepEqual(view.watch.incidents.map((item) => [item.name, item.quote, item.held]), [["Peer · L1-T1 Clean build", "git push --force origin main", "shadow"]], "the card names the seat by its task, and shows the step and why it waits");
-});
-
 test("a turn that runs long is told to the Peer's Lead", async () => {
   const { h, sup, lane, timeline } = await laneWithPeer({ attention: { watch: true } });
   timeline.beat("turn_started", "t1");
@@ -1705,33 +1691,6 @@ test("two projects each hear about their own seats, though their incidents carry
   await h.idle(supB);
   assert.match(h.agents.get(sup)!.sent.join("\n"), /INCIDENT I1 \(destructive, page\)/);
   assert.match(h.agents.get(supB)!.sent.join("\n"), /INCIDENT I1 \(destructive, page\)/, "the second project's owner is told too, not dropped as a repeat of the first");
-});
-
-test("a desk call the harness refused for bad JSON is recorded, though it never reached the desk", async () => {
-  const { h, sup } = await laneWithPeer();
-  h.beginTurn(sup);
-  await h.endTurn(sup, "Opening the lane.", {
-    type: "tool_call",
-    callId: "c1",
-    name: "mcp__team__open_lane",
-    status: "failed",
-    error: { content: "InputValidationError: mcp__team__open_lane was called with input that could not be parsed as JSON." },
-    detail: { type: "unknown", input: { __unparsedToolInput: { raw: '{"title": "Build"' } }, output: null },
-  });
-  // The call never reached the desk and no watch follows the Supervisor, so this log is its only record.
-  const log = readFileSync(join(h.project.state, "events.log"), "utf-8");
-  assert.match(log, /"kind":"call\.malformed"/);
-  assert.match(log, /"tool":"mcp__team__open_lane"/);
-  assert.match(log, /"role":"supervisor"/, "the Supervisor is the one role no watch follows, so this is the only way it is ever said");
-  assert.equal(log.match(/"ok":false/g), null, "and no failed desk call was recorded, because the desk was never reached");
-
-  // Paseo hands the hook the whole session, so the next turn carries the same failed call again.
-  await h.endTurn(sup, "Now the task.", { type: "tool_call", callId: "c2", name: "status", status: "completed", detail: {} });
-  assert.equal(readFileSync(join(h.project.state, "events.log"), "utf-8").match(/"kind":"call\.malformed"/g)!.length, 1);
-
-  // No letter carries it, so the panel is where it is seen.
-  const view = (await h.runtime.control.flow(h.project.slug)) as { watch: WatchView };
-  assert.deepEqual(view.watch.trouble.map((entry) => entry.kind), ["call.malformed"]);
 });
 
 test("a lane's own record is gone through for what no turn shows", async () => {

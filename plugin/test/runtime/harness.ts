@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -10,11 +11,15 @@ import { stateRoot } from "../../server/core/paths.ts";
 import type { HookAgent, TimelineItem } from "../../server/core/ports.ts";
 import { loadLedger } from "../../server/desk/ledger.ts";
 import { type Project, projectOf } from "../../server/desk/project.ts";
+import { registerRpc } from "../../server/runtime/rpc.ts";
 import { Runtime } from "../../server/runtime/runtime.ts";
+import type { z } from "zod";
 import { tempDir } from "../tempdir.ts";
 import { FakeTimeline } from "./fake-timeline.ts";
 
 const made: Runtime[] = [];
+
+type Contract = { name: string; input: z.ZodType; output: z.ZodType };
 
 /** A runtime goes with the test that made it, so nothing it still follows reaches the next test. */
 afterEach(() => {
@@ -222,6 +227,12 @@ export function harness() {
     return runtime.turnEnded({ agent: agentOf(id), turnId: `t-${id}-${Date.now()}`, outcome: { kind: "completed" }, timeline: [...timeline] });
   };
   const permission = (id: string, request: Pending) => runtime.permissionRequested({ agent: agentOf(id), request });
+  // A panel call as the panel makes it: through its contract, and its answer, as sent, read by the schema the panel checks it with.
+  const rpc = async <C extends Contract>(contract: C, input: z.input<C["input"]>): Promise<z.output<C["output"]>> => {
+    let answer: (input: unknown) => unknown = () => assert.fail(`nothing serves ${contract.name}`);
+    registerRpc((served, handler) => void (served.name === contract.name && (answer = handler as (input: unknown) => unknown)), runtime.control, () => {});
+    return contract.output.parse(JSON.parse(JSON.stringify(await answer(contract.input.parse(input))))) as z.output<C["output"]>;
+  };
   return {
     root,
     git,
@@ -244,6 +255,7 @@ export function harness() {
     tick,
     beginTurn,
     permission,
+    rpc,
     timelineOf,
     restart,
   };

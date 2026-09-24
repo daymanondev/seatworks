@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
+import { contracts } from "../../shared/rpc.ts";
 import { harness, laneWithPeer } from "./harness.ts";
 import { settle } from "./fake-timeline.ts";
 
@@ -40,6 +41,12 @@ async function laneWith(files: Record<string, string>, settings?: Record<string,
 
 const risky = { "src/auth/login.ts": "export const login = 1;\n" };
 
+/** The Human's word on a held landing, as the panel sends it; what the desk answered, refusal or not. */
+async function decide(h: ReturnType<typeof harness>, approve: boolean, note: string): Promise<string> {
+  const answer = await h.rpc(contracts.landDecide, { project: h.project.slug, lane: "L1", approve, note });
+  return "decided" in answer ? answer.decided : answer.error;
+}
+
 test("in shadow a lane lands as it always has, and the check keeps what it would have asked with the evidence", async () => {
   const { h, land, onMain } = await laneWith(risky);
   const landed = await land();
@@ -73,7 +80,8 @@ test("with the check on, a risky lane waits for the Human: nothing lands, its Le
   assert.doesNotMatch(toLead, /supervisor/i);
   assert.match((await land()).text, /Lane L1 still waits for the Human's approval to land, since \d+ min ago/);
   assert.match((await h.call(sup, "supervisor", "status", {})).text, /Landing waits \d+ min for the Human's approval: src\/auth\/login\.ts is a path this project counts as risky\./);
-  const flow = (await h.runtime.control.flow(h.project.slug)) as { lanes: { id: string; landApproval?: unknown }[] };
+  const flow = await h.rpc(contracts.flow, { project: h.project.slug });
+  assert.ok("lanes" in flow);
   assert.deepEqual(flow.lanes.find((entry) => entry.id === "L1")!.landApproval, {
     minutes: 0,
     approved: false,
@@ -81,8 +89,7 @@ test("with the check on, a risky lane waits for the Human: nothing lands, its Le
     evidence: ["1 commit; 1 file, 1 line changed.", "Gate: passed on the lane."],
   });
 
-  const decided = (await h.runtime.control.decideLand(h.project.slug, "L1", true, "fine, it only renames")) as { decided?: string };
-  assert.match(decided.decided ?? "", /Approved: Lane L1 closed and its agents archived; squashed lane\/l1-cart into one commit on main[^]*Land check \(on\): the Human approved it\./);
+  assert.match(await decide(h, true, "fine, it only renames"), /Approved: Lane L1 closed and its agents archived; squashed lane\/l1-cart into one commit on main[^]*Land check \(on\): the Human approved it\./);
   assert.ok(onMain("src/auth/login.ts"));
   assert.deepEqual([h.ledger().lanes.L1!.status, h.ledger().lanes.L1!.landed, h.ledger().lanes.L1!.landApproval], ["closed", true, undefined]);
   await h.idle(sup);
@@ -93,8 +100,7 @@ test("with the check on, a risky lane waits for the Human: nothing lands, its Le
 test("a landing the Human sends back leaves the lane open with their note for its Lead, and landing it again asks again", async () => {
   const { h, sup, lane, land } = await laneWith(risky, { checkpoints: { land: "on" } });
   await land();
-  const back = (await h.runtime.control.decideLand(h.project.slug, "L1", false, "put the login change behind a flag.")) as { decided?: string };
-  assert.match(back.decided ?? "", /Lane L1 is sent back to its Lead/);
+  assert.match(await decide(h, false, "put the login change behind a flag."), /Lane L1 is sent back to its Lead/);
   assert.deepEqual([h.ledger().lanes.L1!.status, h.ledger().lanes.L1!.landApproval], ["open", undefined]);
   await h.idle(lane.lead!);
   assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /LAND SENT BACK L1 \(Cart\): put the login change behind a flag\. The lane stays open; report it ready again/);
@@ -108,8 +114,7 @@ test("an approval is for the lane as it was held: a commit after it means the la
   const { h, land, work, onMain } = await laneWith(risky, { checkpoints: { land: "on" } });
   await land();
   work({ "src/auth/session.ts": "export const session = 1;\n" });
-  const late = (await h.runtime.control.decideLand(h.project.slug, "L1", true, "")) as { decided?: string };
-  assert.match(late.decided ?? "", /Lane L1 changed after it was held, so this approval is not for what it holds now/);
+  assert.match(await decide(h, true, ""), /Lane L1 changed after it was held, so this approval is not for what it holds now/);
   assert.equal(onMain("src/auth/login.ts"), false);
   assert.equal(h.ledger().lanes.L1!.landApproval, undefined);
   assert.match((await land()).text, /src\/auth\/session\.ts is a path this project counts as risky/);
@@ -122,8 +127,7 @@ test("an approved landing that cannot happen yet stays approved, and lands when 
   writeFileSync(join(h.root, "b.txt"), "main moved\n");
   h.git(h.root, "commit", "-qam", "main moved");
   writeFileSync(join(h.root, "a.txt"), "the Human is editing\n");
-  const blocked = (await h.runtime.control.decideLand(h.project.slug, "L1", true, "")) as { decided?: string };
-  assert.equal(blocked.decided, "Approved. It could not land yet: the main working copy on main has uncommitted changes. The Supervisor lands it once that is cleared.");
+  assert.equal(await decide(h, true, ""), "Approved. It could not land yet: the main working copy on main has uncommitted changes. The Supervisor lands it once that is cleared.");
   assert.equal(h.ledger().lanes.L1!.landApproval?.approved !== undefined, true);
   await h.idle(sup);
   const told = h.agents.get(sup)!.sent.join("\n");
@@ -143,8 +147,7 @@ test("a landing held over a red gate lands over it once approved, as the Supervi
   await h.call(sup, "supervisor", "set_project", { gate: "false" });
   const held = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true, overGate: true });
   assert.match(held.text, /because The gate failed on the lane, and landing was asked for over it\./);
-  const decided = (await h.runtime.control.decideLand(h.project.slug, "L1", true, "")) as { decided?: string };
-  assert.match(decided.decided ?? "", /Approved: Lane L1 closed[^]*over a red gate/);
+  assert.match(await decide(h, true, ""), /Approved: Lane L1 closed[^]*over a red gate/);
   assert.ok(onMain("a.txt"));
   assert.equal(h.git(h.root, "show", "main:a.txt"), "one\nfour\n");
 });
@@ -153,7 +156,7 @@ test("an approval that could not land yet does not cover a commit made after it"
   const { h, land, work, onMain } = await laneWith(risky, { checkpoints: { land: "on" } }, true);
   await land();
   writeFileSync(join(h.root, "a.txt"), "the Human is editing\n");
-  await h.runtime.control.decideLand(h.project.slug, "L1", true, "");
+  await decide(h, true, "");
   h.git(h.root, "checkout", "--", "a.txt");
   work({ "a.txt": "one\nfour\n" });
   assert.match((await land()).text, /waits for the Human's approval/);
@@ -215,8 +218,7 @@ test("an approval stands when all a landing still lacks is its Lead's READY, and
   await land();
   // As seen live: the Supervisor amends the lane while the Human reads the held landing, which undoes the READY.
   await h.call(sup, "supervisor", "amend_lane", { lane: "L1", writeSet: ["a.txt", "src/**", ".gitignore"], why: "the lane ignores its backups" });
-  const decided = (await h.runtime.control.decideLand(h.project.slug, "L1", true, "")) as { decided?: string };
-  assert.match(decided.decided ?? "", /^Approved\. It could not land yet: its Lead has not reported it ready as it now stands/);
+  assert.match(await decide(h, true, ""), /^Approved\. It could not land yet: its Lead has not reported it ready as it now stands/);
   assert.ok(h.ledger().lanes.L1!.landApproval?.approved, "the Human looked at this lane as it is; only the Lead's word is missing");
   await h.call(lane.lead!, "lead", "report", { summary: "done", ready: true });
   const landed = await land();
@@ -252,10 +254,10 @@ test("a landing held only for a missing READY lands once the Lead reports, with 
 test("a landing the Human approves twice at once lands once, and the second approval hears there is nothing left to approve", async () => {
   const { h, land } = await laneWith(risky, { checkpoints: { land: "on" } });
   await land();
-  const decide = () => h.runtime.control.decideLand(h.project.slug, "L1", true, "fine") as Promise<{ decided?: string; error?: string }>;
-  const [first, second] = await Promise.all([decide(), decide()]);
-  assert.deepEqual([first.decided !== undefined, second.decided !== undefined].sort(), [false, true]);
-  assert.match((first.decided ? second : first).error ?? "", /has no landing waiting for your approval/);
+  const once = () => h.rpc(contracts.landDecide, { project: h.project.slug, lane: "L1", approve: true, note: "fine" });
+  const [first, second] = await Promise.all([once(), once()]);
+  assert.deepEqual(["decided" in first, "decided" in second].sort(), [false, true]);
+  assert.match("error" in first ? first.error : "error" in second ? second.error : "", /has no landing waiting for your approval/);
   const events = readFileSync(join(h.project.state, "events.log"), "utf-8").split("\n").filter((line) => line.includes('"lane.closed"'));
   assert.equal(events.length, 1, "closed once");
 });
