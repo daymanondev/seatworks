@@ -267,8 +267,7 @@ export async function calibrate(options: CalibrateOptions): Promise<string> {
       const at = fired(kept, name, question, stored, threshold, unclear);
       const attention = at.filter((item) => item.level === "attend").map((item) => item.at);
       const pages = at.length - attention.length;
-      const lowest = question.alone && question.level === "page" ? threshold - unclear : threshold;
-      out.push(`  at ${fixed(threshold)}: fires on ${at.length} turns${pages > 0 ? ` (${pages} as page)` : ""}, at most ${peak(attention)} attention in 24 hours; precision ${precision(scored, lowest)}`);
+      out.push(`  at ${fixed(threshold)}: fires on ${at.length} turns${pages > 0 ? ` (${pages} as page)` : ""}, at most ${peak(attention)} attention in 24 hours; precision ${precision(scored, threshold)}`);
       now.push(...attention);
       if (question.level === "attend") {
         const peakAt = (candidate: number, answers: Answers) => peak(fired(kept, name, question, answers, candidate, unclear).map((item) => item.at));
