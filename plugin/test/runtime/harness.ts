@@ -216,6 +216,8 @@ export function harness() {
     git(cwd, "commit", "-qm", `edit ${file}`);
   };
   const ledger = (of: Project = project) => loadLedger(of.state);
+  // What a seat has been sent and what waits for it: word that asks nothing rides along with its next letter.
+  const heard = (id: string) => [...agents.get(id)!.sent, ...runtime.outbox.pending(id).map((letter) => letter.text)];
   const tick = (now?: number) => (runtime as unknown as { patrol: { tick(now?: number): Promise<void> } }).patrol.tick(now);
   const agentOf = (id: string): HookAgent => ({ id, provider: agents.get(id)!.provider, cwd: agents.get(id)!.cwd, title: agents.get(id)!.title });
   // Paseo fires a turn start before a turn end; without one, a turn is measured from half an hour ago.
@@ -253,6 +255,7 @@ export function harness() {
     idle,
     commit,
     ledger,
+    heard,
     endTurn,
     tick,
     beginTurn,

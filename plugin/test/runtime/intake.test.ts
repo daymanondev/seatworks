@@ -32,7 +32,7 @@ test("a lane that waits for another opens by itself once that one lands, off a b
   assert.ok(order.lead, "its Lead is seated");
   assert.equal(h.git(h.root, "branch", "--show-current").trim(), order.branch);
   assert.equal(readFileSync(join(h.root, "a.txt"), "utf-8"), "cart\n", "off a base that has the lane it waited for");
-  assert.match(h.agents.get(sup)!.sent.join("\n"), /WAITING L2 \(Order\), the lane you opened to wait for L1: Lane L2 is open on lane\/l2-order/);
+  assert.match(h.heard(sup).join("\n"), /WAITING L2 \(Order\), the lane you opened to wait for L1: Lane L2 is open on lane\/l2-order/);
 });
 
 test("a lane waiting for one that closes without landing stays waiting, and its Supervisor is told once until it drops it", async () => {
@@ -355,7 +355,7 @@ test("a Lead Paseo started before a stop kept the desk from recording it is take
   assert.deepEqual([lane.status, lane.lead, h.ledger().agents[opened.lead!]?.lane], ["open", opened.lead, "L1"]);
   assert.equal(h.git(h.root, "branch", "--show-current").trim(), opened.branch, "the copy its Lead writes in is left where it is");
   assert.equal([...h.agents.values()].filter((agent) => agent.title.startsWith("L1 ")).length, 1, "and no second Lead is started");
-  assert.match(h.agents.get(sup)!.sent.join("\n"), /OPENED L1 \(Cart\): the desk stopped while its Lead was being started, and that Lead, [^,]+, is kept on it/);
+  assert.match(h.heard(sup).join("\n"), /OPENED L1 \(Cart\): the desk stopped while its Lead was being started, and that Lead, [^,]+, is kept on it/);
 });
 
 test("a waiting lane asked to open by a round and a close at once opens once, with one Lead", async () => {

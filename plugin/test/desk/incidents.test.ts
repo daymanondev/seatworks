@@ -17,9 +17,9 @@ import { decide } from "../../server/runtime/watch/findings.ts";
 
 const kit = loadKit(join(dirname(fileURLToPath(import.meta.url)), "..", ".."));
 
-/** `mailing` is the Human's switch: off, what the code notices is recorded and nobody is told. */
+/** `mailing` is the Human's switch: off, what the code notices is recorded and only pages are told. */
 function desk(mailing = false) {
-  const machine = { attention: mailing ? { watch: true } : {} };
+  const machine: { attention: { watch?: boolean } } = { attention: mailing ? { watch: true } : {} };
   const root = tempDir("sw2-incidents-");
   const project = { root, slug: "p", state: join(root, "state") };
   const posted: { to: string; key: string; text: string }[] = [];
@@ -34,7 +34,7 @@ function desk(mailing = false) {
   const roster = { supervisorFor: async () => seated.supervisor };
   const services = { ctx, roster } as unknown as DeskServices;
   const supervisor = { id: "sup", role: kit.roles.find((role) => role.role === "supervisor")!, title: "sup", project };
-  return { project, services, supervisor, posted, seated };
+  return { project, services, supervisor, posted, seated, machine };
 }
 
 const stuck = { kind: "stuck", level: "attend" as const, quote: "the same action failing 3 times", facts: ["stuck"] };
@@ -129,6 +129,18 @@ test("what was held for nobody is told by the round once somebody sits down, and
   const acked = await markIncident.handle(services, supervisor, { id: "I1", verdict: "useful" });
   assert.match(acked.text, /after you were told: git push --force origin main/);
   assert.equal(loadIncidents(project.state).items.I1!.quote, "rm -rf src");
+});
+
+test("with mail off, a page held for nobody is still told once somebody sits down, and the rest waits for mail", async () => {
+  const { project, services, posted, seated, machine } = desk(true);
+  const peer = { id: "peer-1", provider: "sw2-peer-claude/claude-opus-5" };
+  await notice(services, project, peer, [stuck]);
+  machine.attention = {};
+  await notice(services, project, peer, [{ kind: "destructive", level: "page", quote: "rm -rf src", facts: ["destructive"] }]);
+  seated.supervisor = "sup";
+  assert.deepEqual(await retell(services, project), ["I2"]);
+  assert.deepEqual(posted.map((letter) => letter.to), ["sup"]);
+  assert.match(posted[0]!.text, /rm -rf src/);
 });
 
 test("a condition the Supervisor marked noise is counted, not raised again, unless it pages", async () => {

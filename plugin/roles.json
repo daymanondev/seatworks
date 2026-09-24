@@ -23,11 +23,7 @@
       "prompt": "prompts/SUPERVISOR.md",
       "skills": "supervisor",
       "paseoTools": {
-        "allow": [
-          "create_heartbeat",
-          "delete_heartbeat",
-          "list_schedules"
-        ]
+        "enabled": false
       },
       "hidesWords": [],
       "writes": [

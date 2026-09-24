@@ -170,7 +170,7 @@ function IncidentMailCard({ team, values, machine, layer, disabled, save }: Prop
     <SettingsCard>
       <SettingsSwitch
         label="Mail incidents"
-        hint={`What the code notices about a Lead or a Peer goes to the Lead of its lane, or the Supervisor; never to the seat itself. ${sourceLabel(sourceOf(values, machine, (entry) => entry.attention?.watch, layer), layer)}.`}
+        hint={`What the code notices about a Lead or a Peer goes to the Lead of its lane, or the Supervisor; never to the seat itself. Pages reach the Supervisor with this off too. ${sourceLabel(sourceOf(values, machine, (entry) => entry.attention?.watch, layer), layer)}.`}
         value={team.attention.watch}
         onValueChange={(next) => void save((current) => setAttention(current, { watch: next }))}
         disabled={disabled}

@@ -12,8 +12,9 @@ export type Noticed = { id: string; provider: string; title?: string | null };
 
 type Placed = { where: string; lane?: Lane; task?: Task };
 
+/** A page is irreversible and often done already, so it reaches whoever supervises whatever the switch says; the switch holds the rest. */
 function holdFor(incident: Incident, incidents: Incidents, attention: Attention, now: number): Held | undefined {
-  if (!attention.watch) return "shadow";
+  if (!attention.watch && incident.level !== "page") return "shadow";
   if (incident.level === "attend" && spentToday(incidents, now) >= attention.incidentsPerDay) return "budget";
   return undefined;
 }
@@ -117,9 +118,9 @@ async function deliver(services: DeskServices, project: Project, seat: Noticed, 
 
 export async function retell(services: DeskServices, project: Project, now = Date.now()): Promise<string[]> {
   const { ctx } = services;
-  if (!ctx.team(project).attention.watch) return [];
+  const { watch } = ctx.team(project).attention;
   const told: string[] = [];
-  const nobody = ctx.incidents(project, (incidents) => Object.values(incidents.items).filter((item) => item.open && item.held === "nobody" && item.told === undefined).map((item) => ({ ...item })));
+  const nobody = ctx.incidents(project, (incidents) => Object.values(incidents.items).filter((item) => item.open && item.held === "nobody" && item.told === undefined && (watch || item.level === "page")).map((item) => ({ ...item })));
   for (const seat of [...new Set(nobody.map((item) => item.seat))]) {
     const noticed = { id: seat, provider: nobody.find((item) => item.seat === seat)!.provider ?? "" };
     const place = placeOf(project, noticed);

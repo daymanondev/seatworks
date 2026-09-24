@@ -8,18 +8,22 @@ import { laneWithPeer } from "./harness.ts";
 
 const incidentsOf = (state: string) => JSON.parse(readFileSync(join(state, "incidents.json"), "utf-8")).items as Record<string, { kind: string; held?: string }>;
 
-test("with mail off the desk records what the code sees and sends nothing until the owner turns mail on", async () => {
+test("with mail off a page still reaches whoever supervises, and the rest is recorded and waits until the owner turns mail on", async () => {
   const { h, sup, timeline } = await laneWithPeer();
   timeline.beat("turn_started", "t1");
-  timeline.add({ type: "tool_call", callId: "c1", name: "Bash", status: "running", detail: { type: "shell", command: "git push --force origin main" } }, "t1");
+  timeline.add({ type: "tool_call", callId: "c1", name: "Edit", status: "completed", detail: { type: "edit", filePath: "src/a.ts", oldString: "const x = f();", newString: "// @ts-ignore\nconst x = f();" } }, "t1");
+  timeline.add({ type: "tool_call", callId: "c2", name: "Bash", status: "running", detail: { type: "shell", command: "git push --force origin main" } }, "t1");
   await settle();
   await new Promise((resolve) => setTimeout(resolve, 20));
   await h.idle(sup);
-  assert.deepEqual(Object.values(incidentsOf(h.project.state)).map((item) => [item.kind, item.held]), [["destructive", "shadow"]]);
-  assert.doesNotMatch(h.agents.get(sup)!.sent.join("\n"), /INCIDENT/);
+  assert.deepEqual(Object.values(incidentsOf(h.project.state)).map((item) => [item.kind, item.held]), [["suppressed", "shadow"], ["destructive", undefined]]);
+  const sent = h.agents.get(sup)!.sent.join("\n");
+  assert.match(sent, /INCIDENT I2 \(destructive, page\)/, "a page is irreversible and often done already, so no switch holds it");
+  assert.doesNotMatch(sent, /INCIDENT I1/);
   const view = await h.rpc(contracts.flow, { project: h.project.slug });
   assert.ok("watch" in view);
-  assert.deepEqual(view.watch.incidents.map((item) => [item.name, item.quote, item.held]), [["Peer · L1-T1 Clean build", "git push --force origin main", "shadow"]], "the card names the seat by its task, and shows the step and why it waits");
+  const waiting = view.watch.incidents.filter((item) => item.held);
+  assert.deepEqual(waiting.map((item) => [item.name, item.quote, item.held]), [["Peer · L1-T1 Clean build", "src/a.ts: adds @ts-ignore", "shadow"]], "the card names the seat by its task, and shows the step and why it waits");
 });
 
 test("a desk call the harness refused for bad JSON is recorded, though it never reached the desk", async () => {

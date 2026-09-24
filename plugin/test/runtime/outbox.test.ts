@@ -101,3 +101,14 @@ test("a harness that cannot take mail mid-turn, or a seat stopped on a permissio
   assert.equal(await steering.post({ to: "asking", key: "a", text: "t" }), "held", "it has stopped until the permission is decided");
   assert.deepEqual([...agents.peer.sent, ...agents.asking.sent], []);
 });
+
+test("word that asks nothing does not wake an idle seat: it waits and goes with the next letter that does", async () => {
+  const agents = { sup: agent("idle") };
+  const outbox = outboxOn(agents, (_to, list) => list.map((letter) => letter.text).join("|"));
+  assert.equal(await outbox.post({ to: "sup", key: "opened:L2", text: "lane opened", wakes: false }), "held");
+  outbox.turnEnded("sup");
+  assert.equal((await outbox.pump("sup")).size, 0, "a round does not send it on its own either");
+  assert.deepEqual(agents.sup.sent, []);
+  assert.equal(await outbox.post({ to: "sup", key: "ask:A1", text: "a question" }), "sent");
+  assert.deepEqual(agents.sup.sent, ["lane opened|a question"]);
+});

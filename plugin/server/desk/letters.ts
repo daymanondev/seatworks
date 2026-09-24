@@ -17,14 +17,25 @@ export const ended = (text: string) => (/[.!?]$/.test(text.trim()) ? text.trim()
 /** Every kind of letter the desk mails. A letter's key starts with its kind, and so does the id Paseo shows for the message. */
 type Kind =
   | "answer" | "answeredFor" | "ask" | "amended" | "canland" | "detour" | "done" | "escalate" | "failed" | "gone"
-  | "halfopen" | "held" | "hold" | "humanwrote" | "idle" | "incident" | "land" | "landback" | "landheld" | "later" | "leadgone" | "merge" | "message"
+  | "halfopen" | "held" | "hold" | "humanwrote" | "idle" | "incident" | "land" | "landback" | "landheld" | "later" | "leadgone" | "merge" | "message" | "moment"
   | "notstarted" | "nudge" | "opened" | "permission" | "reconcile" | "remind" | "report" | "resumed" | "rework" | "silent" | "started" | "unanswered";
 
-/** A letter the desk mails a seat: its text, and the key under which a second one to that seat is the same letter. */
-export type Letter = { key: string; text: string };
+/** A letter the desk mails a seat: its text, the key under which a second one to that seat is the same letter, and `wakes` false for word that asks nothing of its reader now, which rides along with the next letter that does. */
+export type Letter = { key: string; text: string; wakes?: false };
 
 /** Keyed by its kind and the ids that make it this letter, never by hand where it is posted. */
 export const mail = (kind: Kind, ids: (string | number)[], text: string): Letter => ({ key: [kind, ...ids].join(":"), text });
+
+export const fyi = (letter: Letter): Letter => ({ ...letter, wakes: false });
+
+/** The three moments SLP wakes whoever supervises for, as the desk sees them happen. */
+export type Moment = "ARCHITECTURE" | "STRUGGLING" | "TURNING";
+
+const MOMENT_NEXT: Record<Moment, string> = {
+  ARCHITECTURE: "A task reaching past what it was given is structure settling: ask its Lead why if the lane's directive did not foresee it. The call is the Lead's.",
+  STRUGGLING: "`record` on the task shows where it stuck; one open question carrying what you see there usually unsticks it. The fix is the Lead's.",
+  TURNING: "A turn this sharp often has a reason nobody wrote down: ask its Lead whether the lane's outcome still holds.",
+};
 
 /** A call a seat was told to stop waiting for: the one identity its late answer and its lost answer share. */
 type Waited = { agent: string; tool: string; started: number };
@@ -217,13 +228,8 @@ export const letters = {
   },
 
   halfOpen(lane: Lane): Letter {
-    return mail(
-      "halfopen",
-      [lane.id],
-      lane.lead
-        ? `OPENED ${lane.id} (${lane.title}): the desk stopped while its Lead was being started, and that Lead, ${lane.lead}, is kept on it. Do not open it again.`
-        : `NOT OPENED ${lane.id} (${lane.title}): the desk stopped while its Lead was being started, so the lane is closed and its working copy put back. Open it again if you still want it and have not already.`,
-    );
+    if (lane.lead) return fyi(mail("halfopen", [lane.id], `OPENED ${lane.id} (${lane.title}): the desk stopped while its Lead was being started, and that Lead, ${lane.lead}, is kept on it. Do not open it again.`));
+    return mail("halfopen", [lane.id], `NOT OPENED ${lane.id} (${lane.title}): the desk stopped while its Lead was being started, so the lane is closed and its working copy put back. Open it again if you still want it and have not already.`);
   },
 
   /** Why a lane or task still waits, told once per reason. */
@@ -258,12 +264,16 @@ export const letters = {
     return mail("humanwrote", [seat, hash(text)], lines.join("\n"));
   },
 
+  moment(heading: Moment, task: Task, what: string): Letter {
+    return mail("moment", [heading, task.id, hash(what)], `${heading} ${task.id} (${task.title}) in ${task.lane}: ${what}\n\n${MOMENT_NEXT[heading]}`);
+  },
+
   started(task: Task, what: string): Letter {
     return mail("started", [task.id], waited(task, what));
   },
 
   opened(lane: Lane, what: string): Letter {
-    return mail("opened", [lane.id], waited(lane, what));
+    return fyi(mail("opened", [lane.id], waited(lane, what)));
   },
 
   mailbox(items: string[], open: Ask[]): string {

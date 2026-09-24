@@ -105,6 +105,7 @@ letter, never written by hand where it is posted.
 | Waiting and starting again | WAITING, OPENED, NOT OPENED, NOT STARTED, LEAD GONE |
 | A lane stopped | HOLD, RESUMED |
 | The desk noticing | SILENT, FAILED, WAITING FOR PERMISSION, LANE IDLE, INCIDENT, the bare nudge |
+| A moment to look | ARCHITECTURE, STRUGGLING, TURNING |
 | Answering late | ANSWER to your `<tool>` call, NO ANSWER to your `<tool>` call |
 
 CAN LAND tells whoever tried to land a lane under a seat mid-turn that the turn has ended. NO ANSWER
@@ -112,7 +113,10 @@ tells a seat that the plugin stopped before the call it was told to wait for by 
 RECONCILE tells a Lead what the Supervisor sent its Peer. HUMAN WROTE tells whoever supervises what the Human
 typed straight into a Lead's or Peer's chat. ANSWERED FOR YOU tells a seat that someone
 else answered an ask addressed to it. HOLD is the one letter sent past the outbox, cutting a running turn
-short where the seat's agent allows it.
+short where the seat's agent allows it. ARCHITECTURE, STRUGGLING and TURNING wake whoever supervises at
+the three moments SLP names, as the desk sees them: a Lead widening what a task owns; a task sent back a
+second time, or stalled; a Lead changing what a task is for. OPENED, WAITING for a lane that opened by
+itself, LANDED and SENT BACK ask nothing of the Supervisor, so they wait for the next letter that does.
 
 ## Mail
 
@@ -121,9 +125,11 @@ short where the seat's agent allows it.
 | Paseo can't look the seat up | held |
 | The seat is archived | never sent. The letters age out |
 | The seat has a pending permission | held |
+| The seat's lane is on hold | held until `resume_lane` |
 | Running, its agent `steers`, and the turn started at least 60 s ago | **steered** into the turn |
 | Running or starting | held |
 | Mailed less than 10 minutes ago, with no turn end since | held |
+| Every letter for it asks nothing of it now | held until one that does |
 | Otherwise | sent |
 
 | Timing | Value |
@@ -144,8 +150,9 @@ short where the seat's agent allows it.
 | Supervisor | `attention.log` and `status.md`. You answer it in Paseo |
 | Peer or Reviewer with no task | Only Paseo |
 
-The owner answers a question by `message`, and the desk answers it in Paseo. Any other permission
-only you can answer.
+A question that would stop a turn (AskUserQuestion, `request_user_input`) is refused, with where to ask
+instead: `ask` for a Lead, Peer or Reviewer, `ask_human` for the Supervisor. Any other permission only you
+can answer.
 
 ## Hooks and events
 

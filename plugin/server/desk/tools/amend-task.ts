@@ -4,6 +4,7 @@ import { given, no, ok, str } from "../context.ts";
 import { repeatsIncident } from "../incidents.ts";
 import { amend, loadLedger } from "../ledger.ts";
 import { letters } from "../letters.ts";
+import { tellMoment } from "../moments.ts";
 import { parallelProblem, serialIn } from "../opening.ts";
 import { defineTool } from "../services.ts";
 import { laneTask } from "./lane-task.ts";
@@ -12,7 +13,8 @@ import { laneTask } from "./lane-task.ts";
 export const amendTask = defineTool({
   name: "amend_task",
   input: z.strictObject({ task: z.string(), why: z.string(), goal: z.string().optional(), acceptance: z.array(z.string()).optional(), outOfScope: z.array(z.string()).optional(), owned: z.array(z.string()).optional() }),
-  async handle({ ctx }, caller, args) {
+  async handle(desk, caller, args) {
+    const { ctx } = desk;
     const changes = given(args, ["goal"], ["acceptance", "outOfScope", "owned"]);
     if (changes.goal === "" || changes.acceptance?.length === 0) return no("A task keeps a goal and at least one acceptance line; give what it asks now.");
     if (changes.owned?.length === 0) return no("A task keeps at least one owned path; give every path it owns now.");
@@ -36,6 +38,10 @@ export const amendTask = defineTool({
     });
     if (typeof done === "string") return no(done);
     ctx.event(caller.project, { kind: "task.amended", task: done.task.id, fields: Object.keys(done.amendment.was), by: caller.id });
+    const { was } = done.amendment;
+    const widened = Array.isArray(was.owned) ? done.task.owned.filter((path) => !was.owned!.includes(path)) : [];
+    if (widened.length > 0) await tellMoment(desk, caller.project, done.task, "ARCHITECTURE", `its Lead widened what it owns by ${widened.join(", ")}, because ${str(args.why)}`);
+    if (typeof was.goal === "string") await tellMoment(desk, caller.project, done.task, "TURNING", `its Lead changed what it is for, because ${str(args.why)}\nwas: ${was.goal}\nnow: ${done.task.goal}`);
     if (done.task.status === "waiting") return ok(`${done.task.id} is amended; it starts as it is now.`);
     const posted = await ctx.post(done.task.peer, letters.amended(done.task, done.amendment, "worker"));
     return ok(`${done.task.id} is amended${posted === "nobody" ? ", and it has no Peer to tell" : "; its Peer has it at its next turn"}.`);

@@ -1,5 +1,5 @@
 import type { Lane } from "./ledger.ts";
-import { type Letter, ended, mail } from "./letters.ts";
+import { type Letter, ended, fyi, mail } from "./letters.ts";
 
 /** The letters a landing sends: that it may go ahead, that it waits on the Human, and what the Human decided. */
 export const landLetters = {
@@ -27,7 +27,11 @@ export const landLetters = {
   },
 
   landDecided(lane: Lane, how: "landed" | "blocked" | "again" | "changed" | "sent back", text: string): Letter {
-    const told = (said: string) => mail("land", [lane.id, how, Date.now()], said);
+    const told = (said: string) => {
+      const letter = mail("land", [lane.id, how, Date.now()], said);
+      // Landed or sent back asks nothing more of whoever supervises; the rest ask it to land again.
+      return how === "landed" || how === "sent back" ? fyi(letter) : letter;
+    };
     if (how === "landed") return told(`LANDED ${lane.id} (${lane.title}) after the Human approved it: ${text}`);
     if (how === "again") return told(`HELD AGAIN ${lane.id} (${lane.title}): the Human approved it, but landing it turned up more. ${text}`);
     if (how === "changed") return told(`CHANGED ${lane.id} (${lane.title}) after its landing was held, so the Human's approval did not count. land_lane it to have it checked as it is now.`);

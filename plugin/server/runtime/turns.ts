@@ -136,5 +136,8 @@ export class TurnRules {
     }
     await desk.post(lane?.lead, letters.stalled(task, text, updated.silent, denied));
     desk.event(project, { kind: "task.silent", task: task.id, denied: denied?.what ?? null, refused: denied?.refused ?? false });
+    if (task.status === "stalled") return;
+    const why = denied ? `its Peer's last call ${denied.refused ? "was refused" : "did not finish"}: ${denied.what}` : `its Peer ended ${updated.silent} turns without a hand-back or an ask`;
+    await desk.post(await desk.supervisorFor(project, lane?.opener), letters.moment("STRUGGLING", updated, why));
   }
 }

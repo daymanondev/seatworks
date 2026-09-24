@@ -339,7 +339,7 @@ test("a lane in the project's own copy whose base moved waits for a seat mid-tur
   // Still open, so the landing waits for the turn rather than being lost with a closed lane.
   assert.equal(h.ledger().lanes.L1!.status, "open");
   h.agents.get(lane.lead!)!.status = "idle";
-  // Nothing else would bring the Supervisor back: it waited for a heartbeat, ten minutes in one run.
+  // Nothing else brings the Supervisor back to land it.
   assert.doesNotMatch(h.agents.get(sup)!.sent.join("\n"), /CAN LAND/);
   await h.endTurn(lane.lead!, "reported");
   assert.match(h.agents.get(sup)!.sent.join("\n"), /CAN LAND L1/, "the end of the turn that was in the way is mail for whoever tried to land");

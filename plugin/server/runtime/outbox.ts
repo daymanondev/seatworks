@@ -2,7 +2,7 @@ import { midTurn } from "../core/paseo.ts";
 import type { SeatLook, Seats } from "../core/ports.ts";
 import { readJson, writeJson } from "../core/store.ts";
 
-export type Letter = { id: string; to: string; key: string; text: string; at: number };
+export type Letter = { id: string; to: string; key: string; text: string; at: number; wakes?: false };
 type Posted = "sent" | "held" | "duplicate";
 type Compose = (to: string, letters: Letter[]) => string | Promise<string>;
 /**
@@ -116,6 +116,8 @@ export class Outbox {
       const began = this.started.get(to);
       const steer = seat.status === "running" && began !== undefined && Date.now() - began >= SETTLE_MS && this.rules.steers?.(seat) === true && this.rules.calling?.(to) !== true;
       if (!steer && (midTurn(seat.status) || waiting)) return new Set<string>();
+      // Word that asks nothing of an idle seat now waits for a letter that does, or for a turn it is already in.
+      if (!steer && mine.every((letter) => letter.wakes === false)) return new Set<string>();
       const text = await this.compose(to, mine);
       await this.seats.send(to, text, [...new Set(mine.map((letter) => letter.key.split(":")[0]!))], steer ? "steer" : undefined);
       const now = Date.now();

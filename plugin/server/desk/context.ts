@@ -34,7 +34,7 @@ export type CodeIndex = {
 /** "duplicate": dropped as a repeat of a letter already sent. */
 export type Posted = "sent" | "held" | "duplicate";
 
-export type Mailer = { post(letter: { to: string; key: string; text: string }): Promise<Posted> };
+export type Mailer = { post(letter: { to: string; key: string; text: string; wakes?: false }): Promise<Posted> };
 
 /** What a transaction returns: never a promise, since awaiting inside one would let another change in between its read and its write. */
 export type Sync<T> = T extends PromiseLike<unknown> ? never : T;

@@ -93,7 +93,8 @@ test("with the check on, a risky lane waits for the Human: nothing lands, its Le
   assert.ok(onMain("src/auth/login.ts"));
   assert.deepEqual([h.ledger().lanes.L1!.status, h.ledger().lanes.L1!.landed, h.ledger().lanes.L1!.landApproval], ["closed", true, undefined]);
   await h.idle(sup);
-  assert.match(h.agents.get(sup)!.sent.join("\n"), /LANDED L1 \(Cart\) after the Human approved it: fine, it only renames\. Lane L1 closed/);
+  assert.match(h.heard(sup).join("\n"), /LANDED L1 \(Cart\) after the Human approved it: fine, it only renames\. Lane L1 closed/);
+  assert.doesNotMatch(h.agents.get(sup)!.sent.join("\n"), /LANDED L1/, "the Human's word asks nothing more of it, so it does not wake it");
   assert.deepEqual(runs(h.project.state).map((run) => run.decision), ["ask", "approved"]);
 });
 
@@ -105,7 +106,7 @@ test("a landing the Human sends back leaves the lane open with their note for it
   await h.idle(lane.lead!);
   assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /LAND SENT BACK L1 \(Cart\): put the login change behind a flag\. The lane stays open; report it ready again/);
   await h.idle(sup);
-  assert.match(h.agents.get(sup)!.sent.join("\n"), /SENT BACK L1 \(Cart\) by the Human: put the login change behind a flag/);
+  assert.match(h.heard(sup).join("\n"), /SENT BACK L1 \(Cart\) by the Human: put the login change behind a flag/);
   assert.match((await land()).text, /waits for the Human's approval/);
   assert.deepEqual(runs(h.project.state).map((run) => run.decision), ["ask", "sent back", "ask"]);
 });

@@ -189,11 +189,12 @@ test("a Codex seat has every desk and proxy tool it is given approved ahead, and
   for (const id of proxies) assert.ok([...approved].some((name) => name.startsWith(`${id}.`)), id);
   // Paseo adds its own server at launch; the tools a role is allowed there are approved too, and only those.
   assert.deepEqual([...approved].filter((name) => name.startsWith("paseo.")), [], "the Lead is allowed none");
-  const supervisor = withHarness(all, "supervisor", kit.harnesses.codex!);
-  const asked = { provider: providerId(kit, "supervisor", "codex"), cwd: "/work/repo" } as AgentConfig;
-  const supervising = applyRole(kit, supervisor, asked, () => "PROMPT", "/state/demo", serversFor(kit, supervisor, "supervisor", context)) as unknown as { toolPolicy?: { preapproved: { server: string; tool: string }[] } };
+  const own = { ...kit, roles: kit.roles.map((role) => (role.role === "supervisor" ? { ...role, paseoTools: { allow: ["list_schedules"] } } : role)) };
+  const supervisor = withHarness(resolveTeam(own), "supervisor", kit.harnesses.codex!);
+  const asked = { provider: providerId(own, "supervisor", "codex"), cwd: "/work/repo" } as AgentConfig;
+  const supervising = applyRole(own, supervisor, asked, () => "PROMPT", "/state/demo", serversFor(own, supervisor, "supervisor", context)) as unknown as { toolPolicy?: { preapproved: { server: string; tool: string }[] } };
   const paseo = supervising.toolPolicy?.preapproved.filter((ref) => ref.server === "paseo").map((ref) => ref.tool);
-  assert.deepEqual(paseo, kit.roles.find((role) => role.role === "supervisor")!.paseoTools!.allow);
+  assert.deepEqual(paseo, ["list_schedules"], "a roles file of one's own may give a seat some of Paseo's tools");
   const claude = applyRole(kit, all, { provider: providerId(kit, "lead", "claude"), cwd: "/work/repo" } as AgentConfig, () => "PROMPT", "/state/demo", serversFor(kit, all, "lead", context)) as unknown as { toolPolicy?: unknown };
   assert.equal(claude.toolPolicy, undefined);
 });
@@ -221,25 +222,11 @@ test("project records are seeded once and never overwritten", () => {
   assert.deepEqual(seedRecords(kit, state), []);
 });
 
-test("no shipped role is left with Paseo's own tools at their default", () => {
+test("no shipped seat reaches Paseo's own tools: none acts on another behind the desk, and none wakes on a clock", () => {
   const kit = loadKit(pluginRoot);
   const team = resolveTeam(kit);
   for (const { role, harness } of seatPairs(kit)) {
-    const entry = desiredProvider(kit, team, role, harness);
-    assert.ok(entry.paseoTools, `${role.role} on ${harness.id} carries no Paseo tool policy, so every Paseo tool stays on`);
-  }
-});
-
-test("the Supervisor can set its own cadence for reading the work, rather than the desk fixing one", () => {
-  const kit = loadKit(pluginRoot);
-  const team = resolveTeam(kit);
-  const supervisor = kit.roles.find((role) => role.role === "supervisor")!;
-  const policy = desiredProvider(kit, team, supervisor, kit.harnesses.claude!).paseoTools as { disabledTools: string[] };
-  for (const own of ["create_heartbeat", "delete_heartbeat", "list_schedules"]) {
-    assert.ok(!policy.disabledTools.includes(own), `a heartbeat is how a Supervisor decides when to look, so it must reach ${own}`);
-  }
-  for (const acting of ["create_agent", "kill_agent", "send_agent_prompt", "archive_agent"]) {
-    assert.ok(policy.disabledTools.includes(acting), `the Supervisor advises and must not ${acting} behind the desk`);
+    assert.deepEqual(desiredProvider(kit, team, role, harness).paseoTools, { enabled: false }, `${role.role} on ${harness.id}`);
   }
 });
 
