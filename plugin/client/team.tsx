@@ -1,16 +1,15 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { useRpc } from "@getpaseo/plugin/client";
-import { SettingsAction, SettingsCard, SettingsRow, SettingsSection, SettingsSelect } from "@getpaseo/plugin/client/ui";
+import { SettingsAction, SettingsCard, SettingsRow, SettingsSection, SettingsSelect, SettingsSwitch } from "@getpaseo/plugin/client/ui";
 import { type ReactElement, useState } from "react";
 import { modelsRpc } from "../shared/rpc.ts";
 import { Text } from "react-native";
 import { sourceLabel } from "./bits.tsx";
 import type { Catalog, CheckpointMode, Digest, Layer, RoleChoice, TeamView } from "./data.ts";
-import { message, modelRow, setCheckpoint, setRole, sourceOf } from "./data.ts";
+import { message, modelRow, setAttention, setCheckpoint, setRole, sourceOf } from "./data.ts";
 import { ModelPicker } from "./model-picker.tsx";
 import { TabBar } from "./tabs.tsx";
 import { CriticSettings } from "./critic.tsx";
-import { WatcherSettings } from "./watch.tsx";
 
 type Props = {
   catalog: Catalog;
@@ -65,7 +64,7 @@ function ModelsCard({ catalog, disabled, reload }: Pick<Props, "catalog" | "disa
 
 type Role = Catalog["roles"][number];
 
-/** Rows, not a component: the card borders each child it gets, and the Watcher's card wraps its own rows around these. */
+/** Rows, not a component: the card borders each child it gets, and the Critic's card wraps its own rows around these. */
 export function roleRows({ catalog, team, values, machine, layer, theme, disabled, save, role }: Omit<Props, "active" | "onActive" | "reload"> & { role: Role }): ReactElement[] {
   const seat = team.roles[role.id];
   const follows = role.follows ? catalog.roles.find((entry) => entry.id === role.follows)?.label : undefined;
@@ -214,7 +213,7 @@ function LandCheckCard({ team, values, machine, layer, theme, disabled, save }: 
       </SettingsRow>
       <SettingsRow
         label="Approve landings"
-        hint={`${team.checkpoints.landApprove === "every" ? "Every landing waits for you." : `Only a landing with something to see first waits: a red or missing gate, tests deleted or weakened, risky paths, more than ${team.checkpoints.landLines} lines, open incidents the code or a Watcher raised, files outside the lane.`} Held only while the check is on. ${sourceLabel(sourceOf(values, machine, (entry) => entry.checkpoints?.landApprove, layer), layer)}.`}
+        hint={`${team.checkpoints.landApprove === "every" ? "Every landing waits for you." : `Only a landing with something to see first waits: a red or missing gate, tests deleted or weakened, risky paths, more than ${team.checkpoints.landLines} lines, open incidents the code raised, files outside the lane.`} Held only while the check is on. ${sourceLabel(sourceOf(values, machine, (entry) => entry.checkpoints?.landApprove, layer), layer)}.`}
       >
         <TabBar
           theme={theme}
@@ -232,6 +231,21 @@ function LandCheckCard({ team, values, machine, layer, theme, disabled, save }: 
   );
 }
 
+/** On the Supervisor's chip, since what pages and what is about a Lead goes to it: whether what the code notices is mailed at all. */
+function IncidentMailCard({ team, values, machine, layer, disabled, save }: Props) {
+  return (
+    <SettingsCard>
+      <SettingsSwitch
+        label="Mail incidents"
+        hint={`What the code notices about a Lead or a Peer goes to the Lead of its lane, or the Supervisor; never to the seat itself. ${sourceLabel(sourceOf(values, machine, (entry) => entry.attention?.watch, layer), layer)}.`}
+        value={team.attention.watch}
+        onValueChange={(next) => void save((current) => setAttention(current, { watch: next }))}
+        disabled={disabled}
+      />
+    </SettingsCard>
+  );
+}
+
 export function TeamSection(props: Props) {
   const { catalog, theme, disabled, active, onActive } = props;
   const role = catalog.roles.find((entry) => entry.id === active) ?? catalog.roles[0];
@@ -239,15 +253,14 @@ export function TeamSection(props: Props) {
   return (
     <SettingsSection title="Team" info={role.description}>
       <TabBar theme={theme} active={role.id} disabled={disabled} onPick={onActive} tabs={catalog.roles.map((entry) => ({ id: entry.id, label: entry.label }))} />
-      {role.can.includes("watch") ? (
-        <WatcherSettings {...props} role={role} rows={roleRows({ ...props, role })} />
-      ) : role.can.includes("critique") ? (
+      {role.can.includes("critique") ? (
         <CriticSettings {...props} rows={roleRows({ ...props, role })} />
       ) : (
         <SettingsCard>{roleRows({ ...props, role })}</SettingsCard>
       )}
       {role.can.includes("lead") ? <PlanCheckCard {...props} /> : null}
       {role.can.includes("supervise") ? <LandCheckCard {...props} /> : null}
+      {role.can.includes("supervise") ? <IncidentMailCard {...props} /> : null}
       <ModelsCard catalog={props.catalog} disabled={props.disabled} reload={props.reload} />
     </SettingsSection>
   );

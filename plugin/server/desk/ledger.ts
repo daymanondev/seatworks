@@ -249,16 +249,6 @@ export function tasksOf(ledger: Ledger, laneId: string): Task[] {
 
 export const ACTIVE: TaskStatus[] = ["running", "rework", "queued", "merging"];
 
-/** A task written beside this one and the paths it owns, so a Peer's goal says a stub is somebody else's work in progress. */
-export type Sibling = { task: string; title: string; owned: string[] };
-
-/** The tasks of `task`'s lane still being written, each in a copy of its own, and what each owns. */
-export function alongside(ledger: Ledger, task: Task): Sibling[] {
-  return tasksOf(ledger, task.lane)
-    .filter((other) => other.id !== task.id && ACTIVE.includes(other.status))
-    .map((other) => ({ task: other.id, title: other.title, owned: other.owned }));
-}
-
 export function activeTasks(ledger: Ledger, laneId: string): Task[] {
   return tasksOf(ledger, laneId).filter((task) => ACTIVE.includes(task.status));
 }

@@ -26,7 +26,7 @@ const seat = (id: string, provider: string): SeatView => ({ id, provider, cwd: "
 
 test("a seat created while the round sweeps is followed once, and only the roles that are watched", () => {
   const timelines = new Map<string, FakeTimeline>();
-  const watches = new Watches({ kit, seats: seatsWith(timelines), context: () => undefined, found: () => {}, on: () => true, log: () => {} });
+  const watches = new Watches({ kit, seats: seatsWith(timelines), context: () => undefined, found: () => {}, log: () => {} });
   const peer = seat("p1", "sw2-peer-devin/swe-2-max");
   watches.follow(peer);
   watches.sync([peer, seat("s1", "sw2-supervisor-claude/claude-opus-5"), seat("r1", "sw2-reviewer-claude/claude-opus-5"), seat("l1", "sw2-lead-claude/claude-opus-5")]);
@@ -41,7 +41,7 @@ test("a seat archived while it is being joined leaves no subscription behind, an
   const slow = new FakeTimeline();
   slow.ready = new Promise((resolve) => (open = resolve));
   timelines.set("p1", slow);
-  const watches = new Watches({ kit, seats: seatsWith(timelines), context: () => undefined, found: () => {}, on: () => true, log: () => {} });
+  const watches = new Watches({ kit, seats: seatsWith(timelines), context: () => undefined, found: () => {}, log: () => {} });
   watches.follow(seat("p1", "sw2-peer-devin/swe-2-max"));
   watches.drop("p1");
   open();
@@ -57,7 +57,7 @@ test("a seat the round no longer sees is let go, and one that failed to join is 
   const broken = new FakeTimeline();
   broken.refetch = async () => ({ epoch: "e", entries: [], error: "no such agent" });
   timelines.set("p2", broken);
-  const watches = new Watches({ kit, seats: seatsWith(timelines), context: () => undefined, found: () => {}, on: () => true, log: () => {} });
+  const watches = new Watches({ kit, seats: seatsWith(timelines), context: () => undefined, found: () => {}, log: () => {} });
   watches.sync([seat("p1", "sw2-peer-devin/swe-2-max"), seat("p2", "sw2-peer-devin/swe-2-max")]);
   await settle();
   assert.equal((watches.get("p2") !== undefined), false, "a join that failed is not held as followed");
@@ -67,34 +67,14 @@ test("a seat the round no longer sees is let go, and one that failed to join is 
   assert.equal(broken.subscriptions, 2);
 });
 
-test("with the watch switched off nothing is followed, and switching it off lets go of what already was", async () => {
-  const timelines = new Map<string, FakeTimeline>();
-  let on = false;
-  const watches = new Watches({ kit, seats: seatsWith(timelines), context: () => undefined, found: () => {}, on: () => on, log: () => {} });
-  const peer = seat("p1", "sw2-peer-devin/swe-2-max");
-  watches.follow(peer);
-  watches.sync([peer]);
-  assert.equal(watches.get("p1"), undefined, "off means off: not followed at all, rather than read in code alone");
-  assert.equal(timelines.has("p1"), false, "and no subscription is opened for it");
-  on = true;
-  watches.sync([peer]);
-  await settle();
-  assert.notEqual(watches.get("p1"), undefined);
-  on = false;
-  watches.sync([peer]);
-  assert.equal(watches.get("p1"), undefined, "turning it off lets go on the next round, with no reload");
-  assert.equal(timelines.get("p1")!.listeners.size, 0);
-});
-
-test("a seat's brief is read again until the ledger has placed it", () => {
+test("what a seat is watched against is read again until the ledger has placed it", () => {
   // A Peer's first turn starts before start_task places it, so an empty first read must not be kept.
   let placed = false;
   const rules = { destructive: /x^/, testPath: /x^/, suppressed: /x^/, gates: [], cwd: "/work", repeatsAt: 3, recoverWithin: 10 };
-  const watch = new SeatWatch({ id: "p1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: { ...rules, owned: placed ? ["src/a.ts"] : undefined }, handedBack: () => undefined, goal: placed ? "Task L1-T1: a" : "", context: "", beside: [], role: "Peer", can: [] }));
-  assert.equal(watch.brief()?.goal, "");
+  const watch = new SeatWatch({ id: "p1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: { ...rules, owned: placed ? ["src/a.ts"] : undefined }, handedBack: () => undefined, placed }));
+  assert.equal(watch.placed()?.rules.owned, undefined);
   placed = true;
-  assert.equal(watch.brief()?.goal, "Task L1-T1: a");
-  assert.deepEqual(watch.brief()?.rules.owned, ["src/a.ts"]);
+  assert.deepEqual(watch.placed()?.rules.owned, ["src/a.ts"]);
 });
 
 test("a refusal from the desk reaches no one as a failed call, while a command that failed does", async () => {

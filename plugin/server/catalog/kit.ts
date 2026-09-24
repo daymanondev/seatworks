@@ -1,7 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { z } from "zod";
-import { DESTRUCTIVE, FACT_LEVELS, SUPPRESSED, TEST_PATH } from "../runtime/watch/facts.ts";
-import { LEAST_STATE_CHARS, VIEW_FIELDS, type ViewName, isView } from "../runtime/watch/jev/views.ts";
+import { DESTRUCTIVE, SUPPRESSED, TEST_PATH } from "../runtime/watch/facts.ts";
 import { hiddenWordsIn } from "./content.ts";
 import { AttentionChoice } from "./settings.ts";
 import { isAbsolute, join } from "node:path";
@@ -195,12 +194,6 @@ export type Attention = {
   askRemindMinutes: number;
   maxReminders: number;
   watch: boolean;
-  by: "seat" | "jev";
-  watcherQuietSeconds: number;
-  watcherEveryMinutes: number;
-  watcherChars: number;
-  watcherRotateAfter: number;
-  watcherJudgeMinutes: number;
   destructive: string;
   testPath: string;
   repeatsAt: number;
@@ -211,35 +204,6 @@ export type Attention = {
   incidentsPerDay: number;
 };
 
-export type Question = {
-  view: ViewName;
-  instructions: string;
-  criteria?: { true: string; false: string };
-  threshold?: number;
-  level?: "page" | "attend";
-  alone?: boolean;
-  agrees?: string[];
-  confirms?: string[];
-  needs?: string[];
-  excusedBeside?: boolean;
-  for?: string;
-  after?: string[];
-  label?: string;
-};
-
-export type SensorSpec = {
-  id: string;
-  url: string;
-  model: string;
-  timeoutSeconds: number;
-  retries: number;
-  stateChars: number;
-  debounceSeconds: number;
-  everySeconds: number;
-  unclear: number;
-  questions: Record<string, Question>;
-};
-
 export type Kit = {
   dir: string;
   prefix: string;
@@ -247,22 +211,14 @@ export type Kit = {
   harnesses: Record<string, HarnessSpec>;
   mcp: Record<string, McpEntry>;
   toolSets: Record<string, Record<string, ArgSchema>>;
-  sensors: Record<string, SensorSpec>;
   team?: string;
   own?: string;
-  watcher?: WatcherSpec;
   attention: Attention;
 };
 
 const ATTENTION: Attention = {
   tickSeconds: 30, leadIdleMinutes: 12, askRemindMinutes: 15, maxReminders: 2,
   watch: false,
-  by: "seat",
-  watcherQuietSeconds: 60,
-  watcherEveryMinutes: 5,
-  watcherChars: 12_000,
-  watcherRotateAfter: 40,
-  watcherJudgeMinutes: 10,
   destructive: DESTRUCTIVE,
   testPath: TEST_PATH,
   repeatsAt: 3,
@@ -334,98 +290,6 @@ function loadMcp(dir: string): Record<string, McpEntry> {
   return entries;
 }
 
-const SENSOR_KEYS = ["id", "url", "model", "timeoutSeconds", "retries", "stateChars", "debounceSeconds", "everySeconds", "unclear", "questions"];
-const QUESTION_KEYS = ["view", "instructions", "criteria", "threshold", "level", "alone", "agrees", "confirms", "needs", "excusedBeside", "for", "after", "label"];
-
-export function sensorProblems(id: string, raw: Record<string, unknown>): string[] {
-  const problems: string[] = [];
-  if (raw.id !== id) problems.push(`calls itself ${String(raw.id)} but sits in catalog/sensor/${id}`);
-  for (const key of ["url", "model"]) if (typeof raw[key] !== "string" || !raw[key]) problems.push(`has no ${key}`);
-  if (typeof raw.url === "string" && !raw.url.startsWith("https://")) problems.push("sends its state somewhere that is not https");
-  for (const key of ["timeoutSeconds", "stateChars", "debounceSeconds", "everySeconds"]) if (typeof raw[key] !== "number" || !((raw[key] as number) > 0)) problems.push(`has no positive ${key}`);
-  if (typeof raw.stateChars === "number" && raw.stateChars > 0 && raw.stateChars < LEAST_STATE_CHARS) problems.push(`sends a state of fewer than ${LEAST_STATE_CHARS} characters, too few to say anything`);
-  if (!Number.isInteger(raw.retries) || (raw.retries as number) < 0) problems.push("has no whole number of retries");
-  const questions = raw.questions as Record<string, Record<string, unknown>> | undefined;
-  if (!questions || typeof questions !== "object" || Object.keys(questions).length === 0) problems.push("asks no questions");
-  if (typeof raw.unclear !== "number" || !(raw.unclear > 0 && raw.unclear < 0.5)) problems.push("has no unclear band between 0 and 0.5");
-  for (const key of Object.keys(raw)) if (!SENSOR_KEYS.includes(key)) problems.push(`has ${key}, which a sensor does not take`);
-  const kinds = (value: unknown, levels: string[]) => Array.isArray(value) && value.length > 0 && value.every((kind) => typeof kind === "string" && levels.includes(FACT_LEVELS[kind] ?? ""));
-  for (const [name, question] of Object.entries(questions ?? {})) {
-    if (typeof question?.instructions !== "string" || !question.instructions) problems.push(`asks ${name} without instructions`);
-    if (!isView(question?.view)) problems.push(`asks ${name} over ${String(question?.view)}, which is not a view (${Object.keys(VIEW_FIELDS).join(", ")})`);
-    for (const key of Object.keys(question ?? {})) if (!QUESTION_KEYS.includes(key)) problems.push(`asks ${name} with ${key}, which a question does not take`);
-    const criteria = question?.criteria as Record<string, unknown> | null | undefined;
-    if (criteria !== undefined && (!criteria || typeof criteria !== "object" || Array.isArray(criteria) || Object.keys(criteria).sort().join() !== "false,true" || !criteria.true || !criteria.false || typeof criteria.true !== "string" || typeof criteria.false !== "string")) {
-      problems.push(`asks ${name} with criteria that are not a true and a false text`);
-    }
-    const opens = question?.alone === true || question?.agrees !== undefined;
-    const decides = opens || question?.confirms !== undefined;
-    if (decides && (typeof question?.threshold !== "number" || question.threshold < 0 || question.threshold > 1)) problems.push(`asks ${name} with no threshold between 0 and 1`);
-    if (opens && question?.level !== "page" && question?.level !== "attend") problems.push(`asks ${name} at a level that is neither page nor attend`);
-    if (!opens && question?.level !== undefined) problems.push(`asks ${name} with a level, though it opens no incident of its own`);
-    if (!decides && question?.threshold !== undefined) problems.push(`asks ${name} with a threshold, though nothing decides on its answer`);
-    if (question?.agrees !== undefined && !kinds(question.agrees, ["page", "attend", "note"])) problems.push(`asks ${name} with agrees that is not a list of fact kinds`);
-    if (question?.confirms !== undefined && !kinds(question.confirms, ["attend"])) problems.push(`asks ${name} with confirms that is not a list of attention-level fact kinds`);
-    if (question?.alone && (question?.agrees || question?.confirms)) problems.push(`asks ${name} both alone and tied to facts`);
-    const fields: readonly string[] = isView(question?.view) ? VIEW_FIELDS[question.view] : [];
-    if (question?.needs !== undefined && (!Array.isArray(question.needs) || question.needs.length === 0 || question.needs.some((field) => !fields.includes(field)))) {
-      problems.push(`asks ${name} with needs that is not a list of its view's fields (${fields.join(", ")})`);
-    }
-    if (question?.label !== undefined && (typeof question.label !== "string" || !question.label.trim())) problems.push(`asks ${name} with a label that is not text`);
-    if (question?.for !== undefined && (typeof question.for !== "string" || !question.for)) problems.push(`asks ${name} for something that is not a capability`);
-    if (question?.after !== undefined && !(Array.isArray(question.after) && question.after.length > 0 && question.after.every((kind) => typeof kind === "string" && kind !== ""))) {
-      problems.push(`asks ${name} after something that is not a list of who an instruction comes from`);
-    }
-    if (question?.excusedBeside !== undefined && (question.excusedBeside !== true || !opens)) problems.push(`asks ${name} excused beside, though it opens no incident to excuse`);
-  }
-  return problems;
-}
-
-export type WatcherKind = { level: "page" | "attend"; label: string; means: string; looks?: string };
-export type WatcherSpec = { kinds: Record<string, WatcherKind>; judges: string[] };
-
-export function watcherProblems(raw: Record<string, unknown>): string[] {
-  const problems: string[] = [];
-  for (const key of Object.keys(raw)) if (key !== "kinds" && key !== "judges") problems.push(`has ${key}, which the Watcher does not take`);
-  const judges = raw.judges;
-  if (!Array.isArray(judges) || !judges.every((kind) => typeof kind === "string" && FACT_LEVELS[kind] === "attend")) problems.push("judges something that is not an attention-level fact the code raises");
-  const kinds = raw.kinds as Record<string, Record<string, unknown>> | undefined;
-  if (!kinds || typeof kinds !== "object" || Object.keys(kinds).length === 0) problems.push("may raise no kind");
-  for (const [name, kind] of Object.entries(kinds ?? {})) {
-    if (!/^[a-z][a-z_]*$/.test(name)) problems.push(`names a kind ${name}, which is not lowercase words joined by _`);
-    // One incident stands per seat and kind, so a kind named after a fact would be that fact's incident, waiting on its own judgement.
-    if (FACT_LEVELS[name] !== undefined) problems.push(`names a kind ${name}, which is a fact the code raises`);
-    if (kind?.level !== "page" && kind?.level !== "attend") problems.push(`raises ${name} at a level that is neither page nor attend`);
-    for (const field of ["label", "means"]) if (typeof kind?.[field] !== "string" || !kind[field]) problems.push(`raises ${name} with no ${field}`);
-    if (kind?.looks !== undefined && (typeof kind.looks !== "string" || !kind.looks)) problems.push(`raises ${name} with a looks that is not text`);
-    for (const key of Object.keys(kind ?? {})) if (!["level", "label", "means", "looks"].includes(key)) problems.push(`raises ${name} with ${key}, which a kind does not take`);
-  }
-  return problems;
-}
-
-function loadWatcher(dir: string): WatcherSpec | undefined {
-  const file = join(dir, "catalog", "watcher", "watcher.json");
-  if (!existsSync(file)) return undefined;
-  const raw = JSON.parse(readFileSync(file, "utf-8")) as Record<string, unknown>;
-  const problems = watcherProblems(raw);
-  if (problems.length > 0) throw new Error(`catalog/watcher/watcher.json ${problems.join("; ")}`);
-  return raw as unknown as WatcherSpec;
-}
-
-function loadSensors(dir: string): Record<string, SensorSpec> {
-  const root = join(dir, "catalog", "sensor");
-  const sensors: Record<string, SensorSpec> = {};
-  for (const id of subdirs(root)) {
-    const file = join(root, id, "sensor.json");
-    if (!existsSync(file)) continue;
-    const raw = JSON.parse(readFileSync(file, "utf-8")) as Record<string, unknown>;
-    const problems = sensorProblems(id, raw);
-    if (problems.length > 0) throw new Error(`sensor ${id} ${problems.join("; ")}`);
-    sensors[id] = raw as unknown as SensorSpec;
-  }
-  return sensors;
-}
-
 /** The shipped SLP preset, unless the state root holds a file of the same name, which replaces it. */
 export function rolesFile(dir: string, stateDir?: string): string {
   const own = stateDir ? join(stateDir, "roles.json") : undefined;
@@ -464,10 +328,8 @@ export function loadKit(dir: string, stateDir?: string): Kit {
     harnesses,
     mcp: loadMcp(dir),
     toolSets: loadToolSets(dir),
-    sensors: loadSensors(dir),
     team: loadTeam(dir, roles, own),
     own,
-    watcher: loadWatcher(dir),
     attention: { ...ATTENTION, ...presetAttention(raw.attention) },
   };
 }

@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import { ProjectLayerSchema } from "../../server/catalog/settings.ts";
 import { RISKY_PATHS, resolveTeam, rulesFor, servingProject, serversFor, skillDirsFor, withHarness } from "../../server/catalog/team.ts";
 import { makeKit } from "../kit.ts";
 import { tempDir } from "../tempdir.ts";
@@ -80,14 +79,6 @@ test("a project tunes what is worth its owner's attention, over the machine's de
   assert.equal(team.attention.incidentsPerDay, 2, "and what it does say wins");
   assert.equal(team.attention.watch, true, "a project can decide incidents are worth sending");
   assert.equal(resolveTeam(kit).attention.watch, false, "left alone, the kit records incidents and sends none until its thresholds are tuned");
-});
-
-test("the Jev layer is on only with a key in the machine's settings, never the project's", () => {
-  assert.equal(resolveTeam(kit).sensor, undefined, "no key, no Jev layer");
-  const keyed = resolveTeam(kit, { sensor: { key: "sk-or-v1-test" } });
-  assert.equal(keyed.sensor?.key, "sk-or-v1-test");
-  assert.equal(keyed.sensor?.spec.id, Object.keys(kit.sensors)[0]);
-  assert.equal(ProjectLayerSchema.safeParse({ sensor: { key: "k" } }).success, false, "a key in a project's settings would travel with the project");
 });
 
 test("a seat may run a model the harness catalog does not list", () => {

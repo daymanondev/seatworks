@@ -2,7 +2,7 @@ import { existsSync, readdirSync, realpathSync, rmSync, statSync } from "node:fs
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { type Kit, can, providerId, reloadTeam, rolesThatCan, seatOf, supportsRole } from "../catalog/kit.ts";
-import { type Connect, type Layer, MachineLayerSchema, ProjectLayerSchema, type SettingsView, type WriteResult, layerValues, readLayer, withKey, withoutKey, writeLayer } from "../catalog/settings.ts";
+import { type Connect, type Layer, type SettingsView, type WriteResult, layerValues, readLayer, writeLayer } from "../catalog/settings.ts";
 import { type Team, resolveTeam, rulesFor, skillDirsFor, templateRoles, transportOf } from "../catalog/team.ts";
 import { gitCommonDir } from "../core/git.ts";
 import type { SeatView, Seats } from "../core/ports.ts";
@@ -25,7 +25,7 @@ import type { Seating } from "./seating.ts";
 import type { TeamSource } from "./team-source.ts";
 import { errorText } from "../core/errors.ts";
 
-type Target = { file: string; schema: typeof MachineLayerSchema | typeof ProjectLayerSchema; project?: Project };
+type Target = { file: string; project?: Project };
 
 const unknownProject = (slug: string) => `No project named ${slug} has been seen on this machine.`;
 
@@ -117,7 +117,6 @@ export function describeCatalog(kit: Kit): unknown {
         roles: templateRoles(entry),
         template: true,
       })),
-    sensor: Object.values(kit.sensors)[0] ? { model: Object.values(kit.sensors)[0]!.model } : null,
   };
 }
 
@@ -196,11 +195,10 @@ export class SettingsControl implements Control {
   }
 
   readSettings(slug?: string): SettingsView {
-    const machine = withoutKey(slug ? this.deps.source.machineLayer() : {});
+    const machine = slug ? this.deps.source.machineLayer() : {};
     const target = this.target(slug);
     if (typeof target === "string") return { status: "invalid", revision: "", error: target, machine };
-    const read = readLayer(target.file, target.schema);
-    return { ...(read.status === "ready" ? { ...read, values: withoutKey(read.values) } : read), machine };
+    return { ...readLayer(target.file), machine };
   }
 
   writeSettings(slug: string | undefined, revision: string, values: unknown): WriteResult {
@@ -214,14 +212,13 @@ export class SettingsControl implements Control {
       const team = resolve(layer);
       if (team.errors.length > 0) return team.errors;
       // Only what this save introduces is refused: a bad rule refuses a seat's whole build, long after the save.
-      const already = new Set(unbuildable(resolve(layerValues(target.file, target.schema))));
+      const already = new Set(unbuildable(resolve(layerValues(target.file))));
       return unbuildable(team).filter((problem) => !already.has(problem));
     };
-    const result = writeLayer(target.file, target.schema, revision, withKey(values, layerValues(target.file, target.schema)), check);
+    const result = writeLayer(target.file, revision, values, check);
     if (result.status === "saved") {
       seating.forget();
       if (!target.project) reconcile(source.teamFor());
-      return { ...result, values: withoutKey(result.values) };
     }
     return result;
   }
@@ -442,8 +439,8 @@ export class SettingsControl implements Control {
       home: home(),
       known,
       settings: [
-        { where: "machine", file: source.machineFile(), schema: MachineLayerSchema },
-        ...known.map((project) => ({ where: project.slug, file: source.projectFile(project), schema: ProjectLayerSchema })),
+        { where: "machine", file: source.machineFile() },
+        ...known.map((project) => ({ where: project.slug, file: source.projectFile(project) })),
       ],
       live: await this.live(),
       now: Date.now(),
@@ -474,9 +471,9 @@ export class SettingsControl implements Control {
   }
 
   private target(slug?: string): Target | string {
-    if (!slug) return { file: this.deps.source.machineFile(), schema: MachineLayerSchema };
+    if (!slug) return { file: this.deps.source.machineFile() };
     const project = this.deps.source.named(slug);
     if (!project) return unknownProject(slug);
-    return { file: this.deps.source.projectFile(project), schema: ProjectLayerSchema, project };
+    return { file: this.deps.source.projectFile(project), project };
   }
 }

@@ -9,14 +9,14 @@ import { applyReconcile, reloadDaemon } from "../catalog/providers.ts";
 import { placeProjectFiles } from "../catalog/project-files.ts";
 import { placeGuides, seatDir, seedRecords, sweepSnapshots } from "../catalog/seats.ts";
 import { stampKit } from "../upkeep/migrate.ts";
-import { type IndexedProxy, type Team, indexedProxies, jevOn, watchOn } from "../catalog/team.ts";
+import { type IndexedProxy, type Team, indexedProxies } from "../catalog/team.ts";
 import { guidesDir, home, nodeBin, outboxPath, spoolDir, stateRoot } from "../core/paths.ts";
 import { seatsOn, workspacesOn } from "../core/paseo-adapter.ts";
 import type { PaseoApi } from "../core/paseo.ts";
-import type { SeatView, Seats, Workspaces } from "../core/ports.ts";
+import type { Seats, Workspaces } from "../core/ports.ts";
 import type { CodeIndex } from "../desk/context.ts";
 import { Desk } from "../desk/desk.ts";
-import { type Ledger, type Sibling, alongside, laneOfLead, loadLedger, openAsksTo, taskOfPeer } from "../desk/ledger.ts";
+import { type Ledger, laneOfLead, loadLedger, openAsksTo, taskOfPeer } from "../desk/ledger.ts";
 import { letters } from "../desk/letters.ts";
 import { appendRecord } from "../desk/records.ts";
 import { type Project, gateCommands, loadConfig, projectOf } from "../desk/project.ts";
@@ -30,17 +30,12 @@ import { Seating } from "./seating.ts";
 import { replyFile, spoolDirs, takeRequests, writeReply } from "./spool.ts";
 import { TeamSource } from "./team-source.ts";
 import { TurnRules } from "./turns.ts";
-import { FACT_TITLES, type Fact, callsTo } from "./watch/facts.ts";
-import { type Finding, type Verdict, decide } from "./watch/findings.ts";
-import { weigh } from "./watch/jev/rules.ts";
-import { keepAssessment, lastKept, readTally } from "./watch/jev/assessments.ts";
-import { Assessor, type Reading, type SensorError, type Sensing } from "./watch/jev/sensor.ts";
-import { stepText } from "./watch/trail.ts";
+import { type Fact, callsTo, factTitle } from "./watch/facts.ts";
+import { type Finding, decide } from "./watch/findings.ts";
 import { type SeatContext, type SeatWatch, type WatchedSeat, Watches } from "./watch/watches.ts";
-import { Reader } from "./watch/seat/reader.ts";
 import { malformed } from "./timeline.ts";
 import { loadIncidents } from "../desk/incidents.ts";
-import type { WatchLean, WatchView } from "../../shared/views.ts";
+import type { WatchView } from "../../shared/views.ts";
 import { errorText } from "../core/errors.ts";
 
 type EventName = keyof PluginLifecycleEvents;
@@ -65,9 +60,6 @@ export class Runtime {
   private readonly turns: TurnRules;
   private readonly patrol: Patrol;
   private readonly watches: Watches;
-  private readonly assessor: Assessor;
-  private readonly reader: Reader;
-  private readonly sensorNoted = new Map<string, number>();
   private readonly troubles = new Map<string, { kind: string; at: number; detail: string }[]>();
   private readonly offline = new Set<string>();
   private readonly relink = new Relink(reloadPlugin);
@@ -93,11 +85,7 @@ export class Runtime {
       this.seats,
       (letter, at) =>
         console.error(`seatworks-v2: a letter for ${letter.to} (${letter.key}) was never taken and has been given up on after ${Math.round((at - letter.at) / 3_600_000)} hours`),
-      // Never steered into a Watcher's turn: mid-reading, it is read as part of that reading.
-      (seat) => {
-        const found = seatOf(kit, seat.provider);
-        return found?.harness.steers === true && !can(found.role, "watch");
-      },
+      (seat) => seatOf(kit, seat.provider)?.harness.steers === true,
       (agentId) => this.waitedOn(agentId).length > 0,
     );
     const log = (project: Project, line: string) => this.log(project, line);
@@ -110,41 +98,15 @@ export class Runtime {
       log,
       teamFor: (project) => this.source.teamFor(project),
       indexesFor: (project) => this.indexesFor(project),
-      sent: (watcher, ref) => this.reader.sent(watcher, ref),
     });
     this.turns = new TurnRules({ kit, desk: this.desk, remember });
-    this.assessor = new Assessor({
-      sensing: (watch) => this.sensing(watch),
-      done: (watch, reading) => this.assessed(watch, reading),
-      failed: (watch, error) => this.degraded(watch, error),
-    });
-    this.reader = new Reader({
-      pace: (project) => {
-        const attention = this.source.teamFor(project).attention;
-        if (attention.by !== "seat") return undefined;
-        return { quietMs: attention.watcherQuietSeconds * 1000, everyMs: attention.watcherEveryMinutes * 60_000, chars: attention.watcherChars };
-      },
-      watcher: async (project) => this.desk.watchers(project, await this.seats.open())[0]?.id,
-      post: (to, key, text) => this.desk.post(to, key, text),
-      judges: kit.watcher?.judges ?? [],
-    });
     this.watches = new Watches({
       kit,
       seats: this.seats,
       context: (seat) => this.watchContext(seat),
       found: (watch, facts) => this.watchFound(watch, facts),
-      on: (seat) => this.watching(projectOf(seat.cwd)),
-      // Each reader answers only where the watch is its own: Jev by jev, the Watcher by a seat.
-      moment: (watch, urgent) => {
-        this.assessor.moment(watch, urgent);
-        this.reader.moment(watch, urgent);
-      },
-      dropped: (id) => {
-        this.assessor.drop(id);
-        this.reader.drop(id);
-      },
     });
-    this.patrol = new Patrol({ kit, source: this.source, desk: this.desk, seats: this.seats, outbox: this.outbox, turns: this.turns, watches: this.watches, reader: this.reader, remember });
+    this.patrol = new Patrol({ kit, source: this.source, desk: this.desk, seats: this.seats, outbox: this.outbox, turns: this.turns, watches: this.watches, remember });
     this.control = new SettingsControl({
       kit,
       source: this.source,
@@ -153,7 +115,7 @@ export class Runtime {
       models: () => this.refreshModels(),
       seats: this.seats,
       held: () => this.outbox.letters(),
-      watch: (project, seats) => this.watchView(project, seats),
+      watch: (project) => this.watchView(project),
       decidePlan: (project, lane, approve, note) => this.desk.decidePlan(project, lane, approve, "human", note),
       decideLand: (project, lane, approve, note) => this.desk.decideLand(project, lane, approve, note),
     });
@@ -162,41 +124,26 @@ export class Runtime {
   private watchContext(seat: WatchedSeat): SeatContext | undefined {
     const found = seatOf(this.kit, seat.provider);
     if (!found) return undefined;
-    const { harness, role } = found;
     const project = projectOf(seat.cwd);
     const attention = this.source.teamFor(project).attention;
     let owned: string[] | undefined;
-    let goal: string | null = "";
-    // What the Lead asked beyond the goal and what sibling copies write; without them the sensor calls both invention.
-    let context = "";
-    let beside: Sibling[] = [];
+    let placed = false;
     try {
       const ledger = loadLedger(project.state);
       const task = taskOfPeer(ledger, seat.id);
-      const lane = task ? ledger.lanes[task.lane] : laneOfLead(ledger, seat.id);
       owned = task?.owned;
-      if (task) {
-        goal = [`Task ${task.id}: ${task.title}`, `Goal: ${task.goal}`, `Acceptance: ${task.acceptance.join("; ")}`, `Out of scope: ${task.outOfScope.join("; ")}`].join("\n");
-        context = task.context ?? "";
-        beside = alongside(ledger, task);
-      }
-      else if (lane) goal = [`Lane ${lane.id}: ${lane.title}`, `Outcome: ${lane.outcome}`, `Acceptance: ${lane.acceptance.join("; ")}`, `Out of scope: ${lane.outOfScope.join("; ")}`].join("\n");
+      placed = Boolean(task ?? laneOfLead(ledger, seat.id));
     } catch (error) {
-      goal = null;
       this.desk.event(project, { kind: "watch.unbriefed", agent: seat.id, error: errorText(error) });
     }
     return {
-      goal,
-      context,
-      beside,
-      role: [role.label, role.description].filter(Boolean).join(": "),
-      can: role.can ?? [],
+      placed,
       rules: {
         destructive: new RegExp(attention.destructive, "i"),
         testPath: new RegExp(attention.testPath, "i"),
         suppressed: new RegExp(attention.suppressed, "i"),
-        exit: harness.exitPattern ? new RegExp(harness.exitPattern) : undefined,
-        desk: callsTo(harness.mcpCall, harness.mcpServerField, TEAM_SERVER),
+        exit: found.harness.exitPattern ? new RegExp(found.harness.exitPattern) : undefined,
+        desk: callsTo(found.harness.mcpCall, found.harness.mcpServerField, TEAM_SERVER),
         gates: gateCommands(seat.cwd, loadConfig(project.state).gate),
         cwd: seat.cwd,
         temp: tmpdir(),
@@ -215,114 +162,10 @@ export class Runtime {
     };
   }
 
-  /** `attention.by`: by a Watcher seat the watch is always on; by Jev only with a key. */
-  private watching(project: Project): boolean {
-    return watchOn(this.source.teamFor(project));
-  }
-
-  private sensing(watch: SeatWatch): Sensing | undefined {
-    const project = projectOf(watch.seat.cwd);
-    const team = this.source.teamFor(project);
-    const sensor = team.sensor;
-    // Between the key being taken away, or the watch going to a Watcher seat, and the round after.
-    if (!sensor || !jevOn(team)) return undefined;
-    const brief = watch.brief();
-    if (!brief || brief.goal === null) return undefined;
-    const { goal, context, beside, role, can, rules } = brief;
-    return { spec: sensor.spec, key: sensor.key, brief: { goal, context, beside, role, can, gates: rules.gates, workingCopy: watch.seat.cwd }, rules: { exit: rules.exit, destructive: rules.destructive } };
-  }
-
-  private assessed(watch: SeatWatch, reading: Reading): void {
-    const project = projectOf(watch.seat.cwd);
-    const { assessment, views, questions, facts } = reading;
-    this.desk.event(project, { kind: "watch.sensor", agent: watch.seat.id, model: assessment.model, id: assessment.id, cost: assessment.cost, answers: assessment.answers, stateChars: JSON.stringify(views).length });
-    watch.readings += 1;
-    watch.spent += assessment.cost ?? 0;
-    watch.readAt = Date.now();
-    // Peaks per question, kept: one overall peak is whatever reads high every turn and hid the one that mattered.
-    for (const [question, p] of Object.entries(assessment.answers)) if (p > (watch.peaks.get(question) ?? -1)) watch.peaks.set(question, p);
-    const before = watch.reading && watch.reading.turnId === reading.turnId ? watch.reading.answers : undefined;
-    watch.reading = { turnId: reading.turnId, answers: assessment.answers };
-    const { findings, verdicts } = weigh(assessment, questions, facts, { unclear: reading.spec.unclear, ended: !reading.running, before });
-    this.keep(project, watch, reading, findings, verdicts);
-    this.judged(watch, verdicts);
-    void this.located(watch, reading, findings).then((located) => this.noticed(watch, located));
-  }
-
-  /** Findings quote their step so the incident says where to look; a literal answer about a sibling's file is excused here. */
-  private async located(watch: SeatWatch, reading: Reading, findings: Finding[]): Promise<Finding[]> {
-    const located = await Promise.all(
-      findings.map(async (finding) => {
-        const question = reading.questions[finding.kind];
-        if (!question) return finding;
-        const step = await this.assessor.locate(watch, reading, finding.kind);
-        if (step?.note && question.excusedBeside) return undefined;
-        return step ? { ...finding, quote: `${step.p < 0.5 ? "probably " : ""}${stepText(step)}` } : finding;
-      }),
-    );
-    return located.filter((finding): finding is Finding => finding !== undefined);
-  }
-
-  private judged(watch: SeatWatch, verdicts: Verdict[]): void {
-    if (verdicts.length === 0 || this.watches.get(watch.seat.id) !== watch) return;
-    this.desk.judge(projectOf(watch.seat.cwd), watch.seat, verdicts).catch((error) => console.error("seatworks-v2: what the sensor said of an incident could not be recorded:", error));
-  }
-
-  private keep(project: Project, watch: SeatWatch, reading: Reading, findings: Finding[], verdicts: Verdict[]): void {
-    const { assessment } = reading;
-    const unkept = (error: unknown) => {
-      const key = `unkept:${project.slug}`;
-      const now = Date.now();
-      if (now - (this.sensorNoted.get(key) ?? 0) < 60_000) return;
-      this.sensorNoted.set(key, now);
-      this.desk.event(project, { kind: "sensor.unkept", error: errorText(error) });
-    };
-    try {
-      keepAssessment(project.state, {
-        at: Date.now(),
-        askedAt: reading.askedAt,
-        seat: watch.seat.id,
-        provider: watch.seat.provider,
-        turnId: reading.turnId,
-        running: reading.running,
-        sensor: reading.spec.id,
-        model: assessment.model,
-        id: assessment.id,
-        cost: assessment.cost,
-        questions: Object.fromEntries(Object.entries(reading.questions).map(([name, question]) => [name, { view: question.view, instructions: question.instructions, ...(question.criteria ? { criteria: question.criteria } : {}) }])),
-        answers: assessment.answers,
-        facts: reading.facts.map(({ kind, level, quote }) => ({ kind, level, quote })),
-        found: findings.map((finding) => finding.kind),
-        verdicts: verdicts.map(({ kind, question, says, p }) => ({ kind, question, says, p })),
-        views: reading.views,
-        turn: reading.turn,
-      }).catch(unkept);
-    } catch (error) {
-      unkept(error);
-    }
-  }
-
   private noticed(watch: SeatWatch, findings: Finding[]): void {
     if (findings.length === 0 || this.watches.get(watch.seat.id) !== watch) return;
     const project = projectOf(watch.seat.cwd);
-    this.desk
-      .notice(project, watch.seat, findings)
-      // Pending judgements are read now, not at the next quiet moment; re-asked after the wait since the seat may be gone.
-      .then(() => {
-        const judges = this.kit.watcher?.judges ?? [];
-        if (this.watches.get(watch.seat.id) === watch && findings.some((finding) => judges.includes(finding.kind))) this.reader.moment(watch, true);
-      })
-      .catch((error) => console.error("seatworks-v2: what the watch noticed could not be recorded:", error));
-  }
-
-  private degraded(watch: SeatWatch, error: SensorError): void {
-    const project = projectOf(watch.seat.cwd);
-    const key = `degraded:${project.slug}`;
-    const now = Date.now();
-    if (now - (this.sensorNoted.get(key) ?? 0) < 60_000) return;
-    this.sensorNoted.set(key, now);
-    this.desk.event(project, { kind: "sensor.degraded", agent: watch.seat.id, status: error.status ?? null, error: error.message });
-    this.troubled(project, "sensor.degraded", `${watch.seat.id}: ${error.status ?? "no status"} ${error.message}`);
+    this.desk.notice(project, watch.seat, findings).catch((error) => console.error("seatworks-v2: what the watch noticed could not be recorded:", error));
   }
 
   /** Trouble nobody is mailed about, kept where a screen can show it rather than only in the log. */
@@ -344,14 +187,9 @@ export class Runtime {
     }
   }
 
-  private watchView(project: Project, open: Iterable<SeatView> = []): WatchView {
-    const team = this.source.teamFor(project);
-    const spec = team.sensor?.spec;
-    const questions = spec?.questions ?? {};
-    const items = Object.values(loadIncidents(project.state).items);
+  private watchView(project: Project): WatchView {
     const now = Date.now();
     const ago = (at: number) => Math.max(0, Math.round((now - at) / 60_000));
-    const titleOf = (kind: string) => questions[kind]?.label ?? this.kit.watcher?.kinds[kind]?.label ?? FACT_TITLES[kind] ?? kind.replace(/[-_]/g, " ");
     let ledger: Ledger | undefined;
     try {
       ledger = loadLedger(project.state);
@@ -362,78 +200,23 @@ export class Runtime {
       const lane = ledger ? laneOfLead(ledger, id) : undefined;
       return lane ? `Lead · ${lane.id} ${lane.title}` : fallback;
     };
-
-    // Only questions that can open an incident lean; fact-judging ones read high on every good turn.
-    const leanOf = (watch: SeatWatch): WatchLean | null => {
-      if (!spec || !watch.reading) return null;
-      let best: WatchLean | null = null;
-      for (const [name, p] of Object.entries(watch.reading.answers)) {
-        const question = questions[name];
-        const bar = question?.threshold;
-        if (!question || bar === undefined || (!question.level && !question.agrees?.length)) continue;
-        if (p >= bar || p < bar - spec.unclear) continue;
-        if (!best || p - bar > best.p - best.bar) best = { title: titleOf(name), p, bar };
-      }
-      return best;
-    };
-    const watched = this.watches.all().filter((watch) => projectOf(watch.seat.cwd).slug === project.slug);
-    const seats = watched.map((watch) => ({ id: watch.seat.id, name: nameOf(watch.seat.id, watch.seat.title ?? watch.seat.id), running: watch.running, lean: leanOf(watch) }));
-    const lanes = new Set(watched.map((watch) => (ledger ? (taskOfPeer(ledger, watch.seat.id)?.lane ?? laneOfLead(ledger, watch.seat.id)?.id) : undefined)).filter(Boolean)).size;
-
-    const incidents = items
+    const incidents = Object.values(loadIncidents(project.state).items)
       .filter((item) => item.open)
       .sort((a, b) => (a.level === b.level ? b.last - a.last : a.level === "page" ? -1 : 1))
       .slice(0, INCIDENTS_SHOWN)
-      .map((item) => {
-        const source = item.by === "watcher" ? ("watcher" as const) : item.p !== undefined ? ("jev" as const) : ("code" as const);
-        const bar = questions[item.kind]?.threshold;
-        return {
-          id: item.id,
-          title: titleOf(item.kind),
-          level: item.level,
-          name: nameOf(item.seat, item.where),
-          minutes: ago(item.last),
-          quote: item.quote.replace(/\s+/g, " ").slice(0, 300),
-          source,
-          sure: source === "jev" && item.p !== undefined && bar !== undefined ? { p: item.p, bar } : null,
-          told: item.told !== undefined ? (item.toldTo ?? null) : null,
-          lane: item.lane ?? null,
-          held: item.told === undefined ? (item.held ?? null) : null,
-        };
-      });
-
+      .map((item) => ({
+        id: item.id,
+        title: factTitle(item.kind) ?? item.kind.replace(/[-_]/g, " "),
+        level: item.level,
+        name: nameOf(item.seat, item.where),
+        minutes: ago(item.last),
+        quote: item.quote.replace(/\s+/g, " ").slice(0, 300),
+        told: item.told !== undefined ? (item.toldTo ?? null) : null,
+        lane: item.lane ?? null,
+        held: item.told === undefined ? (item.held ?? null) : null,
+      }));
     const troubles = this.troubles.get(project.slug) ?? [];
-    const lastRead = lastKept(project.state) ?? null;
-    // Against the last answer itself: whole-minute file age rounds a failure before and after it to the same.
-    const degraded = troubles.filter((entry) => entry.kind === "sensor.degraded").at(-1);
-    const answered = Math.max(0, ...watched.map((watch) => watch.readAt));
-    const failing = jevOn(team) && degraded && degraded.at > answered ? { minutes: ago(degraded.at), detail: degraded.detail } : null;
-    const seat = [...open]
-      .filter((entry) => !entry.archivedAt && entry.cwd && projectOf(entry.cwd).slug === project.slug && can(seatOf(this.kit, entry.provider)?.role, "watch"))
-      .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
-
-    return {
-      by: team.attention.by,
-      on: this.watching(project),
-      keyed: Boolean(team.sensor),
-      telling: team.attention.watch,
-      judgeMinutes: team.attention.by === "seat" ? team.attention.watcherJudgeMinutes : 2,
-      failing,
-      watcher: seat ? { id: seat.id, status: seat.status, minutes: ago(Date.parse(seat.updatedAt)), queued: this.outbox.pending(seat.id).length } : null,
-      lanes,
-      seats,
-      lastRead,
-      read: readTally(project.state),
-      marks: {
-        total: items.length,
-        open: items.filter((item) => item.open).length,
-        useful: items.filter((item) => item.label === "useful").length,
-        noise: items.filter((item) => item.label === "noise").length,
-        unknown: items.filter((item) => item.label === "unknown").length,
-      },
-      incidents,
-      trouble: troubles.map((entry) => ({ kind: entry.kind, minutes: ago(entry.at), detail: entry.detail })).reverse(),
-    };
+    return { incidents, trouble: troubles.map((entry) => ({ kind: entry.kind, minutes: ago(entry.at), detail: entry.detail })).reverse() };
   }
 
   private watchFound(watch: SeatWatch, facts: Fact[]): void {
@@ -505,8 +288,6 @@ export class Runtime {
 
   dispose(): void {
     this.watches.dispose();
-    this.assessor.dispose();
-    this.reader.dispose();
     for (const timer of this.timers) clearInterval(timer);
     this.timers = [];
     if (this.tick) clearTimeout(this.tick);
@@ -572,7 +353,6 @@ export class Runtime {
       this.log(project, `waiting on the Human: ${agent.id} ${what}`);
       return;
     }
-    this.watches.urgent(agent.id);
     const owner = await this.turns.ownerOf(project, agent.id, role);
     await this.desk.post(owner, `permission:${agent.id}:${request.id}`, letters.permission(`${role.label} ${agent.title ?? agent.id}`, request, this.addressOf(project, agent.id, role)));
   }

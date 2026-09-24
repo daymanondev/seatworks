@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Kit } from "../catalog/kit.ts";
-import { type Layer, MachineLayerSchema, ProjectLayerSchema, layerValues, readLayer } from "../catalog/settings.ts";
+import { type Layer, layerValues, readLayer } from "../catalog/settings.ts";
 import { type Team, resolveTeam, servingProject } from "../catalog/team.ts";
 import { stateRoot } from "../core/paths.ts";
 import { readJson, writeJson } from "../core/store.ts";
@@ -24,12 +24,12 @@ export class TeamSource {
   }
 
   machineLayer(): Layer {
-    return layerValues(this.machineFile(), MachineLayerSchema);
+    return layerValues(this.machineFile());
   }
 
   teamFor(project?: Project): Team {
-    const machine = readLayer(this.machineFile(), MachineLayerSchema);
-    const local = project ? readLayer(this.projectFile(project), ProjectLayerSchema) : { status: "ready" as const, values: {}, revision: "" };
+    const machine = readLayer(this.machineFile());
+    const local = project ? readLayer(this.projectFile(project)) : { status: "ready" as const, values: {}, revision: "" };
     const unread = [
       ...(machine.status === "ready" ? [] : [`The machine settings are not being used: ${machine.error}`]),
       ...(local.status === "ready" ? [] : [`The project settings are not being used: ${"error" in local ? local.error : "they could not be read"}`]),
@@ -39,8 +39,8 @@ export class TeamSource {
   }
 
   revision(project?: Project): string {
-    const machine = readLayer(this.machineFile(), MachineLayerSchema).revision;
-    const local = project ? readLayer(this.projectFile(project), ProjectLayerSchema).revision : "";
+    const machine = readLayer(this.machineFile()).revision;
+    const local = project ? readLayer(this.projectFile(project)).revision : "";
     return `${machine}:${local}`;
   }
 

@@ -10,7 +10,6 @@ import {
   type ModelSpec,
   type ProxySpec,
   type RoleSpec,
-  type SensorSpec,
   PASEO_SERVER,
   PASEO_TOOLS,
   TEAM_SERVER,
@@ -40,7 +39,6 @@ export type Team = {
   roles: Record<string, RoleSeat>;
   mcp: Record<string, McpState>;
   attention: Attention;
-  sensor?: { spec: SensorSpec; key: string };
   /** `forced` says why a check runs at its strictest though nobody chose it: settings the desk could not read. */
   checkpoints: Checkpoints;
   /** Who reads a new lane against the Human's own words before its Lead gets far: a Critic seat, or nobody. */
@@ -74,12 +72,12 @@ export function templateRoles(entry: McpEntry): string[] {
   return entry.kind === "proxy" ? Object.keys(entry.tools ?? {}) : (entry.roles ?? []);
 }
 
-/** No roles named means every role working with tools, not a watcher: a pasted server's tools can write. */
+/** No roles named means every role working with tools, not a Critic: a pasted server's tools can write. */
 export function eligibleRoles(state: McpState, kit: Kit): string[] {
   const entry = state.entry;
   if (entry?.kind === "proxy") return Object.keys(state.tools ?? entry.tools ?? {});
-  // Neither reader works: a Watcher reads seats and a Critic reads a lane, and a pasted server's tools can write.
-  const working = () => kit.roles.filter((role) => role.tools && !can(role, "watch") && !can(role, "critique")).map((role) => role.role);
+  // A Critic reads a lane and does no work, and a pasted server's tools can write.
+  const working = () => kit.roles.filter((role) => role.tools && !can(role, "critique")).map((role) => role.role);
   if (entry) return entry.roles ?? working();
   return working();
 }
@@ -217,14 +215,6 @@ function resolveRole(kit: Kit, role: RoleSpec, layers: Layer[], mcp: Record<stri
   return { role, harness, model, thinking, rules: ownRules.join("\n\n"), mcp: enabled };
 }
 
-export function jevOn(team: Pick<Team, "attention" | "sensor">): boolean {
-  return team.attention.by === "jev" && Boolean(team.sensor);
-}
-
-export function watchOn(team: Pick<Team, "attention" | "sensor">): boolean {
-  return team.attention.by === "seat" || jevOn(team);
-}
-
 /** `unread` layers are reported, since resolving to nothing looked like a complete team the owner never wrote. */
 export function resolveTeam(kit: Kit, machine: Layer = {}, project: Layer = {}, unread: string[] = []): Team {
   const errors: string[] = [...unread];
@@ -247,13 +237,9 @@ export function resolveTeam(kit: Kit, machine: Layer = {}, project: Layer = {}, 
     const seat = role.follows === undefined ? own[role.role] : resolveRole(kit, role, layers, mcp, errors, origin);
     if (seat) roles[role.role] = seat;
   }
-  const sensors = Object.values(kit.sensors);
-  if (sensors.length > 1) errors.push(`The kit ships ${sensors.length} sensors, and the desk can use one`);
-  const spec = sensors.length === 1 ? sensors[0] : undefined;
   return {
     roles,
     mcp,
-    ...(spec && machine.sensor?.key ? { sensor: { spec, key: machine.sensor.key } } : {}),
     attention: { ...kit.attention, ...stripUndefined(machine.attention), ...stripUndefined(project.attention) },
     // A check the Human turned on must not fall silently to its default when the file that says so cannot be read.
     checkpoints:

@@ -1,7 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type Kit, can, roleNamed, seatOf } from "../catalog/kit.ts";
-import { watchOn } from "../catalog/team.ts";
 import type { SeatView, Seats } from "../core/ports.ts";
 import { digestOf } from "../desk/checkpoints.ts";
 import type { Desk } from "../desk/desk.ts";
@@ -10,12 +9,11 @@ import { type Ask, type Ledger, activeTasks, loadLedger, openAsksFrom } from "..
 import { letters } from "../desk/letters.ts";
 import { type Project, loadConfig, projectOf } from "../desk/project.ts";
 import { statusText } from "../desk/status.ts";
-import { type Outbox, busy } from "./outbox.ts";
+import type { Outbox } from "./outbox.ts";
 import type { TeamSource } from "./team-source.ts";
 import type { TurnRules } from "./turns.ts";
 import { deskFacts } from "./watch/history.ts";
 import { decide } from "./watch/findings.ts";
-import type { Reader } from "./watch/seat/reader.ts";
 import type { Watches } from "./watch/watches.ts";
 
 type SeatMap = Map<string, SeatView>;
@@ -28,7 +26,6 @@ export type PatrolDeps = {
   outbox: Outbox;
   turns: TurnRules;
   watches: Watches;
-  reader: Reader;
   remember: (project: Project) => void;
 };
 
@@ -60,7 +57,6 @@ export class Patrol {
     const seats: SeatMap = new Map((await this.deps.seats.open()).map((seat) => [seat.id, seat]));
     this.deps.watches.sync(seats.values());
     this.deps.watches.round(now, (watch) => this.deps.source.teamFor(projectOf(watch.seat.cwd)).attention.longTurnMinutes);
-    this.deps.reader.keep(new Set([...seats.values()].filter((seat) => !seat.archivedAt).map((seat) => seat.id)));
     for (const seat of seats.values()) if (seatOf(kit, seat.provider)?.role.tools) this.deps.remember(projectOf(seat.cwd));
     for (const project of desk.projects.values()) {
       // Written to, a project removed while the plugin runs would come back as a state directory of its own.
@@ -69,13 +65,12 @@ export class Patrol {
         continue;
       }
       await this.step(project, "idle lanes could not be read", () => this.idleLanes(project, loadLedger(project.state), seats, now));
-      await this.step(project, "incidents held for nobody or for the sensor could not be told", async () => void (await desk.retell(project)));
+      await this.step(project, "incidents held for nobody could not be told", async () => void (await desk.retell(project)));
       await this.step(project, "a task whose Peer is gone could not be recorded", () => this.goneTasks(project, loadLedger(project.state), seats));
       await this.step(project, "a lane whose Lead is gone could not be told", () => this.goneLeads(project, loadLedger(project.state), seats));
       await this.step(project, "what the checkpoints' logs show could not be told", () => this.digest(project, now));
       await this.step(project, "asks due a reminder could not be sent", () => this.dueAsks(project, loadLedger(project.state), seats, now));
       await this.step(project, "what a lane's history shows could not be read", () => this.history(project, loadLedger(project.state), seats));
-      await this.step(project, "the Watcher could not be settled", () => this.settleWatcher(project, loadLedger(project.state), seats));
       await this.step(project, "sweeping failed", () => this.sweep(project, loadLedger(project.state), seats));
       await this.step(project, "waiting lanes could not be opened", () => desk.openWaiting(project));
       // An empty listing is a daemon that answered nothing, not a project whose every seat is gone.
@@ -111,25 +106,6 @@ export class Patrol {
     }
   }
 
-  /** One Watcher while watched by seat with a lane open; a spent one is replaced once idle, before compaction erodes it. */
-  private async settleWatcher(project: Project, ledger: Ledger, seats: SeatMap): Promise<void> {
-    const { desk, outbox, reader } = this.deps;
-    const attention = this.deps.source.teamFor(project).attention;
-    const wanted = attention.by === "seat" && Object.values(ledger.lanes).some((lane) => lane.status === "open");
-    const watchers = desk.watchers(project, seats.values());
-    const kept = wanted ? watchers[0] : undefined;
-    for (const seat of watchers) if (seat !== kept) await desk.archive(seat.id);
-    if (!wanted) return;
-    if (!kept) {
-      await desk.seatWatcher(project);
-      return;
-    }
-    if (reader.readings(kept.id) >= attention.watcherRotateAfter && !busy(kept.status) && outbox.pending(kept.id).length === 0) {
-      await desk.archive(kept.id);
-      desk.event(project, { kind: "watcher.rotated", agent: kept.id, readings: reader.readings(kept.id) });
-    }
-  }
-
   private async sweep(project: Project, ledger: Ledger, seats: SeatMap): Promise<void> {
     const busy =
       Object.values(ledger.lanes).some((lane) => lane.status === "open") ||
@@ -139,10 +115,7 @@ export class Patrol {
 
   /** Desk-record facts about a lane, filed against its Lead in the same incident book the watch uses. */
   private async history(project: Project, ledger: Ledger, seats: SeatMap): Promise<void> {
-    const team = this.deps.source.teamFor(project);
-    // Same switch as the followed seats: with the watch off the lane history is not read either.
-    if (!watchOn(team)) return;
-    const attention = team.attention;
+    const attention = this.deps.source.teamFor(project).attention;
     const found = deskFacts(ledger, { reworksAt: attention.reworksAt, reviewsAt: attention.reviewsAt });
     if (found.length === 0) return;
     const book = loadIncidents(project.state);

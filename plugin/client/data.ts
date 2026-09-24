@@ -1,9 +1,9 @@
 import { useRpc, usePaseo } from "@getpaseo/plugin/client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Check, FlowAsk, FlowLane, FlowSeat, FlowTask, FlowView, WatchIncident, WatchLean, WatchSeat, WatchView } from "../shared/views.ts";
+import type { Check, FlowAsk, FlowLane, FlowSeat, FlowTask, FlowView, WatchIncident, WatchView } from "../shared/views.ts";
 import { catalogRpc, doctorRpc, flowRpc, mcpParseRpc, pathsRpc, projectsAddRpc, projectsCandidatesRpc, projectsRemoveRpc, projectsRpc, settingsReadRpc, settingsWriteRpc, statusRpc, teamRpc } from "../shared/rpc.ts";
 
-export type { Check, FlowAsk, FlowLane, FlowSeat, FlowTask, FlowView, WatchIncident, WatchLean, WatchSeat, WatchView };
+export type { Check, FlowAsk, FlowLane, FlowSeat, FlowTask, FlowView, WatchIncident, WatchView };
 
 export type Scalar = string | number | boolean;
 export type Connect = { type: "stdio" | "http" | "sse"; command?: string[]; env?: Record<string, string>; url?: string; headers?: Record<string, string> };
@@ -15,7 +15,6 @@ export type Catalog = {
   roles: { id: string; label: string; description: string; can: string[]; concern: string | null; defaults: { harness: string; model?: string; thinking?: string }; follows: string | null; harnesses: string[] }[];
   harnesses: { id: string; label: string; models: ModelView[]; thinking: boolean; transports: string[] }[];
   mcp: { id: string; label: string; description: string; kind: string; transport: string; settings: Record<string, SettingSpec>; defaults: { enabled: boolean }; roles: string[] }[];
-  sensor: { model: string } | null;
 };
 
 export type TeamView = {
@@ -35,15 +34,13 @@ export type AttentionChoice = {
   tickSeconds?: number; leadIdleMinutes?: number; askRemindMinutes?: number; maxReminders?: number;
   watch?: boolean; destructive?: string; testPath?: string; repeatsAt?: number; reworksAt?: number; reviewsAt?: number; suppressed?: string;
   longTurnMinutes?: number; incidentsPerDay?: number;
-  by?: "seat" | "jev"; watcherQuietSeconds?: number; watcherEveryMinutes?: number; watcherChars?: number; watcherRotateAfter?: number; watcherJudgeMinutes?: number;
 };
 export type CheckpointMode = "off" | "shadow" | "on";
 export type CriticBy = "seat" | "off";
 export type Digest = { lines: string[]; state: "ready" | "stamped" | null };
 export type RoleChoice = { harness?: string; model?: string; thinking?: string; rules?: string };
 export type McpChoice = { enabled?: boolean; removed?: boolean; label?: string; connect?: Connect; roles?: string[]; tools?: Record<string, string[]>; rule?: string; settings?: Record<string, Scalar> };
-export type SensorChoice = { key?: string };
-export type Layer = { critic?: { by?: CriticBy }; checkpoints?: { plan?: CheckpointMode; approve?: "risky" | "every"; approver?: "human" | "supervisor"; risk?: string; land?: CheckpointMode; landApprove?: "risky" | "every"; landLines?: number }; roles?: Record<string, RoleChoice>; mcp?: Record<string, McpChoice>; rules?: string; attention?: AttentionChoice; flow?: { live?: boolean; everySeconds?: number }; sensor?: SensorChoice };
+export type Layer = { critic?: { by?: CriticBy }; checkpoints?: { plan?: CheckpointMode; approve?: "risky" | "every"; approver?: "human" | "supervisor"; risk?: string; land?: CheckpointMode; landApprove?: "risky" | "every"; landLines?: number }; roles?: Record<string, RoleChoice>; mcp?: Record<string, McpChoice>; rules?: string; attention?: AttentionChoice; flow?: { live?: boolean; everySeconds?: number } };
 
 export type ProjectRow = { slug: string; root: string };
 export type PaseoProject = { name: string; root: string };
@@ -475,96 +472,18 @@ export function setCheckpoint(values: Layer, choice: NonNullable<Layer["checkpoi
   return { ...values, checkpoints: { ...values.checkpoints, ...choice } };
 }
 
-/** Three places below a dollar, since a lane costs cents and two would print most seats as $0.00. */
-export const spent = (cost: number): string => (cost === 0 ? "nothing yet" : `$${cost.toFixed(cost < 1 ? 3 : 2)}`);
-
-const since = (minutes: number): string => {
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.round(minutes / 60);
-  return hours < 24 ? `${hours} hour${hours === 1 ? "" : "s"} ago` : `${Math.round(hours / 24)} day${Math.round(hours / 24) === 1 ? "" : "s"} ago`;
-};
-
-const pct = (p: number): string => `${Math.round(p * 100)}%`;
-const plural = (n: number, one: string, many = `${one}s`): string => `${n} ${n === 1 ? one : many}`;
-
-/** What the card's header says of Jev: the one line to read first, and the word at its right. */
-export type JevHeader = { title: string; sub: string; word: string; tone: "success" | "warning" | "muted" };
-
-export function jevHeader(watch: WatchView): JevHeader {
-  const word = watch.telling ? "mailing" : "recording only";
-  if (!watch.keyed) return { title: "Jev is not reading", sub: "Watch by Jev needs an OpenRouter key on this machine. Until there is one, nothing is followed, read or recorded.", word: "", tone: "warning" };
-  if (watch.failing) {
-    return {
-      title: "Jev is not answering",
-      sub: `Its last reading failed ${since(watch.failing.minutes)}: ${watch.failing.detail}. The code still reads every turn; what waits for Jev's second look goes after ${watch.judgeMinutes} minutes.`,
-      word: "not answering",
-      tone: "warning",
-    };
-  }
-  const tally = `${watch.read.turns.toLocaleString("en-US")} turns read · ${spent(watch.read.cost)} spent so far`;
-  const running = watch.seats.filter((seat) => seat.running).length;
-  if (running > 0) {
-    return { title: `Jev is reading ${plural(running, "seat")}${watch.lanes > 1 ? ` in ${watch.lanes} lanes` : ""}`, sub: `Last read ${watch.lastRead === null ? "not yet" : since(watch.lastRead)} · ${tally}`, word, tone: "success" };
-  }
-  return { title: "Nothing is running", sub: watch.lastRead === null ? "Jev has not read a turn here yet." : `Jev last read a turn here ${since(watch.lastRead)} · ${tally}`, word, tone: "muted" };
-}
-
-/** An incident's lines as the card shows them: who and when, how it was raised, and where it has got to. */
-export type IncidentLines = { sub: string; source: string; state: string; danger: boolean };
-
-export function incidentLines(item: WatchIncident, watch: Pick<WatchView, "by" | "judgeMinutes" | "failing">): IncidentLines {
-  const reader = watch.by === "seat" ? "the Watcher" : "Jev";
-  const source = item.source === "watcher" ? "raised by the Watcher" : item.source === "jev" ? (item.sure ? `Jev ${pct(item.sure.p)} sure · bar ${pct(item.sure.bar)}` : "raised by Jev") : "measured in code";
-  let state: string;
-  if (item.told === "lead") state = item.lane ? `told Lead ${item.lane}` : "told its Lead";
-  else if (item.told === "supervisor") state = "told the Supervisor";
-  else if (item.held === "awaiting") state = watch.failing ? `held · Jev is not answering, told after ${watch.judgeMinutes} min` : watch.by === "seat" ? `held · waiting for the Watcher, up to ${watch.judgeMinutes} min` : `held · Jev takes a second look, up to ${watch.judgeMinutes} min`;
-  else if (item.held === "vetoed") state = `held back by ${reader}`;
-  else if (item.held === "budget") state = "held · today's limit is reached";
-  else if (item.held === "nobody") state = "held · nobody is seated to tell";
-  else if (item.held === "shadow") state = "recorded · mail is off";
-  else state = "recorded";
-  return { sub: `${item.name} · ${since(item.minutes)}`, source, state, danger: item.told === "supervisor" && item.level === "page" };
-}
-
-/** The seats leaning towards something, closest to their bar first, and the names of the rest. */
-export function leaning(seats: WatchSeat[]): { leaning: (WatchSeat & { lean: WatchLean })[]; quiet: string[] } {
-  const on = seats.filter((seat): seat is WatchSeat & { lean: WatchLean } => seat.lean !== null).sort((a, b) => b.lean.p - b.lean.bar - (a.lean.p - a.lean.bar));
-  return { leaning: on, quiet: seats.filter((seat) => seat.lean === null).map((seat) => seat.name) };
-}
-
-/** How right the watch has been here, from the marks: noise and useful are what is counted. */
-export function trackRecord(marks: WatchView["marks"]): { title: string; percent: string | null; parts: [number, number, number]; hint: string } {
-  const judged = marks.useful + marks.noise;
-  const parts: [number, number, number] = [marks.useful, marks.noise, marks.unknown];
-  if (judged + marks.unknown === 0) return { title: "Nothing marked yet", percent: null, parts, hint: "The Leads and the Supervisor mark each incident with ack: useful, noise or unknown." };
-  const tune = judged >= 20 ? "there are enough marks now to run node bin/calibrate.ts." : "with 20 or more marks, run node bin/calibrate.ts.";
-  return {
-    title: `${marks.useful} of ${judged} marked incidents were worth it`,
-    percent: judged > 0 ? pct(marks.useful / judged) : null,
-    parts,
-    hint: `${marks.useful} useful · ${marks.noise} noise · ${marks.unknown} unknown, as the Leads and the Supervisor marked them. Noise is what the bars are tuned against: ${tune}`,
-  };
-}
-
-/** The Watcher seat as the Flow canvas draws it, beside the Supervisor. */
-export function watcherState(watcher: WatchView["watcher"]): { state: string; alive: boolean } {
-  if (!watcher) return { state: "not seated · it sits once a lane is open", alive: false };
-  const waiting = watcher.queued > 0 ? ` · ${plural(watcher.queued, "reading")} waiting` : "";
-  return { state: `${watcher.status}${waiting}`, alive: watcher.status !== "closed" };
+/** Where an incident has got to, as the card shows it. */
+export function incidentState(item: WatchIncident): string {
+  if (item.told === "lead") return item.lane ? `told Lead ${item.lane}` : "told its Lead";
+  if (item.told === "supervisor") return "told the Supervisor";
+  if (item.held === "budget") return "held · today's limit is reached";
+  if (item.held === "nobody") return "held · nobody is seated to tell";
+  if (item.held === "shadow") return "recorded · mail is off";
+  return "recorded";
 }
 
 export function setFlow(values: Layer, choice: { live?: boolean; everySeconds?: number }): Layer {
   return { ...values, flow: { ...values.flow, ...choice } };
-}
-
-/** `KEPT` stands in for a set key so every whole-layer save carries it back untouched; `null` forgets it and its paid calls. */
-export function setSensorKey(values: Layer, key: string | null): Layer {
-  const next = { ...values };
-  if (key === null) delete next.sensor;
-  else next.sensor = { ...next.sensor, key };
-  return next;
 }
 
 /** A pasted server has no kit template to re-enable it, so it is dropped, url and token with it, not marked removed. */

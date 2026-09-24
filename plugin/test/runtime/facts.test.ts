@@ -6,9 +6,8 @@ import { fileURLToPath } from "node:url";
 import { loadKit } from "../../server/catalog/kit.ts";
 import type { Seen } from "../../server/core/ports.ts";
 import type { StreamMessage } from "../../server/core/stream.ts";
-import { DESTRUCTIVE, FACT_LEVELS, FACT_TITLES, type Fact, type Rules, SUPPRESSED, TEST_PATH, callsTo, onDetail, stuck } from "../../server/runtime/watch/facts.ts";
+import { DESTRUCTIVE, FACTS, type Fact, type Rules, SUPPRESSED, TEST_PATH, callsTo, factTitle, onDetail, stuck } from "../../server/runtime/watch/facts.ts";
 import { TEAM_SERVER } from "../../server/catalog/kit.ts";
-import { weigh } from "../../server/runtime/watch/jev/rules.ts";
 import { SeatWatch } from "../../server/runtime/watch/watches.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -42,7 +41,7 @@ function toSeen(message: StreamMessage, epochs: Map<string, number>): Seen | und
 
 /** `handed` is the outcome of a hand-back the turn made, if it made one. */
 function play(messages: StreamMessage[], given: Rules, handed?: string) {
-  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: given, handedBack: () => handed, goal: "", context: "", beside: [], role: "Peer", can: [] }));
+  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: given, handedBack: () => handed, placed: true }));
   const facts: (Fact & { seq?: number })[] = [];
   const epochs = new Map<string, number>();
   let now = 1_000;
@@ -175,8 +174,8 @@ test("a hand-back that says complete while the last check it ran after its last 
   assert.deepEqual(claimed([wrote, red]), [], "and a turn that handed nothing back said nothing");
   assert.deepEqual(claimed([wrote, red, green], "complete"), [], "it passed in the end");
   assert.deepEqual(claimed([wrote, red, later], "complete"), [], "an edit after it leaves the claim unchecked, not contradicted");
-  assert.equal(FACT_LEVELS["claim-contradicted"], "attend");
-  assert.equal(FACT_TITLES["claim-contradicted"], "Handed back as complete while its last check failed");
+  assert.equal(FACTS["claim-contradicted"].level, "attend");
+  assert.equal(factTitle("claim-contradicted"), "Handed back as complete while its last check failed");
 });
 
 test("a turn that reports having written files the gate never saw afterwards is unverified, and one that ran it is not", () => {
@@ -262,7 +261,7 @@ test("a second loop in the same turn is reported, once the first has been broken
 });
 
 test("a message steered into a long turn does not make it long again", () => {
-  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: rules(), handedBack: () => undefined, goal: "", context: "", beside: [], role: "Peer", can: [] }));
+  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: rules(), handedBack: () => undefined, placed: true }));
   const t0 = Date.parse("2026-09-19T10:00:00Z");
   watch.see({ kind: "turn", phase: "started", turnId: "t" }, t0);
   assert.equal(watch.longTurn(t0 + 40 * 60_000, 30).length, 1);
@@ -353,7 +352,7 @@ test("the gate named in an unverified fact is masked like any other quote", () =
 });
 
 test("the end of a turn that is not the one the seat is in does not close it", () => {
-  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: rules(), handedBack: () => undefined, goal: "", context: "", beside: [], role: "Peer", can: [] }));
+  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: rules(), handedBack: () => undefined, placed: true }));
   watch.see({ kind: "turn", phase: "started", turnId: "turn-2" }, 1_000);
   watch.see({ kind: "turn", phase: "completed", turnId: "turn-1" }, 2_000);
   assert.equal(watch.running, true);
@@ -361,23 +360,8 @@ test("the end of a turn that is not the one the seat is in does not close it", (
   assert.equal(watch.running, false);
 });
 
-test("an instruction arriving mid-turn is a new subject, so the reading before it no longer counts as the one before", () => {
-  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: rules(), handedBack: () => undefined, goal: "", context: "", beside: [], role: "Peer", can: [] }));
-  const questions = { drifting: { view: "work" as const, instructions: "q", threshold: 0.7, level: "attend" as const, alone: true } };
-  const answer = { answers: { drifting: 0.9 }, model: "m" };
-  const findings = (before?: Record<string, number>) => weigh(answer, questions, [], { unclear: 0.2, ended: false, before }).findings.length;
-
-  watch.see({ kind: "turn", phase: "started", turnId: "t" }, 1_000);
-  watch.reading = { turnId: "t", answers: answer.answers };
-  assert.equal(findings(watch.reading.answers), 1, "twice high about one subject is what opens a standing condition mid-turn");
-
-  watch.see({ kind: "row", row: { item: { type: "user_message", text: "No, leave the pricing alone" }, seq: 2, epoch: "e", turnId: "t", replay: false } });
-  assert.equal(findings(watch.reading?.answers), 0, "one answer about the old instruction and one about the new are two subjects, not twice about one");
-  assert.equal(watch.reading, undefined, "the turn runs on, but what the seat was told to do has changed");
-});
-
-test("Claude's task notifications stay in what the sensor reads, though nothing counts them", () => {
-  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: rules(), handedBack: () => undefined, goal: "", context: "", beside: [], role: "Peer", can: [] }));
+test("Claude's task notifications are kept in the window as pseudo calls, which no fact counts", () => {
+  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: rules(), handedBack: () => undefined, placed: true }));
   for (const message of claudeTurn2()) {
     if (message.event.type !== "timeline") continue;
     watch.see({ kind: "row", row: { item: message.event.item!, seq: message.seq!, epoch: message.epoch!, turnId: message.event.turnId ?? null, replay: false } });
@@ -386,10 +370,11 @@ test("Claude's task notifications stay in what the sensor reads, though nothing 
 });
 
 test("every fact that can open an incident has a title a person can read", () => {
-  // A note is sensor evidence and never an incident on its own, so only the other levels need a title.
-  for (const [kind, level] of Object.entries(FACT_LEVELS)) {
-    if (level === "note") assert.equal(FACT_TITLES[kind], undefined, `${kind} never reaches a screen`);
-    else assert.ok(FACT_TITLES[kind] && !/[-_]/.test(FACT_TITLES[kind]!.split(" ")[0]!), `${kind} has no readable title`);
+  // A note is evidence and never an incident on its own, so only the other levels need a title.
+  for (const [kind, { level }] of Object.entries(FACTS)) {
+    const title = factTitle(kind);
+    if (level === "note") assert.equal(title, undefined, `${kind} never reaches a screen`);
+    else assert.ok(title && !/[-_]/.test(title.split(" ")[0]!), `${kind} has no readable title`);
   }
 });
 

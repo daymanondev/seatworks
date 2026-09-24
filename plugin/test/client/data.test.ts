@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { type Layer, countsInstead, dropMcp, foldRoles, harnessInForce, incidentLines, jevHeader, keptRoles, leaning, modelInForce, modelRow, setAttention, setFlow, setMcp, setRole, setSensorKey, spent, trackRecord, watcherState } from "../../client/data.ts";
-import type { WatchIncident, WatchSeat, WatchView } from "../../shared/views.ts";
-import { KEPT } from "../../shared/rpc.ts";
+import { type Layer, countsInstead, dropMcp, foldRoles, harnessInForce, incidentState, keptRoles, modelInForce, modelRow, setAttention, setRole } from "../../client/data.ts";
+import type { WatchIncident } from "../../shared/views.ts";
 
 const held: Layer = {
   rules: "Keep diffs small.",
@@ -124,57 +123,24 @@ test("the model in force follows the resolver: a layer naming another agent drop
 });
 
 test("a role that follows another shows that role's agent and model in force until it has its own", () => {
-  const watcher = { id: "watcher", follows: "peer", defaults: { harness: "devin", model: "swe-2-max" } };
+  const scribe = { id: "scribe", follows: "peer", defaults: { harness: "devin", model: "swe-2-max" } };
   const machine: Layer = { roles: { peer: { harness: "claude", model: "claude-opus-5" } } };
-  assert.equal(harnessInForce(watcher, {}, {}, machine), "claude", "the Peer's own choice, not the kit's default");
-  assert.equal(modelInForce(watcher, {}, {}, machine), "claude-opus-5");
-  assert.equal(modelInForce(watcher, { roles: { peer: { model: "claude-sonnet-5" } } }, {}, machine), "claude-sonnet-5", "a Peer being edited in the same draft moves it too");
-  const own: Layer = { roles: { watcher: { harness: "codex" } } };
-  assert.equal(harnessInForce(watcher, {}, own, machine), "codex", "an agent of its own wins");
-  assert.equal(modelInForce(watcher, {}, own, machine), undefined, "and drops what it followed");
-  const back: Layer = { roles: { watcher: { harness: "claude" } } };
-  assert.equal(modelInForce(watcher, back, own, machine), "claude-opus-5", "coming back to the Peer's agent brings back the Peer's model");
+  assert.equal(harnessInForce(scribe, {}, {}, machine), "claude", "the Peer's own choice, not the kit's default");
+  assert.equal(modelInForce(scribe, {}, {}, machine), "claude-opus-5");
+  assert.equal(modelInForce(scribe, { roles: { peer: { model: "claude-sonnet-5" } } }, {}, machine), "claude-sonnet-5", "a Peer being edited in the same draft moves it too");
+  const own: Layer = { roles: { scribe: { harness: "codex" } } };
+  assert.equal(harnessInForce(scribe, {}, own, machine), "codex", "an agent of its own wins");
+  assert.equal(modelInForce(scribe, {}, own, machine), undefined, "and drops what it followed");
+  const back: Layer = { roles: { scribe: { harness: "claude" } } };
+  assert.equal(modelInForce(scribe, back, own, machine), "claude-opus-5", "coming back to the Peer's agent brings back the Peer's model");
 });
 
-test("switching the watch on keeps the rest of the tuning, and the sensor's key is kept by the word the screen holds", () => {
+test("switching the watch on keeps the rest of the tuning", () => {
   const on = setAttention(held, { watch: true });
   assert.deepEqual(on.attention, { longTurnMinutes: 30, watch: true }, "the other attention settings are not a casualty of the switch");
   assert.equal(on.rules, "Keep diffs small.");
-
-  // A write is the whole layer, so every helper a section saves through must carry `KEPT` back or the key is lost.
-  const screen: Layer = { ...held, sensor: { key: KEPT } };
-  const elsewhere: Record<string, Layer> = {
-    "a role moved to another agent": setRole(screen, "peer", { harness: "devin" }, true),
-    "a server switched on": setMcp(screen, "docs", { enabled: true }),
-    "a pasted server forgotten": dropMcp(setMcp(screen, "docs", { enabled: true }), "docs"),
-    "the flow switch": setFlow(screen, { live: true }),
-    "this card's own switch": setAttention(screen, { watch: true }),
-  };
-  for (const [what, saved] of Object.entries(elsewhere)) assert.deepEqual(saved.sensor, { key: KEPT }, `${what} carries the key back untouched`);
-  assert.deepEqual(setSensorKey(screen, "sk-or-new").sensor, { key: "sk-or-new" }, "a typed key replaces the word");
-  const forgotten = setSensorKey(screen, null);
-  assert.equal("sensor" in forgotten, false, "forgetting it leaves no block at all, which is what clears the key on disk");
-  assert.deepEqual(forgotten.attention, { longTurnMinutes: 30, watch: false }, "and nothing else goes with it");
 });
 
-const watching = (over: Partial<WatchView> = {}): WatchView => ({
-  by: "jev",
-  on: true,
-  keyed: true,
-  telling: false,
-  judgeMinutes: 2,
-  failing: null,
-  watcher: null,
-  lanes: 1,
-  seats: [],
-  lastRead: null,
-  read: { turns: 0, cost: 0 },
-  marks: { total: 0, open: 0, useful: 0, noise: 0, unknown: 0 },
-  incidents: [],
-  trouble: [],
-  ...over,
-});
-const seatOf = (id: string, over: Partial<WatchSeat> = {}): WatchSeat => ({ id, name: `Peer · L1-${id} ${id}`, running: true, lean: null, ...over });
 const incident = (over: Partial<WatchIncident> = {}): WatchIncident => ({
   id: "I1",
   title: "Built a stand-in for something that does not exist",
@@ -182,70 +148,18 @@ const incident = (over: Partial<WatchIncident> = {}): WatchIncident => ({
   name: "Peer · L1-T1 Pointer",
   minutes: 6,
   quote: "S9 said: patch.js is missing",
-  source: "code",
-  sure: null,
   told: null,
   lane: "L1",
   held: null,
   ...over,
 });
 
-test("the Jev card's header says the one thing to know first: reading, idle, not answering, or no key", () => {
-  const reading = jevHeader(watching({ telling: true, lanes: 2, lastRead: 0, read: { turns: 128, cost: 0.015 }, seats: [seatOf("a"), seatOf("b"), seatOf("c", { running: false })] }));
-  assert.deepEqual([reading.title, reading.word, reading.tone], ["Jev is reading 2 seats in 2 lanes", "mailing", "success"]);
-  assert.equal(reading.sub, "Last read just now · 128 turns read · $0.015 spent so far");
-  const idle = jevHeader(watching({ lastRead: 660, read: { turns: 365, cost: 0.047 } }));
-  assert.deepEqual([idle.title, idle.word, idle.tone], ["Nothing is running", "recording only", "muted"]);
-  assert.match(idle.sub, /^Jev last read a turn here 11 hours ago/, "an idle watch says when it last worked, so a dead one is visible");
-  const failing = jevHeader(watching({ failing: { minutes: 4, detail: "429 too many requests" } }));
-  assert.equal(failing.title, "Jev is not answering");
-  assert.match(failing.sub, /429 too many requests\. The code still reads every turn; what waits for Jev's second look goes after 2 minutes\./);
-  const keyless = jevHeader(watching({ keyed: false, on: false }));
-  assert.deepEqual([keyless.title, keyless.word, keyless.tone], ["Jev is not reading", "", "warning"]);
-});
-
-test("an incident says who raised it and how sure, and where it has got to, in words", () => {
-  const jev = { by: "jev" as const, judgeMinutes: 2, failing: null };
-  assert.deepEqual(incidentLines(incident({ level: "page", told: "supervisor", minutes: 2 }), jev), { sub: "Peer · L1-T1 Pointer · 2 min ago", source: "measured in code", state: "told the Supervisor", danger: true });
-  assert.deepEqual(incidentLines(incident({ source: "jev", sure: { p: 0.86, bar: 0.85 }, told: "lead" }), jev), { sub: "Peer · L1-T1 Pointer · 6 min ago", source: "Jev 86% sure · bar 85%", state: "told Lead L1", danger: false });
-  assert.equal(incidentLines(incident({ held: "awaiting" }), jev).state, "held · Jev takes a second look, up to 2 min");
-  assert.equal(incidentLines(incident({ held: "awaiting" }), { ...jev, failing: { minutes: 1, detail: "x" } }).state, "held · Jev is not answering, told after 2 min");
-  const seat = { by: "seat" as const, judgeMinutes: 10, failing: null };
-  assert.equal(incidentLines(incident({ held: "awaiting" }), seat).state, "held · waiting for the Watcher, up to 10 min");
-  assert.equal(incidentLines(incident({ held: "vetoed" }), seat).state, "held back by the Watcher");
-  assert.equal(incidentLines(incident({ source: "watcher" }), seat).source, "raised by the Watcher");
-  assert.equal(incidentLines(incident({ held: "shadow" }), seat).state, "recorded · mail is off");
-});
-
-test("what Jev leans towards is listed closest to its bar first, and the seats with nothing leaning are named", () => {
-  const seats = [
-    seatOf("a", { lean: { title: "Said the work is done", p: 0.41, bar: 0.6 } }),
-    seatOf("b"),
-    seatOf("c", { lean: { title: "Worked on something it was not asked for", p: 0.62, bar: 0.7 } }),
-  ];
-  const { leaning: on, quiet } = leaning(seats);
-  assert.deepEqual(on.map((seat) => seat.id), ["c", "a"]);
-  assert.deepEqual(quiet, ["Peer · L1-b b"]);
-});
-
-test("the track record counts useful against noise, and says when there are marks enough to tune by", () => {
-  assert.equal(trackRecord({ total: 0, open: 0, useful: 0, noise: 0, unknown: 0 }).title, "Nothing marked yet");
-  const some = trackRecord({ total: 18, open: 0, useful: 12, noise: 5, unknown: 1 });
-  assert.deepEqual([some.title, some.percent, some.parts], ["12 of 17 marked incidents were worth it", "71%", [12, 5, 1]]);
-  assert.match(some.hint, /with 20 or more marks, run node bin\/calibrate\.ts/);
-  assert.match(trackRecord({ total: 21, open: 0, useful: 14, noise: 6, unknown: 1 }).hint, /there are enough marks now/);
-});
-
-test("the Watcher seat on the canvas says whether it runs and how many readings wait for it", () => {
-  assert.deepEqual(watcherState({ id: "w", status: "running", minutes: 0, queued: 2 }), { state: "running · 2 readings waiting", alive: true });
-  assert.deepEqual(watcherState({ id: "w", status: "idle", minutes: 3, queued: 0 }), { state: "idle", alive: true });
-  assert.deepEqual(watcherState(null), { state: "not seated · it sits once a lane is open", alive: false });
-});
-
-test("money is shown in dollars, with enough places that a few cents do not read as nothing", () => {
-  assert.equal(spent(0), "nothing yet");
-  assert.equal(spent(0.0047), "$0.005");
-  assert.equal(spent(0.412), "$0.412");
-  assert.equal(spent(12.5), "$12.50");
-  assert.doesNotMatch(spent(0.004), /\u00a2/);
+test("an incident says where it has got to, in words", () => {
+  assert.equal(incidentState(incident({ told: "supervisor" })), "told the Supervisor");
+  assert.equal(incidentState(incident({ told: "lead" })), "told Lead L1");
+  assert.equal(incidentState(incident({ told: "lead", lane: null })), "told its Lead");
+  assert.equal(incidentState(incident({ held: "budget" })), "held · today's limit is reached");
+  assert.equal(incidentState(incident({ held: "nobody" })), "held · nobody is seated to tell");
+  assert.equal(incidentState(incident({ held: "shadow" })), "recorded · mail is off");
+  assert.equal(incidentState(incident()), "recorded");
 });

@@ -153,18 +153,6 @@ export function makeKit(): Kit {
   put(dir, "content/prompts/LEAD.md", "# Lead\n\nRead {{guides}}/BRIEF.md.\n");
   put(dir, "content/prompts/PEER.md", "# Peer\n\nRead {{guides}}/BRIEF.md.\n");
   put(dir, "content/prompts/SCRIBE.md", "# Scribe\n\nKeep the notes.\n");
-  put(dir, "catalog/sensor/probe/sensor.json", {
-    id: "probe",
-    url: "https://sensor.invalid/decisions",
-    model: "probe-1",
-    timeoutSeconds: 1,
-    retries: 0,
-    stateChars: 2000,
-    debounceSeconds: 1,
-    everySeconds: 5,
-    unclear: 0.2,
-    questions: { stuck: { view: "work", instructions: "Is it stuck?", threshold: 0.8, confirms: ["stuck"] } },
-  });
   put(dir, "content/guides/BRIEF.md", "# Brief\n");
   put(dir, "content/skills/supervisor/plan-check/SKILL.md", "---\nname: plan-check\ndescription: checks a plan\n---\n");
   put(dir, "content/skills/peer/test-first/SKILL.md", "---\nname: test-first\ndescription: tests\n---\n");

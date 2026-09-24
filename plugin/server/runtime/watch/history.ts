@@ -1,5 +1,5 @@
 import type { Ledger, Task } from "../../desk/ledger.ts";
-import type { Fact } from "./facts.ts";
+import { type Fact, type FactKind, fact } from "./facts.ts";
 
 /**
  * What a lane's history shows that no turn window can. One fact per kind per lane, naming every task:
@@ -56,7 +56,7 @@ export function deskFacts(ledger: Ledger, reading: Reading): Seen[] {
     if (lane.status !== "open" || !lane.lead) continue;
     const lead = lane.lead;
     const here = tasks.filter((task) => task.lane === lane.id);
-    const at = (kind: string, quote: string) => seen.push({ seat: lead, fact: { kind, level: "attend", quote } });
+    const at = (kind: FactKind, quote: string) => seen.push({ seat: lead, fact: fact(kind, quote) });
 
     // One task going round: each sending-back is a local fix to what the last one did not settle.
     const looping = here.filter((task) => !settled(task) && reworksOf(task) >= reading.reworksAt);

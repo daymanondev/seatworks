@@ -12,8 +12,6 @@ export const HELD: Record<string, string> = {
   shadow: "shadow",
   budget: "the day's budget is spent",
   nobody: "nobody was seated to tell",
-  awaiting: "waiting for the sensor",
-  vetoed: "held back",
 };
 
 function line(item: Incident): string {
@@ -97,7 +95,7 @@ export const ack: Tool = async ({ ctx }, caller, args) => {
     return { ...item };
   });
   if (!done) return no(`There is no incident ${id} here for you to mark. incidents lists the ones there are.`);
-  ctx.event(caller.project, { kind: "incident.ack", id, agent: caller.id, verdict, note: note || null, seat: done.seat, finding: done.kind, opened: done.opened, last: done.last, sensor: done.sensor ?? null, ...(done.by ? { by: done.by } : {}) });
+  ctx.event(caller.project, { kind: "incident.ack", id, agent: caller.id, verdict, note: note || null, seat: done.seat, finding: done.kind, opened: done.opened, last: done.last });
   const later = done.later !== undefined ? ` It was seen ${done.count} times, the last at ${at(done.last)} after you were told: ${clip(done.later.replace(/\s+/g, " "), 200)}` : "";
   return ok(`${id} marked ${verdict} and closed.${later}`);
 };

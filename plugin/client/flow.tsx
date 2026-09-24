@@ -3,9 +3,9 @@ import { SettingsCard, SettingsRow, SettingsSection, SettingsSwitch } from "@get
 import { Fragment, memo, useMemo } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Empty } from "./bits.tsx";
-import { type FlowLane, type FlowSeat, type FlowView, countsInstead, watcherState } from "./data.ts";
+import { type FlowLane, type FlowSeat, type FlowView, countsInstead } from "./data.ts";
 import { ApprovalsCards } from "./approvals.tsx";
-import { IncidentsCard, WatchCard } from "./watching.tsx";
+import { IncidentsCard } from "./watching.tsx";
 
 type Props = {
   following: boolean;
@@ -16,8 +16,6 @@ type Props = {
   disabled: boolean;
   onLive(live: boolean): void;
   onOpen(lane: string): void;
-  onAddKey(): void;
-  onWatchBySeat(): void;
 };
 
 const NODE_W = 232;
@@ -135,11 +133,9 @@ const Lane = memo(function Lane({ lane, theme, onOpen }: { lane: FlowLane; theme
   );
 });
 
-export function FlowSection({ following, flow, error, live, theme, disabled, onLive, onOpen, onAddKey, onWatchBySeat }: Props) {
+export function FlowSection({ following, flow, error, live, theme, disabled, onLive, onOpen }: Props) {
   const styles = useStyles(theme);
   const empty = flow !== null && flow.lanes.length === 0 && flow.supervisors.length === 0;
-  // By a seat the Watcher is a seat like the others, beside the Supervisor, once a lane has put it there.
-  const watcher = flow && flow.watch.by === "seat" && (flow.watch.watcher || flow.lanes.some((lane) => lane.status === "open")) ? watcherState(flow.watch.watcher) : null;
 
   return (
     <SettingsSection title="Flow" info="Only what the team is holding right now. Open a lane to see its Peers.">
@@ -172,12 +168,6 @@ export function FlowSection({ following, flow, error, live, theme, disabled, onL
               {flow.supervisors.map((seat, index) => (
                 <View key={seat.id} style={styles.lane}>
                   <Node theme={theme} title={seat.role === "supervisor" ? "Supervisor" : `Supervisor · ${seat.role}`} hint={seat.id} state={seatText(seat)} alive={seat.status !== "gone"} />
-                  {index === 0 && watcher ? (
-                    <>
-                      <View style={{ width: COL_GAP }} />
-                      <Node theme={theme} title="Watcher" hint="reads every Lead and Peer" state={watcher.state} alive={watcher.alive} reads />
-                    </>
-                  ) : null}
                   {index === 0
                     ? flow.critics.map((critic) => (
                         <Fragment key={critic.seat.id}>
@@ -207,7 +197,7 @@ export function FlowSection({ following, flow, error, live, theme, disabled, onL
         </SettingsCard>
       ) : null}
 
-      {live && flow ? (flow.watch.by === "jev" ? <WatchCard watch={flow.watch} theme={theme} onAddKey={onAddKey} onWatchBySeat={onWatchBySeat} /> : <IncidentsCard watch={flow.watch} theme={theme} />) : null}
+      {live && flow ? <IncidentsCard watch={flow.watch} theme={theme} /> : null}
 
       {live && flow && flow.asks.length > 0 ? (
         <SettingsCard>

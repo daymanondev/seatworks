@@ -4,7 +4,7 @@ import type { MigrateStep, MigrateView } from "../../shared/views.ts";
 import type { Kit } from "../catalog/kit.ts";
 import { staleProjectFiles } from "../catalog/project-files.ts";
 import { digest } from "../catalog/seats.ts";
-import type { LayerSchema } from "../catalog/settings.ts";
+import { LayerSchema } from "../catalog/settings.ts";
 import { stateRoot } from "../core/paths.ts";
 import { readJson, writeJson } from "../core/store.ts";
 import type { Project } from "../desk/project.ts";
@@ -17,7 +17,7 @@ export type MigrateContext = {
   kit: Kit;
   home: string;
   known: Project[];
-  settings: { where: string; file: string; schema: LayerSchema }[];
+  settings: { where: string; file: string }[];
   live: LiveSeat[];
   now: number;
 };
@@ -63,11 +63,11 @@ function drop(root: unknown, path: Path): Path | undefined {
   return undefined;
 }
 
-export function repairLayer(raw: unknown, schema: LayerSchema): { values: unknown; dropped: string[] } | undefined {
+export function repairLayer(raw: unknown): { values: unknown; dropped: string[] } | undefined {
   const values = structuredClone(raw);
   const dropped: string[] = [];
   for (let round = 0; round < 50; round++) {
-    const parsed = schema.safeParse(values);
+    const parsed = LayerSchema.safeParse(values);
     if (parsed.success) return { values, dropped };
     // One issue a round: dropping an array element moves every index an issue after it names.
     const issue = parsed.error.issues[0]!;
@@ -89,12 +89,12 @@ const unreadable = (file: string) => {
 };
 
 function settingsSteps(ctx: MigrateContext): Step[] {
-  return ctx.settings.flatMap<Step>(({ where, file, schema }) => {
+  return ctx.settings.flatMap<Step>(({ where, file }) => {
     if (!existsSync(file)) return [];
     if (unreadable(file)) return [{ kind: "settings", where, what: `${file} is not a settings object`, detail: ["Repair it by hand; Migrate does not guess at what it held."], auto: false }];
     const raw = readJson<unknown>(file, {});
-    if (schema.safeParse(raw).success) return [];
-    const repaired = repairLayer(raw, schema);
+    if (LayerSchema.safeParse(raw).success) return [];
+    const repaired = repairLayer(raw);
     if (!repaired) return [{ kind: "settings", where, what: `${file} does not fit this version`, detail: ["Repair it by hand."], auto: false }];
     const stamp = new Date(ctx.now).toISOString().replace(/\D/g, "").slice(0, 14);
     const backup = `${file}.bak-${stamp.slice(0, 8)}-${stamp.slice(8)}`;

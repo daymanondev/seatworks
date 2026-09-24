@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import { can, harnessProblems, loadKit, roleNamed, roleThatCan, rolesThatCan, toolsOf, watcherProblems } from "../../server/catalog/kit.ts";
+import { can, harnessProblems, loadKit, roleNamed, roleThatCan, rolesThatCan, toolsOf } from "../../server/catalog/kit.ts";
 import { renderPrompt } from "../../server/catalog/content.ts";
 import { tempDir } from "../tempdir.ts";
 
@@ -45,33 +45,18 @@ test("a role follows one other role that chooses for itself, and takes its defau
   writeFileSync(join(dir, "harness", "acme", "harness.json"), JSON.stringify(good()));
   const peer = { role: "peer", label: "Peer", defaults: { harness: "acme", model: "m" }, prompt: "prompts/PEER.md", skills: null };
   const roles = (...more: object[]) => writeFileSync(join(dir, "roles.json"), JSON.stringify({ roles: [peer, ...more] }));
-  const follower = (extra: object = {}) => ({ role: "watcher", label: "Watcher", follows: "peer", prompt: "prompts/WATCHER.md", skills: null, ...extra });
+  const follower = (extra: object = {}) => ({ role: "archivist", label: "Archivist", follows: "peer", prompt: "prompts/ARCHIVIST.md", skills: null, ...extra });
 
   roles(follower());
-  assert.deepEqual(roleNamed(loadKit(dir), "watcher")!.defaults, { harness: "acme", model: "m" });
+  assert.deepEqual(roleNamed(loadKit(dir), "archivist")!.defaults, { harness: "acme", model: "m" });
   roles(follower({ defaults: { harness: "acme" } }));
-  assert.throws(() => loadKit(dir), /role watcher follows peer and names defaults of its own/);
+  assert.throws(() => loadKit(dir), /role archivist follows peer and names defaults of its own/);
   roles(follower({ follows: "nobody" }));
-  assert.throws(() => loadKit(dir), /role watcher follows nobody, which is no other role/);
-  roles(follower({ follows: "watcher" }));
-  assert.throws(() => loadKit(dir), /role watcher follows watcher, which is no other role/);
-  roles(follower(), { ...follower(), role: "echo", follows: "watcher" });
-  assert.throws(() => loadKit(dir), /role echo follows watcher, which follows peer in turn/);
-});
-
-test("what a Watcher may raise and judge is refused when it is not something the desk can act on", () => {
-  const kind = { level: "attend", label: "Worked on something it was not asked for", means: "Its steps left the goal." };
-  assert.deepEqual(watcherProblems({ judges: ["stuck"], kinds: { goal_drift: kind } }), []);
-  assert.deepEqual(watcherProblems({ judges: ["destructive"], kinds: { goal_drift: kind } }), ["judges something that is not an attention-level fact the code raises"], "an irreversible act never waits for anyone");
-  assert.deepEqual(watcherProblems({ judges: ["vibes"], kinds: { goal_drift: kind } }), ["judges something that is not an attention-level fact the code raises"]);
-  assert.deepEqual(watcherProblems({ judges: [], kinds: {} }), ["may raise no kind"]);
-  assert.deepEqual(watcherProblems({ judges: [], kinds: { "Goal-Drift": kind } }), ["names a kind Goal-Drift, which is not lowercase words joined by _"]);
-  assert.deepEqual(watcherProblems({ judges: [], kinds: { stuck: kind } }), ["names a kind stuck, which is a fact the code raises"], "it would be the code's own incident, waiting on its own judgement");
-  assert.deepEqual(watcherProblems({ judges: [], kinds: { goal_drift: { ...kind, level: "loud" } } }), ["raises goal_drift at a level that is neither page nor attend"]);
-  assert.deepEqual(watcherProblems({ judges: [], kinds: { goal_drift: { level: "attend", label: "x" } } }), ["raises goal_drift with no means"]);
-  assert.deepEqual(watcherProblems({ judges: [], kinds: { goal_drift: { ...kind, looks: "rewriting the settings page" } } }), []);
-  assert.deepEqual(watcherProblems({ judges: [], kinds: { goal_drift: { ...kind, looks: ["a", "b"] } } }), ["raises goal_drift with a looks that is not text"]);
-  assert.deepEqual(watcherProblems({ judges: [], kinds: { goal_drift: { ...kind, threshold: 0.5 } }, extra: 1 }), ["has extra, which the Watcher does not take", "raises goal_drift with threshold, which a kind does not take"]);
+  assert.throws(() => loadKit(dir), /role archivist follows nobody, which is no other role/);
+  roles(follower({ follows: "archivist" }));
+  assert.throws(() => loadKit(dir), /role archivist follows archivist, which is no other role/);
+  roles(follower(), { ...follower(), role: "echo", follows: "archivist" });
+  assert.throws(() => loadKit(dir), /role echo follows archivist, which follows peer in turn/);
 });
 
 test("loading a kit refuses a harness that breaks the contract, naming the field", () => {
@@ -131,7 +116,6 @@ test("several seats can supervise one project, each for its own concern, declare
   assert.deepEqual(toolsOf(kit, supervising[1]), ["open_lane", "answer"]);
   assert.deepEqual(toolsOf(kit, roleThatCan(kit, "lead")), ["report"]);
   assert.equal(can(supervising[0], "lead"), false);
-  assert.equal(toolsOf(kit, rolesThatCan(kit, "watch")[0]).length, 0, "a kit that declares no watching seat simply has none");
 });
 
 test("a roles file of one's own replaces the kit's preset, and may name its files anywhere", () => {

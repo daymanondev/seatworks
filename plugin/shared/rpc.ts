@@ -3,8 +3,6 @@ import { z } from "zod";
 
 const project = z.string().min(1).optional();
 
-export const KEPT = "kept, not shown";
-
 export const catalogRpc = defineRpc({ name: "seatworks.catalog.read", input: z.object({}), output: z.json() });
 export const settingsReadRpc = defineRpc({ name: "seatworks.settings.read", input: z.object({ project }), output: z.json() });
 export const settingsWriteRpc = defineRpc({ name: "seatworks.settings.write", input: z.object({ project, revision: z.string(), values: z.json() }), output: z.json() });

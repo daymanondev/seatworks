@@ -114,24 +114,6 @@
       ]
     },
     {
-      "role": "watcher",
-      "label": "Watcher",
-      "description": "Reads Leads and Peers as they work and tells whoever answers for them what it saw; it cannot touch the work",
-      "follows": "peer",
-      "can": [
-        "watch"
-      ],
-      "tools": "watcher",
-      "prompt": "prompts/WATCHER.md",
-      "skills": null,
-      "paseoTools": {
-        "allow": [
-          "get_agent_activity"
-        ]
-      },
-      "hidesWords": []
-    },
-    {
       "role": "critic",
       "label": "Critic",
       "description": "Reads a new lane against what the Human actually wrote, once, and tells the Supervisor where they may not agree; it sees none of the Supervisor's reasoning and cannot touch the work",

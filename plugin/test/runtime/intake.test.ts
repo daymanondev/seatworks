@@ -266,7 +266,7 @@ test("a waiting lane is amended in place and opens as it is asked then; a closed
   assert.match((await h.call(sup, "supervisor", "amend_lane", { lane: "L1", why: "x", outcome: "y" })).text, /Lane L1 is closed/);
 });
 
-test("a Lead amends a task its Peer is on: the Peer is told at its next turn, and the watch reads it against what it asks now", async (t) => {
+test("a Lead amends a task its Peer is on: the Peer is told at its next turn", async () => {
   const { h, lane, peer } = await laneWithPeer();
   const amended = await h.call(lane.lead!, "lead", "amend_task", { task: "L1-T1", why: "the lane now wants an upsert", goal: "upsert into the cart" });
   assert.equal(amended.ok, true, amended.text);
@@ -277,20 +277,6 @@ test("a Lead amends a task its Peer is on: the Peer is told at its next turn, an
   const letter = h.agents.get(peer)!.sent.find((text) => text.startsWith("AMENDED L1-T1"))!;
   assert.match(letter, /goal, was:\ng\ngoal, now:\nupsert into the cart\n\nWork to it as it stands now/);
   assert.doesNotMatch(letter, /seat|supervisor|paseo/i, "a Peer is not shown the words its role hides");
-
-  const states: Record<string, unknown>[] = [];
-  t.mock.method(globalThis, "fetch", async (_url: string, init: { body: string }) => {
-    const body = JSON.parse(init.body) as { state: Record<string, unknown>; questions: Record<string, unknown> };
-    states.push(body.state);
-    return new Response(JSON.stringify({ answers: Object.fromEntries(Object.keys(body.questions).map((n) => [n, { type: "noul", noul: 0.1 }])), model: "m", id: "g", usage: { cost: 0 } }), { status: 200 });
-  });
-  const timeline = h.timelineOf(peer);
-  timeline.beat("turn_started", "t1");
-  timeline.add({ type: "user_message", text: "build it" }, "t1");
-  timeline.beat("turn_completed", "t1");
-  await settle();
-  await new Promise((resolve) => setTimeout(resolve, 60));
-  assert.match(JSON.stringify(states.find((state) => "role" in state) ?? {}), /Goal: upsert into the cart/, "not flagged for drifting off the goal it was given before");
 
   await h.call(lane.lead!, "lead", "cut", { task: "L1-T1", reason: "done with it" });
   assert.match((await h.call(lane.lead!, "lead", "amend_task", { task: "L1-T1", why: "x", goal: "y" })).text, /L1-T1 is cut; start a task for what is asked now/);

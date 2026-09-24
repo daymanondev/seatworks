@@ -12,8 +12,6 @@ import { Runtime } from "../../server/runtime/runtime.ts";
 import { tempDir } from "../tempdir.ts";
 import { FakeTimeline } from "./fake-timeline.ts";
 
-globalThis.fetch = (async () => new Response("{}", { status: 503 })) as typeof fetch;
-
 const made: Runtime[] = [];
 
 /** A runtime goes with the test that made it, so nothing it still follows reaches the next test. */
@@ -179,8 +177,7 @@ export function harness() {
   const { root, git } = repo();
   const state = stateRoot();
   mkdirSync(state, { recursive: true });
-  // By Jev with a key and an unreachable endpoint: the watch on, the sensor silent unless a test asks.
-  writeFileSync(join(state, "settings.json"), JSON.stringify({ sensor: { key: "sk-or-harness" }, attention: { by: "jev" }, mcp: { "intellij-index": { enabled: true }, "code-search": { enabled: true }, context7: { enabled: true } } }));
+  writeFileSync(join(state, "settings.json"), JSON.stringify({ mcp: { "intellij-index": { enabled: true }, "code-search": { enabled: true }, context7: { enabled: true } } }));
   const { paseo, agents, add, workspaces, workspaceNames, workspaceProjects, archivedWorkspaces, timelineOf } = fakePaseo();
   const runtime = new Runtime(kit, { paseo, codeIndex: (proxy: { id: string; gitExclude?: string[] }) => ({ ...ide, id: proxy.id, gitExclude: proxy.gitExclude ?? [] }), reloadDaemon: async () => true });
   made.push(runtime);

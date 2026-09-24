@@ -62,7 +62,7 @@ test("an open lane is never archived; a seat with no lane keeps its role's newes
   ledger.agents["sup-1"] = { id: "sup-1", role: "supervisor" };
   ledger.agents["sup-2"] = { id: "sup-2", role: "supervisor" };
   ledger.agents["sup-3"] = { id: "sup-3", role: "supervisor" };
-  ledger.agents["watch-1"] = { id: "watch-1", role: "watcher" };
+  ledger.agents["crit-1"] = { id: "crit-1", role: "critic" };
   ledger.asks.B1 = { id: "B1", from: "sup-2", fromRole: "supervisor", to: "human", kind: "question", text: "?", status: "open", openedAt: 0, reminders: 0 };
   ledger.asks.B2 = { id: "B2", from: "sup-1", fromRole: "supervisor", to: "human", kind: "question", text: "?", status: "answered", openedAt: 0, reminders: 0 };
   ledger.asks.B3 = { id: "B3", from: "sup-3", fromRole: "supervisor", to: "human", kind: "question", text: "?", status: "answered", openedAt: 0, reminders: 0 };
@@ -72,7 +72,7 @@ test("an open lane is never archived; a seat with no lane keeps its role's newes
   assert.deepEqual(taken.lanes, [], "L1 is open; the rest are the newest kept");
   assert.deepEqual(taken.agents.map((agent) => agent.id), ["sup-1"]);
   assert.deepEqual(taken.asks.map((ask) => ask.id), ["B2"], "an answer its asker, still on record, may read again stays");
-  assert.ok(ledger.agents["sup-2"] && ledger.agents["sup-3"] && ledger.agents["watch-1"] && ledger.asks.B1 && ledger.asks.B3);
+  assert.ok(ledger.agents["sup-2"] && ledger.agents["sup-3"] && ledger.agents["crit-1"] && ledger.asks.B1 && ledger.asks.B3);
 });
 
 test("a lane leaves as one file with its entries, every hand-back and each owner's last gate run, and filing it again changes nothing", () => {

@@ -1,16 +1,12 @@
 import { type Kit, can, seatOf } from "../../catalog/kit.ts";
 import type { Seen, SeatView, Seats, Stream } from "../../core/ports.ts";
-import type { Sibling } from "../../desk/ledger.ts";
-import { type Fact, Recovery, type Rules, afterChange, contradicted, stuck, unverified } from "./facts.ts";
+import { type Fact, Recovery, type Rules, afterChange, contradicted, fact, stuck, unverified } from "./facts.ts";
 import { Window } from "./window.ts";
 
 export type WatchedSeat = { id: string; provider: string; cwd: string; title?: string | null };
 
-/**
- * `goal` is null when the ledger could not be read, and empty until it has placed the seat. `handedBack` is the outcome of
- * a hand-back made since `at` that the desk did not gate itself.
- */
-export type SeatContext = { rules: Rules; handedBack: (at: number) => string | undefined; goal: string | null; context: string; beside: Sibling[]; role: string; can: string[] };
+/** `placed` is false until the ledger has placed the seat, or while it cannot be read; `handedBack` is the outcome of a hand-back since `at` the desk did not gate. */
+export type SeatContext = { rules: Rules; handedBack: (at: number) => string | undefined; placed: boolean };
 
 const median = (values: number[]): number => {
   const sorted = [...values].sort((a, b) => a - b);
@@ -20,15 +16,9 @@ const median = (values: number[]): number => {
 export class SeatWatch {
   readonly seat: WatchedSeat;
   readonly window = new Window();
-  readonly noted: Fact[] = [];
   running = false;
   turnId: string | null = null;
   startedAt = 0;
-  reading: { turnId: string | null; answers: Record<string, number> } | undefined;
-  readings = 0;
-  spent = 0;
-  readAt = 0;
-  readonly peaks = new Map<string, number>();
   private readonly durations: number[] = [];
   private readonly told = new Set<string>();
   private readonly recovery = new Recovery();
@@ -41,16 +31,14 @@ export class SeatWatch {
   }
 
   private rules(): Rules | undefined {
-    return this.brief()?.rules;
+    return this.placed()?.rules;
   }
 
   see(seen: Seen, now = Date.now()): Fact[] {
     if (seen.kind === "reset") {
-      this.reading = undefined;
       this.window.clear();
       this.recovery.reset();
       this.told.clear();
-      this.noted.length = 0;
       return [];
     }
     if (seen.kind === "turn") {
@@ -64,9 +52,6 @@ export class SeatWatch {
     if (row.item.type === "user_message") {
       this.recovery.reset();
       for (const key of [...this.told]) if (key !== "long-turn") this.told.delete(key);
-      this.noted.length = 0;
-      // New subject: a two-in-a-row question must not pair a reading of the old instruction with the new.
-      this.reading = undefined;
       return [];
     }
     const rules = this.rules();
@@ -75,7 +60,7 @@ export class SeatWatch {
     if (change.settled && change.call && !change.call.pseudo) {
       facts.push(...this.recovery.step(change.call, rules));
       const pattern = stuck(this.window.sinceInstruction(), rules);
-      if (pattern) facts.push({ kind: "stuck", level: "attend", quote: pattern });
+      if (pattern) facts.push(fact("stuck", pattern));
       else this.told.delete("stuck");
     }
     return this.fresh(facts, change.call?.id);
@@ -87,7 +72,7 @@ export class SeatWatch {
     const limit = this.durations.length >= 5 ? Math.max(floor, 3 * median(this.durations)) : floor;
     const took = now - this.startedAt;
     if (took < limit) return [];
-    return this.fresh([{ kind: "long-turn", level: "attend", quote: `running for ${Math.round(took / 60_000)} minutes, past the ${Math.round(limit / 60_000)} this seat's turns take` }]);
+    return this.fresh([fact("long-turn", `running for ${Math.round(took / 60_000)} minutes, past the ${Math.round(limit / 60_000)} this seat's turns take`)]);
   }
 
   private started(turnId: string | null, at: number): Fact[] {
@@ -107,12 +92,12 @@ export class SeatWatch {
     if (since) this.durations.push(now - since);
     if (this.durations.length > 20) this.durations.shift();
     this.startedAt = 0;
-    const context = this.brief();
+    const context = this.placed();
     if (phase !== "completed" || !context) return [];
     const handed = since ? context.handedBack(since) : undefined;
     const facts = [...unverified(this.window, context.rules, handed !== undefined), ...contradicted(this.window, context.rules, handed)];
     const pattern = stuck(this.window.sinceInstruction(), context.rules);
-    if (pattern) facts.push({ kind: "stuck", level: "attend", quote: pattern });
+    if (pattern) facts.push(fact("stuck", pattern));
     return this.fresh(facts);
   }
 
@@ -127,8 +112,8 @@ export class SeatWatch {
   }
 
   /** Re-read until the ledger places the seat: a Peer's first turn starts before `start_task` writes its task. */
-  brief(): SeatContext | undefined {
-    if (!this.current?.goal) this.current = this.context();
+  placed(): SeatContext | undefined {
+    if (!this.current?.placed) this.current = this.context();
     return this.current;
   }
 
@@ -139,8 +124,6 @@ export class SeatWatch {
       this.told.add(key);
       return true;
     });
-    this.noted.push(...kept);
-    if (this.noted.length > 20) this.noted.splice(0, this.noted.length - 20);
     return kept;
   }
 }
@@ -150,9 +133,6 @@ export type WatchDeps = {
   seats: Seats;
   context: (seat: WatchedSeat) => SeatContext | undefined;
   found: (watch: SeatWatch, facts: Fact[]) => void;
-  on: (seat: WatchedSeat) => boolean;
-  moment?: (watch: SeatWatch, urgent: boolean) => void;
-  dropped?: (id: string) => void;
   log?: (line: string, error?: unknown) => void;
 };
 
@@ -176,12 +156,8 @@ export class Watches {
     return [...this.followed.values()].map((entry) => entry.watch);
   }
 
-  private on(seat: WatchedSeat): boolean {
-    return this.watched(seat.provider) && this.deps.on(seat);
-  }
-
   follow(seat: WatchedSeat): void {
-    if (this.followed.has(seat.id) || !this.on(seat)) return;
+    if (this.followed.has(seat.id) || !this.watched(seat.provider)) return;
     const watch = new SeatWatch(seat, () => this.deps.context(seat));
     let stream: Stream;
     try {
@@ -203,20 +179,13 @@ export class Watches {
     if (!entry) return;
     this.followed.delete(id);
     entry.stream.stop();
-    this.deps.dropped?.(id);
-  }
-
-  urgent(id: string): void {
-    const watch = this.get(id);
-    if (watch?.running) this.deps.moment?.(watch, true);
   }
 
   sync(live: Iterable<SeatView>): void {
     const ids = new Set<string>();
     for (const seat of live) {
       if (seat.archivedAt) continue;
-      // Settings are read every round, so switching off lets the seat go within one, with no reload.
-      if (this.on(seat)) ids.add(seat.id);
+      if (this.watched(seat.provider)) ids.add(seat.id);
       this.follow(seat);
     }
     for (const id of [...this.followed.keys()]) if (!ids.has(id)) this.drop(id);
@@ -231,11 +200,7 @@ export class Watches {
   }
 
   private seen(watch: SeatWatch, seen: Seen): void {
-    const facts = watch.see(seen);
-    this.found(watch, facts);
-    if (!this.deps.moment) return;
-    if (seen.kind === "turn" && seen.phase !== "started" && !watch.running) this.deps.moment(watch, true);
-    else if (seen.kind === "row" && !seen.row.replay && watch.running) this.deps.moment(watch, facts.some((fact) => fact.kind === "call-failed" || fact.kind === "gate-failed" || fact.level === "page"));
+    this.found(watch, watch.see(seen));
   }
 
   private found(watch: SeatWatch, facts: Fact[]): void {

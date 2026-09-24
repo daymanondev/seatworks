@@ -1,12 +1,11 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { chmodSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { paseoConfigPath, stateRoot } from "../../server/core/paths.ts";
 import { registerRpc } from "../../server/runtime/rpc.ts";
 import { Runtime } from "../../server/runtime/runtime.ts";
-import { KEPT } from "../../shared/rpc.ts";
 import { makeKit } from "../kit.ts";
 import { tempDir } from "../tempdir.ts";
 
@@ -297,50 +296,13 @@ test("the setup screen can walk this machine's folders to find a repository", as
   assert.match((await call("seatworks.paths.list", { path: join(root, "nowhere") })).error, /is not a directory/);
 });
 
-test("the sensor's key is written from the panel, never read back into it, and forgotten only when asked", async () => {
-  const { call } = served();
-  const file = join(stateRoot(), "settings.json");
-  const onDisk = () => JSON.parse(readFileSync(file, "utf8")) as { sensor?: { key?: string }; rules?: string };
-
-  const read = await call("seatworks.settings.read");
-  const saved = await call("seatworks.settings.write", { revision: read.revision, values: { ...read.values, sensor: { key: "sk-or-secret" } } });
-  assert.equal(saved.status, "saved");
-  assert.equal(onDisk().sensor?.key, "sk-or-secret", "the key itself is what is kept");
-  assert.deepEqual(saved.values.sensor, { key: KEPT }, "not even the save that carried it hands it back");
-
-  const back = await call("seatworks.settings.read");
-  assert.deepEqual(back.values.sensor, { key: KEPT }, "the panel is told a key is set, and nothing more");
-  assert.doesNotMatch(JSON.stringify(back), /sk-or-secret/);
-
-  // A write is the whole layer, so a save about something else must not revoke the key.
-  const else_ = await call("seatworks.settings.write", { revision: back.revision, values: { ...back.values, rules: "watch the watch" } });
-  assert.equal(else_.status, "saved");
-  assert.equal(onDisk().sensor?.key, "sk-or-secret");
-  assert.equal(onDisk().rules, "watch the watch");
-
-  const state = join(stateRoot(), "projects/sensor-abc123");
-  mkdirSync(state, { recursive: true });
-  writeFileSync(join(state, "meta.json"), JSON.stringify({ root: "/work/sensor", slug: "sensor-abc123" }));
-  const project = await call("seatworks.settings.read", { project: "sensor-abc123" });
-  assert.deepEqual(project.machine.sensor, { key: KEPT }, "a project screen sees that a key is set, not what it is");
-  assert.doesNotMatch(JSON.stringify(project), /sk-or-secret/);
-  // The desk's resolved team holds the key because the watch calls with it; what a screen gets must not.
-  assert.doesNotMatch(JSON.stringify(await call("seatworks.team.read")), /sk-or-secret/);
-  assert.doesNotMatch(JSON.stringify(await call("seatworks.team.read", { project: "sensor-abc123" })), /sk-or-secret/);
-
-  const { sensor: _gone, ...without } = (await call("seatworks.settings.read")).values as { sensor?: unknown };
-  const forgotten = await call("seatworks.settings.write", { revision: (await call("seatworks.settings.read")).revision, values: without });
-  assert.equal(forgotten.status, "saved");
-  assert.equal(onDisk().sensor, undefined, "a layer that carries no key at all is the owner forgetting it");
-});
-
 test("a settings file that will not parse is reported without quoting what it holds", async () => {
   const { call } = served();
   const file = join(stateRoot(), "settings.json");
   const read = await call("seatworks.settings.read");
-  assert.equal((await call("seatworks.settings.write", { revision: read.revision, values: { ...read.values, sensor: { key: "sk-or-secret" } } })).status, "saved");
-  // A common hand typo whose parse error quotes the key's line, short enough to fall inside V8's quoted window.
-  writeFileSync(file, '{ "rules": "keep it small", "sensor": { "key": \'SEKRIT\' } }');
+  mkdirSync(stateRoot(), { recursive: true });
+  // A pasted server's token in a common hand typo, whose parse error quotes the line: short enough to fall inside V8's quoted window.
+  writeFileSync(file, '{ "rules": "keep it small", "headers": { "Authorization": \'SEKRIT\' } }');
 
   const shown = [
     await call("seatworks.settings.read"),
@@ -355,23 +317,3 @@ test("a settings file that will not parse is reported without quoting what it ho
   writeFileSync(file, "{}");
 });
 
-test("the word that stands for the key is never itself written, and a refused or stale save leaves it where it was", async () => {
-  const { call } = served();
-  const file = join(stateRoot(), "settings.json");
-  const onDisk = () => JSON.parse(readFileSync(file, "utf8")) as { sensor?: { key?: string }; rules?: string };
-
-  const empty = await call("seatworks.settings.read");
-  assert.equal((await call("seatworks.settings.write", { revision: empty.revision, values: { rules: "one", sensor: { key: KEPT } } })).status, "saved");
-  assert.equal(onDisk().sensor, undefined, "carried over a layer with no key, the word leaves no block behind");
-
-  const before = await call("seatworks.settings.read");
-  assert.equal((await call("seatworks.settings.write", { revision: before.revision, values: { ...before.values, sensor: { key: "sk-or-secret" } } })).status, "saved");
-  const set = await call("seatworks.settings.read");
-  assert.equal((await call("seatworks.settings.write", { revision: set.revision, values: { ...set.values, roles: { supervisor: { harness: "devin" } } } })).status, "invalid", "a refused save");
-  assert.equal((await call("seatworks.settings.write", { revision: empty.revision, values: { ...set.values, rules: "stale" } })).status, "conflict", "and a stale one");
-  assert.equal(onDisk().sensor?.key, "sk-or-secret", "leave the key where it was");
-
-  const last = await call("seatworks.settings.read");
-  const { sensor: _gone, ...without } = last.values as { sensor?: unknown };
-  assert.equal((await call("seatworks.settings.write", { revision: last.revision, values: without })).status, "saved");
-});

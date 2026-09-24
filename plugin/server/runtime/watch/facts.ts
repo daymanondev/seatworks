@@ -18,44 +18,37 @@ const SKIPPED = "\\.(skip|only|todo)\\b|\\bx(it|describe|test)\\b|@Disabled\\b|p
 
 export type Level = "page" | "attend" | "note";
 
-export type Fact = { kind: string; level: Level; quote: string };
+/** Every fact the code raises and its level; one that can open an incident has the title a person reads it by. */
+export const FACTS = {
+  destructive: { level: "page", title: "Ran a command that cannot be undone" },
+  stuck: { level: "attend", title: "Going round in circles" },
+  "no-recovery": { level: "attend", title: "Did not recover from a failure" },
+  "test-weakened": { level: "attend", title: "A test lost its assertions" },
+  suppressed: { level: "attend", title: "Silenced a check instead of fixing it" },
+  unverified: { level: "attend", title: "Handed back without running the gate" },
+  "claim-contradicted": { level: "attend", title: "Handed back as complete while its last check failed" },
+  "long-turn": { level: "attend", title: "A turn running far longer than usual" },
+  "rework-loop": { level: "attend", title: "Sent back again and again" },
+  "patched-not-fixed": { level: "attend", title: "Several tasks patched, none fixed" },
+  "accepted-unfinished": { level: "attend", title: "Work taken in unfinished" },
+  "reviews-unconverged": { level: "attend", title: "Reviews piling up with nothing accepted" },
+  "certainty-only": { level: "attend", title: "A review told to report only certainties" },
+  "brief-prewritten": { level: "attend", title: "A brief that writes the answer out" },
+  "call-failed": { level: "note" },
+  "gate-failed": { level: "note" },
+  "outside-scope": { level: "note" },
+} as const satisfies Record<string, { level: Level; title?: string }>;
 
-export const FACT_LEVELS: Record<string, Level> = {
-  destructive: "page",
-  stuck: "attend",
-  "no-recovery": "attend",
-  "test-weakened": "attend",
-  suppressed: "attend",
-  unverified: "attend",
-  "claim-contradicted": "attend",
-  "long-turn": "attend",
-  "rework-loop": "attend",
-  "patched-not-fixed": "attend",
-  "accepted-unfinished": "attend",
-  "reviews-unconverged": "attend",
-  "certainty-only": "attend",
-  "brief-prewritten": "attend",
-  "call-failed": "note",
-  "gate-failed": "note",
-  "outside-scope": "note",
-};
+export type FactKind = keyof typeof FACTS;
 
-export const FACT_TITLES: Record<string, string> = {
-  destructive: "Ran a command that cannot be undone",
-  stuck: "Going round in circles",
-  "no-recovery": "Did not recover from a failure",
-  "test-weakened": "A test lost its assertions",
-  suppressed: "Silenced a check instead of fixing it",
-  unverified: "Handed back without running the gate",
-  "claim-contradicted": "Handed back as complete while its last check failed",
-  "long-turn": "A turn running far longer than usual",
-  "rework-loop": "Sent back again and again",
-  "patched-not-fixed": "Several tasks patched, none fixed",
-  "accepted-unfinished": "Work taken in unfinished",
-  "reviews-unconverged": "Reviews piling up with nothing accepted",
-  "certainty-only": "A review told to report only certainties",
-  "brief-prewritten": "A brief that writes the answer out",
-};
+export type Fact = { kind: FactKind; level: Level; quote: string };
+
+export const fact = (kind: FactKind, quote: string): Fact => ({ kind, level: FACTS[kind].level, quote });
+
+/** The title of a kind the incident book holds, which may be one this code no longer raises. */
+export function factTitle(kind: string): string | undefined {
+  return (FACTS as Record<string, { title?: string }>)[kind]?.title;
+}
 
 export type Rules = {
   destructive: RegExp;
@@ -177,7 +170,7 @@ export function onDetail(call: Call, rules: Rules): Fact[] {
   const risky = str(call.detail.command)
     .split(/&&|\|\||;|\n/)
     .find((part) => rules.destructive.test(part) && !scratchOnly(part, rules.temp));
-  return risky ? [{ kind: "destructive", level: "page", quote: around(flat(risky, Infinity), rules.destructive, 200) }] : [];
+  return risky ? [fact("destructive", around(flat(risky, Infinity), rules.destructive, 200))] : [];
 }
 
 const PROSE = /\.(md|mdx|markdown|txt|rst|adoc)$/i;
@@ -238,7 +231,7 @@ export function onSettle(call: Call, rules: Rules, known?: (path: string) => str
   const detail = call.detail;
   const bad = failed(call, rules.exit);
   // The desk's refusals already told the seat why and what instead, and the desk records them.
-  if (bad && !rules.desk?.(call)) facts.push({ kind: isGate(call, rules.gates) ? "gate-failed" : "call-failed", level: "note", quote: flat(describe(call)) });
+  if (bad && !rules.desk?.(call)) facts.push(fact(isGate(call, rules.gates) ? "gate-failed" : "call-failed", flat(describe(call))));
   const writes = detail.type === "edit" || detail.type === "write";
   const both = writes && !bad ? sides(detail, known) : undefined;
   if (both) {
@@ -246,17 +239,17 @@ export function onSettle(call: Call, rules: Rules, known?: (path: string) => str
     const [before, after] = both;
     if (rules.testPath.test(path) && (before || after)) {
       const how = weakened(before, after);
-      if (how) facts.push({ kind: "test-weakened", level: "attend", quote: `${flat(path)}: ${how}` });
+      if (how) facts.push(fact("test-weakened", `${flat(path)}: ${how}`));
     }
     if (!PROSE.test(path)) {
       const was = hits(before, rules.suppressed);
       const now = hits(after, rules.suppressed);
       const added = now.find((hit) => now.filter((other) => other === hit).length > was.filter((other) => other === hit).length);
-      if (added) facts.push({ kind: "suppressed", level: "attend", quote: `${flat(path)}: adds ${flat(added, 60)}` });
+      if (added) facts.push(fact("suppressed", `${flat(path)}: adds ${flat(added, 60)}`));
     }
   }
   if (writes && outside(str(detail.filePath), rules)) {
-    facts.push({ kind: "outside-scope", level: "note", quote: flat(str(detail.filePath)) });
+    facts.push(fact("outside-scope", flat(str(detail.filePath))));
   }
   return facts;
 }
@@ -289,7 +282,7 @@ export class Recovery {
     this.open.steps += 1;
     if (this.open.told || this.open.steps < rules.recoverWithin) return [];
     this.open.told = true;
-    return [{ kind: "no-recovery", level: "attend", quote: `${rules.recoverWithin} steps since \`${flat(this.open.command, 100)}\` failed, and neither it nor the gate has passed since` }];
+    return [fact("no-recovery", `${rules.recoverWithin} steps since \`${flat(this.open.command, 100)}\` failed, and neither it nor the gate has passed since`)];
   }
 
   reset(): void {
@@ -316,7 +309,7 @@ export function unverified(window: Window, rules: Rules, heard: boolean): Fact[]
   const { calls, inside, lastWrite, lastGate } = lastWriteAndGate(window, rules);
   if (lastWrite < 0 || lastGate > lastWrite) return [];
   const written = new Set(calls.filter(inside).map((call) => str(call.detail.filePath)));
-  return [{ kind: "unverified", level: "attend", quote: `${written.size} file${written.size === 1 ? "" : "s"} written and \`${flat(named, 100)}\` not run after the last of them` }];
+  return [fact("unverified", `${written.size} file${written.size === 1 ? "" : "s"} written and \`${flat(named, 100)}\` not run after the last of them`)];
 }
 
 /** A hand-back that says the work is complete when the check it ran after its last edit failed: the record, not the claim, is what settles it. */
@@ -325,7 +318,7 @@ export function contradicted(window: Window, rules: Rules, outcome: string | und
   const { calls, lastWrite, lastGate } = lastWriteAndGate(window, rules);
   const check = calls[lastGate];
   if (!check || lastGate < lastWrite || !failed(check, rules.exit)) return [];
-  return [{ kind: "claim-contradicted", level: "attend", quote: `handed back as complete, but \`${flat(str(check.detail.command), 100)}\` failed the last time it ran, after the last edit` }];
+  return [fact("claim-contradicted", `handed back as complete, but \`${flat(str(check.detail.command), 100)}\` failed the last time it ran, after the last edit`)];
 }
 
 export function afterChange(change: Change, rules: Rules, known?: (path: string) => string | undefined): Fact[] {

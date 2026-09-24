@@ -3,7 +3,6 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { withBlock } from "../../server/catalog/project-files.ts";
-import { MachineLayerSchema, ProjectLayerSchema } from "../../server/catalog/settings.ts";
 import { stateRoot } from "../../server/core/paths.ts";
 import { type MigrateContext, migrate, migrationPlan, stampKit } from "../../server/upkeep/migrate.ts";
 import { makeKit } from "../kit.ts";
@@ -25,8 +24,8 @@ function world(): MigrateContext & { file: string } {
     home,
     known: [shop],
     settings: [
-      { where: "machine", file, schema: MachineLayerSchema },
-      { where: shop.slug, file: join(shop.state, "settings.json"), schema: ProjectLayerSchema },
+      { where: "machine", file },
+      { where: shop.slug, file: join(shop.state, "settings.json") },
     ],
     live: [],
     now: NOW,
@@ -36,16 +35,16 @@ function world(): MigrateContext & { file: string } {
 
 test("migrate drops only the settings this version refuses, names them by path, and keeps a copy", () => {
   const ctx = world();
-  const held = { roles: { lead: { harness: "claude", colour: "red" } }, shelf: { docs: true }, attention: { by: "nobody", tickSeconds: 60 }, sensor: { key: "sk-or-v1-fake-kept" } };
+  const held = { roles: { lead: { harness: "claude", colour: "red" } }, shelf: { docs: true }, attention: { by: "nobody", tickSeconds: 60 }, sensor: { key: "sk-or-v1-fake-dropped" } };
   writeFileSync(ctx.file, JSON.stringify(held));
 
   const plan = migrationPlan(ctx);
-  assert.deepEqual(plan.steps.map((step) => [step.where, step.detail.slice().sort()]), [["machine", ["attention.by", "roles.lead.colour", "shelf"]]]);
-  assert.ok(!JSON.stringify(plan).includes("sk-or-v1"));
+  assert.deepEqual(plan.steps.map((step) => [step.where, step.detail.slice().sort()]), [["machine", ["attention.by", "roles.lead.colour", "sensor", "shelf"]]]);
+  assert.ok(!JSON.stringify(plan).includes("sk-or-v1"), "a key it drops is named by its path, never shown");
 
   const after = migrate(ctx);
   assert.deepEqual(after.steps, []);
-  assert.deepEqual(JSON.parse(readFileSync(ctx.file, "utf-8")), { roles: { lead: { harness: "claude" } }, attention: { tickSeconds: 60 }, sensor: { key: "sk-or-v1-fake-kept" } });
+  assert.deepEqual(JSON.parse(readFileSync(ctx.file, "utf-8")), { roles: { lead: { harness: "claude" } }, attention: { tickSeconds: 60 } });
   assert.deepEqual(readdirSync(stateRoot(ctx.home)).filter((name) => name.includes(".bak-")), ["settings.json.bak-20260922-071230"]);
   assert.deepEqual(JSON.parse(readFileSync(`${ctx.file}.bak-20260922-071230`, "utf-8")), held);
 });

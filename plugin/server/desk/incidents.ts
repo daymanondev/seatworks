@@ -3,10 +3,7 @@ import { join } from "node:path";
 import { readJson, writeJson } from "../core/store.ts";
 import { errorText } from "../core/errors.ts";
 
-export type Held = "shadow" | "budget" | "nobody" | "awaiting" | "vetoed";
-
-/** `why` is a Watcher's reason, kept on record and never sent; Jev gives none. */
-export type Judged = { question: string; p: number; model: string; says: "confirms" | "vetoes" | "unclear"; why?: string };
+export type Held = "shadow" | "budget" | "nobody";
 
 export type Incident = {
   id: string;
@@ -20,10 +17,6 @@ export type Incident = {
   quote: string;
   later?: string;
   facts: string[];
-  p?: number;
-  model?: string;
-  by?: "watcher";
-  sensor?: Judged;
   opened: number;
   last: number;
   count: number;
@@ -38,7 +31,7 @@ export type Incident = {
 
 export type Incidents = { next: number; items: Record<string, Incident> };
 
-type Sighting = Omit<Incident, "id" | "opened" | "last" | "count" | "open" | "told" | "held" | "label" | "note" | "closed" | "later" | "sensor">;
+type Sighting = Omit<Incident, "id" | "opened" | "last" | "count" | "open" | "told" | "held" | "label" | "note" | "closed" | "later">;
 
 export const DAY_MS = 24 * 3_600_000;
 
@@ -72,14 +65,8 @@ export function saveIncidents(state: string, incidents: Incidents): void {
   writeJson(incidentsFile(state), incidents);
 }
 
-/** An open incident on a fact a Watcher judges, with no judgement yet; held or not is not asked, since shadow holds nothing. */
-export function awaitsWatcher(item: Incident, judges: string[]): boolean {
-  return item.open && item.told === undefined && item.level === "attend" && !item.sensor && judges.includes(item.kind);
-}
-
-/** The open incident for this seat and kind from the same reader: a Watcher and Jev share kind names. */
-export function openFor(incidents: Incidents, seat: string, kind: string, by?: Incident["by"]): Incident | undefined {
-  return Object.values(incidents.items).find((item) => item.open && item.seat === seat && item.kind === kind && item.by === by);
+export function openFor(incidents: Incidents, seat: string, kind: string): Incident | undefined {
+  return Object.values(incidents.items).find((item) => item.open && item.seat === seat && item.kind === kind);
 }
 
 /** Whether this exact sentence was already recorded for this seat and kind, open or closed: the book, not the process, survives a restart. */
@@ -94,7 +81,7 @@ export function saidBefore(incidents: Incidents, seat: string, kind: string, quo
 export function settledAsNoise(incidents: Incidents, sighting: Sighting, now: number): boolean {
   if (sighting.level === "page") return false;
   const marked = Object.values(incidents.items).find(
-    (item) => !item.open && item.label === "noise" && item.seat === sighting.seat && item.kind === sighting.kind && item.by === sighting.by && item.quote === sighting.quote,
+    (item) => !item.open && item.label === "noise" && item.seat === sighting.seat && item.kind === sighting.kind && item.quote === sighting.quote,
   );
   if (!marked) return false;
   marked.count += 1;
@@ -103,21 +90,11 @@ export function settledAsNoise(incidents: Incidents, sighting: Sighting, now: nu
 }
 
 export function sight(incidents: Incidents, sighting: Sighting, now: number): { incident: Incident; opened: boolean } {
-  const seen = openFor(incidents, sighting.seat, sighting.kind, sighting.by);
+  const seen = openFor(incidents, sighting.seat, sighting.kind);
   if (seen) {
     Object.assign(seen, { facts: [...new Set([...seen.facts, ...sighting.facts])], last: now, count: seen.count + 1 });
-    if (sighting.level === "page" && seen.level === "attend") {
-      Object.assign(seen, { level: "page", quote: sighting.quote });
-      if (sighting.p !== undefined) seen.p = sighting.p;
-      for (const key of ["told", "toldTo", "later", "held", "sensor"] as const) delete seen[key];
-      return { incident: seen, opened: false };
-    }
-    if (seen.told === undefined) {
-      delete seen.sensor;
-      seen.quote = sighting.quote;
-      if (sighting.p !== undefined) seen.p = sighting.p;
-      if (sighting.level === "page") seen.level = "page";
-    } else seen.later = sighting.quote;
+    if (seen.told === undefined) seen.quote = sighting.quote;
+    else seen.later = sighting.quote;
     return { incident: seen, opened: false };
   }
   const incident: Incident = { ...sighting, id: `I${incidents.next}`, opened: now, last: now, count: 1, open: true };

@@ -5,7 +5,6 @@ import { type Ledger, type Task, ledgerFault, loadLedger, saveLedger } from "./l
 import type { Project } from "./project.ts";
 import { appendRecord } from "./records.ts";
 import { type Incidents, incidentsFault, loadIncidents, saveIncidents } from "./incidents.ts";
-import type { Sent } from "../runtime/watch/seat/reader.ts";
 
 export type ToolRequest = { id: string; agent: string; role: string; tool: string; args: Record<string, unknown>; cwd: string; at: number };
 export type ToolReply = { ok: boolean; text: string };
@@ -41,7 +40,6 @@ export type DeskDeps = {
   log: (project: Project, line: string) => void;
   teamFor: (project?: Project) => Team;
   indexesFor: (project: Project) => CodeIndex[];
-  sent?: (watcher: string, ref: string) => Sent | undefined;
 };
 
 export class DeskContext {
@@ -58,10 +56,6 @@ export class DeskContext {
 
   team(project?: Project): Team {
     return this.deps.teamFor(project);
-  }
-
-  sent(watcher: string, ref: string): Sent | undefined {
-    return this.deps.sent?.(watcher, ref);
   }
 
   indexes(project: Project): CodeIndex[] {

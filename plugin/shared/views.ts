@@ -4,13 +4,6 @@ export type FlowSeat = { id: string; role: string; status: string; minutes: numb
 export type FlowTask = { id: string; title: string; status: string; kind: string; peer: FlowSeat | null; minutes: number; handback: number | null };
 export type FlowLane = { id: string; title: string; status: string; branch: string; base?: string; lead: FlowSeat | null; tasks: FlowTask[]; taskCount: number; running: number; open: boolean; after?: string[]; held?: string; approval?: { plan: number; by: "human" | "supervisor"; minutes: number; signals: string[] }; landApproval?: { minutes: number; approved: boolean; signals: string[]; evidence: string[] } };
 export type FlowAsk = { id: string; kind: string; fromRole: string; to: string; minutes: number; text: string };
-export type WatchLean = { title: string; p: number; bar: number };
-export type WatchSeat = {
-  id: string;
-  name: string;
-  running: boolean;
-  lean: WatchLean | null;
-};
 export type WatchIncident = {
   id: string;
   title: string;
@@ -18,29 +11,12 @@ export type WatchIncident = {
   name: string;
   minutes: number;
   quote: string;
-  source: "code" | "jev" | "watcher";
-  sure: { p: number; bar: number } | null;
   told: "lead" | "supervisor" | null;
   lane: string | null;
   held: string | null;
 };
-export type WatcherSeat = { id: string; status: string; minutes: number; queued: number };
-export type WatchView = {
-  by: "seat" | "jev";
-  on: boolean;
-  keyed: boolean;
-  telling: boolean;
-  judgeMinutes: number;
-  failing: { minutes: number; detail: string } | null;
-  watcher: WatcherSeat | null;
-  lanes: number;
-  seats: WatchSeat[];
-  lastRead: number | null;
-  read: { turns: number; cost: number };
-  marks: { total: number; open: number; useful: number; noise: number; unknown: number };
-  incidents: WatchIncident[];
-  trouble: { kind: string; minutes: number; detail: string }[];
-};
+/** What the code noticed about the seats and nobody has marked yet, and the trouble nobody is mailed about. */
+export type WatchView = { incidents: WatchIncident[]; trouble: { kind: string; minutes: number; detail: string }[] };
 /** A Critic reading one lane, for the few minutes it lives. */
 export type FlowCritic = { lane: string; title: string; seat: FlowSeat };
 export type FlowView = { project: string; at: number; revision: string; supervisors: FlowSeat[]; critics: FlowCritic[]; lanes: FlowLane[]; moreLanes: number; asks: FlowAsk[]; watch: WatchView };

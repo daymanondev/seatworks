@@ -1,10 +1,10 @@
 import type { Team } from "../catalog/team.ts";
-import { type Kit, type RoleSpec, can, roleThatCan, schemaOf, seatOf, worksTasks } from "../catalog/kit.ts";
-import type { SeatView, Seats, Workspaces } from "../core/ports.ts";
+import { type Kit, type RoleSpec, can, schemaOf, seatOf, worksTasks } from "../catalog/kit.ts";
+import type { Seats, Workspaces } from "../core/ports.ts";
 import { Agents } from "./agents.ts";
 import { argsProblems, shapeOf } from "./args.ts";
 import { sortKeys } from "../core/store.ts";
-import { type Args, type Caller, type CodeIndex, DeskContext, type DeskDeps, type Mailer, type Posted, type ToolReply, type ToolRequest, hash, no, ok } from "./context.ts";
+import { type Args, type Caller, type CodeIndex, DeskContext, type Mailer, type Posted, type ToolReply, type ToolRequest, hash, no, ok } from "./context.ts";
 import { errorText } from "../core/errors.ts";
 import { type Ledger, type Task, loadLedger } from "./ledger.ts";
 import { clip, letters } from "./letters.ts";
@@ -15,8 +15,8 @@ import { type Project, projectOf } from "./project.ts";
 import { Roster } from "./roster.ts";
 import type { DeskServices, Tool } from "./services.ts";
 import { Slots } from "./slots.ts";
-import type { Finding, Verdict } from "../runtime/watch/findings.ts";
-import { type Noticed, closeIncidentsOf, judge, notice, retell } from "./notice.ts";
+import type { Finding } from "../runtime/watch/findings.ts";
+import { type Noticed, closeIncidentsOf, notice, retell } from "./notice.ts";
 import * as incidents from "./tools/incidents.ts";
 import * as lead from "./tools/lead.ts";
 import * as shared from "./tools/shared.ts";
@@ -24,7 +24,6 @@ import * as supervisor from "./tools/supervisor.ts";
 import { openWaiting, startWaiting } from "./waiting.ts";
 import { decidePlan } from "./approval.ts";
 import * as critique from "./critique.ts";
-import * as watcher from "./tools/watcher.ts";
 import * as worker from "./tools/worker.ts";
 
 const TOOLS: Record<string, Tool> = {
@@ -48,8 +47,6 @@ const TOOLS: Record<string, Tool> = {
   status: shared.status,
   incidents: incidents.incidents,
   ack: incidents.ack,
-  raise: watcher.raise,
-  judge: watcher.judge,
   findings: critique.findings,
 };
 
@@ -70,7 +67,6 @@ export type DeskOptions = {
   log: (project: Project, line: string) => void;
   teamFor: (project?: Project) => Team;
   indexesFor?: (project: Project) => CodeIndex[];
-  sent?: DeskDeps["sent"];
 };
 
 const SPEAKS = ["done", "ask", "answer", "message", "report"];
@@ -96,7 +92,6 @@ export class Desk {
       log: options.log,
       teamFor: options.teamFor,
       indexesFor: options.indexesFor ?? (() => []),
-      sent: options.sent,
     });
     const roster = new Roster(options.kit, options.seats);
     const slots = new Slots(ctx, options.workspaces);
@@ -122,10 +117,6 @@ export class Desk {
     return notice(this.services, project, seat, findings);
   }
 
-  judge(project: Project, seat: Noticed, verdicts: Verdict[]): Promise<string[]> {
-    return judge(this.services, project, seat, verdicts);
-  }
-
   retell(project: Project): Promise<string[]> {
     return retell(this.services, project);
   }
@@ -140,23 +131,6 @@ export class Desk {
 
   supervisorFor(project: Project, preferred?: string): Promise<string | undefined> {
     return this.services.roster.supervisorFor(project, preferred);
-  }
-
-  watchers(project: Project, seats: Iterable<SeatView>): SeatView[] {
-    return this.services.roster.watchers(project, seats);
-  }
-
-  /** Seats the project's Watcher. The patrol is its only caller, one round at a time, so there is no second create to race. */
-  async seatWatcher(project: Project): Promise<string | undefined> {
-    const role = roleThatCan(this.services.ctx.kit, "watch");
-    if (!role) return undefined;
-    const id = await this.services.agents.startResident(project, role.role, {
-      title: `${role.label} ${project.slug}`,
-      prompt: letters.watcherSeated(role.label, this.services.ctx.kit.watcher),
-      labels: {},
-    });
-    this.services.ctx.event(project, { kind: "watcher.seated", agent: id });
-    return id;
   }
 
   decidePlan(project: Project, lane: string, approve: boolean, by: string, note: string): Promise<{ ok: boolean; text: string }> {
