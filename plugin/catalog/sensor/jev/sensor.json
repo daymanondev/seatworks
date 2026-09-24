@@ -174,7 +174,15 @@
         "goal",
         "instruction"
       ],
-      "for": "write"
+      "for": "write",
+      "after": [
+        "person",
+        "brief",
+        "amended",
+        "answer",
+        "message",
+        "nudge"
+      ]
     },
     "agreed_without_checking": {
       "view": "instruction",
@@ -192,7 +200,6 @@
       ],
       "after": [
         "person",
-        "rework",
         "landback",
         "message",
         "done",

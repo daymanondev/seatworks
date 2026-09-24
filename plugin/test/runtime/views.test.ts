@@ -164,10 +164,12 @@ test("a question is asked only of a role that can do what it is for, and after a
   const views = viewsOf(trailOf(window, false, {}), brief(), 8000);
   const peer = ["work", "write", "watched"];
   const questions = (can: string[], from: string[]) => Object.keys(asked(shipped.questions, views, { can, from }));
-  assert.ok(questions(peer, ["rework"]).includes("agreed_without_checking"));
+  assert.ok(questions(peer, ["message"]).includes("agreed_without_checking"));
   assert.ok(!questions(peer, ["amended"]).includes("agreed_without_checking"), "the desk granting what a seat asked for doubts nothing");
-  assert.ok(questions(peer, ["answer", "rework"]).includes("agreed_without_checking"), "letters sent together are asked after if any one is");
+  assert.ok(!questions(peer, ["rework"]).includes("agreed_without_checking"), "nor is a rework a doubt: it is its Lead's order, with the Lead's evidence");
+  assert.ok(questions(peer, ["answer", "message"]).includes("agreed_without_checking"), "letters sent together are asked after if any one is");
   assert.ok(questions(peer, ["person"]).includes("proves_the_old_is_gone"));
+  assert.ok(!questions(peer, ["rework"]).includes("proves_the_old_is_gone"), "a rework names a bug, and a test that it is gone is what it asks for");
   assert.ok(!questions(["lead", "watched"], ["person"]).includes("proves_the_old_is_gone"), "a Lead reading its Peer's test wrote none");
   assert.ok(questions(["lead", "watched"], ["person"]).includes("goal_drift"));
 });
