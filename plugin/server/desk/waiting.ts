@@ -1,7 +1,6 @@
 import { branchExists, currentBranch, headSha } from "../core/git.ts";
 import { LANE } from "../domain/lane.ts";
 import { TASK } from "../domain/task.ts";
-import { hash } from "./context.ts";
 import { fetchIssue } from "./issue.ts";
 import { type Lane, type Ledger, type Task, loadLedger } from "./ledger.ts";
 import { letters } from "./letters.ts";
@@ -47,7 +46,7 @@ async function hold(desk: DeskServices, project: Project, entry: Lane | Task, he
   if (!told) return;
   desk.ctx.event(project, task ? { kind: "task.held", task: entry.id, reason: held.why } : { kind: "lane.held", lane: entry.id, reason: held.why });
   const to = task ? loadLedger(project.state).lanes[entry.lane]?.lead : await desk.roster.supervisorFor(project, entry.opener);
-  await desk.ctx.post(to, `held:${entry.id}:${hash(held.why)}`, letters.waited(entry, `${task ? "it has not started" : "it is not open"}: ${held.why}`));
+  await desk.ctx.post(to, letters.held(entry, held.why));
 }
 
 /**
@@ -102,7 +101,7 @@ async function releaseTask(desk: DeskServices, project: Project, lane: Lane, tas
   desk.ctx.setTask(project, task.id, (entry) => {
     delete entry.held;
   });
-  await desk.ctx.post(lane.lead, `started:${task.id}`, letters.waited(claimed, `Started ${task.id} ${started.where} with Peer ${started.peer}. Its hand-back arrives as mail.`));
+  await desk.ctx.post(lane.lead, letters.started(claimed, `Started ${task.id} ${started.where} with Peer ${started.peer}. Its hand-back arrives as mail.`));
   return undefined;
 }
 
@@ -135,7 +134,7 @@ async function release(desk: DeskServices, project: Project, lane: Lane): Promis
     const entry = ledger.lanes[lane.id];
     if (entry) delete entry.held;
   });
-  await desk.ctx.post(await desk.roster.supervisorFor(project, claimed.opener), `opened:${lane.id}`, letters.waited(claimed, openedReply(project, claimed, started.slot, started.lead, issue)));
+  await desk.ctx.post(await desk.roster.supervisorFor(project, claimed.opener), letters.opened(claimed, openedReply(project, claimed, started.slot, started.lead, issue)));
   return undefined;
 }
 
@@ -170,7 +169,7 @@ async function putBackHalfStarted(desk: DeskServices, project: Project): Promise
   for (const { task, slot, into } of stopped) {
     if (slot) await slots.release(project, slot, task.branch, into);
     ctx.event(project, { kind: "task.halfStarted", task: task.id, now: task.status });
-    if (task.status === "cut") await ctx.post(loadLedger(project.state).lanes[task.lane]?.lead, `notstarted:${task.id}`, letters.notStarted(task));
+    if (task.status === "cut") await ctx.post(loadLedger(project.state).lanes[task.lane]?.lead, letters.notStarted(task));
   }
 }
 
@@ -203,6 +202,6 @@ async function putBackHalfOpen(desk: DeskServices, project: Project): Promise<vo
     if (!lane.lead && slot) await slots.release(project, slot, lane.branch, lane.base);
     else if (!lane.lead && !lane.onBranch && (await currentBranch(project.root)) === lane.branch) await slots.giveBack(project, lane.base, lane.branch);
     ctx.event(project, { kind: "lane.halfOpen", lane: lane.id, status: lane.status, lead: lane.lead ?? null });
-    if (lane.status !== "waiting") await ctx.post(await roster.supervisorFor(project, lane.opener), `halfopen:${lane.id}`, letters.halfOpen(lane));
+    if (lane.status !== "waiting") await ctx.post(await roster.supervisorFor(project, lane.opener), letters.halfOpen(lane));
   }
 }

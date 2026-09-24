@@ -34,7 +34,7 @@ export const amendLane = defineTool({
     if (typeof done === "string") return no(done);
     ctx.event(project, { kind: "lane.amended", lane: lane.id, fields: Object.keys(done.amendment.was), by: caller.id });
     if (done.lane.status === "waiting") return ok(`Lane ${lane.id} is amended; it opens as it is now.`);
-    const posted = await ctx.post(done.lane.lead, `amended:${lane.id}:${done.lane.amended!.length}`, letters.amended(done.lane, done.amendment, "lead"));
+    const posted = await ctx.post(done.lane.lead, letters.amended(done.lane, done.amendment, "lead"));
     return ok(`Lane ${lane.id} is amended${posted === "nobody" ? ", and it has no Lead to tell" : " and its Lead has the change"}; a READY it reported before no longer stands.`);
   },
 });

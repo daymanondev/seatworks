@@ -81,7 +81,7 @@ async function checkLanding(desk: DeskServices, project: Project, lane: Lane, ga
       if (entry) entry.landApproval = { since: Date.now(), head, signals, evidence, overGate };
     });
     ctx.event(project, { kind: "land.held", lane: lane.id, signals: signals.length });
-    await ctx.post(lane.lead, `landheld:${lane.id}:${head}`, letters.landHeld(lane, reason));
+    await ctx.post(lane.lead, letters.landHeld(lane, reason, head));
     return { held: `Lane ${lane.id} was not landed: it waits for the Human's approval, on the Flow tab of the panel, because ${reason}\n\nEvidence: ${evidence.join(" ")}\n\nYou cannot approve it; tell them it waits, and why. LANDED or SENT BACK comes as mail.`, note: "" };
   }
   const verdict = approved
@@ -210,7 +210,7 @@ async function retire(desk: DeskServices, project: Project, lane: Lane, args: Cl
   }
   if (lane.detourOf) {
     const waiting = loadLedger(project.state).lanes[lane.detourOf];
-    if (waiting?.status === "open" && waiting.lead) await ctx.post(waiting.lead, `detour:${lane.id}:${Date.now()}`, letters.detourLanded(lane, waiting, landed.how));
+    if (waiting?.status === "open" && waiting.lead) await ctx.post(waiting.lead, letters.detourLanded(lane, waiting, landed.how));
   }
   ctx.event(project, { kind: "lane.closed", lane: lane.id, land: args.land === true, landing: landed.how, reason: str(args.reason), writers });
   const copy = lane.onBranch
@@ -246,7 +246,7 @@ export async function decideLand(desk: DeskServices, project: Project, laneId: s
   if (!decided) return none;
   const { held } = decided;
   const supervisor = await desk.roster.supervisorFor(project, lane.opener);
-  const tell = (how: Parameters<typeof letters.landDecided>[1], text: string) => ctx.post(supervisor, `land:${laneId}:${how}:${Date.now()}`, letters.landDecided(lane, how, text));
+  const tell = (how: Parameters<typeof letters.landDecided>[1], text: string) => ctx.post(supervisor, letters.landDecided(lane, how, text));
   if (decided.changed) {
     await tell("changed", "");
     return ok(`Lane ${laneId} changed after it was held, so this approval is not for what it holds now. It is checked again when the Supervisor lands it.`);
@@ -254,7 +254,7 @@ export async function decideLand(desk: DeskServices, project: Project, laneId: s
   keepRun(project, { checkpoint: "land", mode: "on", lane: laneId, by: "human", decision: approve ? "approved" : "sent back", findings: note ? [note] : [], waitedMs: Date.now() - held.since });
   ctx.event(project, { kind: approve ? "land.approved" : "land.sentBack", lane: laneId });
   if (!approve) {
-    await ctx.post(lane.lead, `landback:${laneId}:${held.head}`, letters.landSentBack(lane, note));
+    await ctx.post(lane.lead, letters.landSentBack(lane, note, held.head));
     await tell("sent back", note);
     return ok(`Lane ${laneId} is sent back to its Lead with your note; it stays open.`);
   }

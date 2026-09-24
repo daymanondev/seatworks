@@ -4,7 +4,7 @@ import { z } from "zod";
 import { currentBranch, headSha } from "../../core/git.ts";
 import { workState } from "../../catalog/project-files.ts";
 import { IN_QUEUE, SETTLED, TASK } from "../../domain/task.ts";
-import { type Args, type Caller, type ToolReply, hash, no, ok, str } from "../context.ts";
+import { type Args, type Caller, type ToolReply, no, ok, str } from "../context.ts";
 import { taskGate } from "../gates.ts";
 import { type Task, loadLedger, taskOfPeer } from "../ledger.ts";
 import { clip } from "../../core/text.ts";
@@ -83,7 +83,7 @@ async function handBack({ ctx, roster }: DeskServices, caller: Caller, args: Par
   // A Lead no longer seated would never read it; the level above is told instead and can seat one.
   const lead = ledger.lanes[task.lane]?.lead;
   const reader = lead && (await roster.seated(lead)) ? lead : await roster.supervisorFor(project, ledger.lanes[task.lane]?.opener);
-  await ctx.post(reader, `done:${task.id}:${hash(body)}`, letters.handback(heading, file, body, caller.id));
+  await ctx.post(reader, letters.handback(heading, file, body, caller.id));
   ctx.event(project, { kind: review ? "review.done" : "task.done", task: task.id, outcome, commit });
   const reminder = review ? "" : await reminderOf(task, ledger.lanes[task.lane]?.branch, uncommitted);
   return ok(`Handed back.${reminder} End your turn now; if anything changes you will get a message.`);

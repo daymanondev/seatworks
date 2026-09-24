@@ -58,7 +58,7 @@ export class TurnRules {
     this.lastEnding.set(agent.id, text);
     if (outcome.kind === "failed") {
       const owner = await this.ownerOf(project, agent.id, role);
-      await this.deps.desk.post(owner, `failed:${agent.id}:${event.turnId ?? Date.now()}`, letters.failed(`${role.label} ${agent.title ?? agent.id}`, outcome.error.message));
+      await this.deps.desk.post(owner, letters.failed(agent.id, event.turnId ?? Date.now(), `${role.label} ${agent.title ?? agent.id}`, outcome.error.message));
       return;
     }
     const ledger = loadLedger(project.state);
@@ -92,10 +92,10 @@ export class TurnRules {
     });
     if (!updated) return;
     if (updated.status !== "stalled") {
-      await desk.post(agent.id, `nudge:${task.id}:${updated.silent}:${Date.now()}`, letters.nudge("done"));
+      await desk.post(agent.id, letters.nudge(updated, "done"));
       return;
     }
-    await desk.post(lane?.lead, `silent:${task.id}:${updated.silent}`, letters.stalled(task, text, updated.silent, denied));
+    await desk.post(lane?.lead, letters.stalled(task, text, updated.silent, denied));
     desk.event(project, { kind: "task.silent", task: task.id, denied: denied?.what ?? null, refused: denied?.refused ?? false });
   }
 }

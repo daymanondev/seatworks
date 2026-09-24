@@ -104,7 +104,7 @@ async function deliver(services: DeskServices, project: Project, seat: Noticed, 
     });
     for (const incident of batch) {
       try {
-        await ctx.post(to, `incident:${project.slug}:${incident.id}:${incident.opened}:${incident.level}`, letters.incident(incident, place, steers, as));
+        await ctx.post(to, letters.incident(incident, place, steers, as));
       } catch (error) {
         ctx.event(project, { kind: "incident.post-failed", id: incident.id, error: errorText(error) });
       }

@@ -8,12 +8,12 @@ import type { SeatView, Seats, Workspaces } from "../core/ports.ts";
 import { Agents } from "./agents.ts";
 import { argsProblems, shapeOf, withoutNulls } from "./args.ts";
 import { sortKeys } from "../core/store.ts";
-import { type Args, type Caller, type CodeIndex, DeskContext, type Mailer, type Posted, type Sync, type ToolReply, type ToolRequest, hash, no, ok } from "./context.ts";
+import { type Args, type Caller, type CodeIndex, DeskContext, type Mailer, type Posted, type Sync, type ToolReply, type ToolRequest, no, ok } from "./context.ts";
 import { errorText } from "../core/errors.ts";
 import type { DeskEvent } from "./events.ts";
 import { type Ledger, type Task, loadLedger } from "./ledger.ts";
 import { clip } from "../core/text.ts";
-import { letters } from "./letters.ts";
+import { type Letter, letters } from "./letters.ts";
 import { Intents } from "./intents.ts";
 import { tidyRecords } from "./records.ts";
 import { decideLand } from "./closing.ts";
@@ -95,8 +95,8 @@ export class Desk {
     return closeIncidentsOf(this.services, project, seat);
   }
 
-  post(to: string | undefined, key: string, text: string): Promise<Posted | "nobody"> {
-    return this.services.ctx.post(to, key, text);
+  post(to: string | undefined, letter: Letter): Promise<Posted | "nobody"> {
+    return this.services.ctx.post(to, letter);
   }
 
   supervisorFor(project: Project, preferred?: string): Promise<string | undefined> {
@@ -128,8 +128,7 @@ export class Desk {
     await this.services.roster.archiveWaiting(listed);
     await this.turnsEnded((id) => !midTurn(listed.get(id)?.status));
     for (const promised of this.intents.promised()) {
-      const { agent, tool, started } = promised;
-      if (listed.has(agent)) await this.services.ctx.post(agent, `unanswered:${hash(agent, tool, String(started))}`, letters.unanswered(tool));
+      if (listed.has(promised.agent)) await this.services.ctx.post(promised.agent, letters.unanswered(promised));
       this.intents.kept(promised);
     }
   }
@@ -155,7 +154,7 @@ export class Desk {
           delete entry.landing;
           return by;
         });
-        if (by) await ctx.post(by, `canland:${lane.id}:${Date.now()}`, letters.canLand(lane));
+        if (by) await ctx.post(by, letters.canLand(lane));
       }
     }
   }
@@ -236,7 +235,7 @@ export class Desk {
         const promised = { agent: request.agent, tool: request.tool, started };
         this.intents.promise(promised);
         void reply.then(async (done) => {
-          await this.services.ctx.post(request.agent, `later:${hash(request.agent, request.tool, String(started))}`, letters.later(request.tool, done));
+          await this.services.ctx.post(request.agent, letters.later(promised, done));
           this.intents.kept(promised);
         });
       }, within);

@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { harness } from "./harness.ts";
+import { letters } from "../../server/desk/letters.ts";
 
 const lane = { title: "Login", outcome: "Users sign in with email and password.", acceptance: ["A right password signs the user in.", "A wrong password shows an error."], outOfScope: ["social login"] };
 
@@ -91,7 +92,7 @@ test("a Critic whose turn ends without handing its findings in is let go all the
 
 test("the desk marks every letter it sends, which is how the Human's own words are told from its mail", async () => {
   const { h, sup } = talked();
-  await h.runtime.desk.post(sup, "hello", "A letter.");
+  await h.runtime.desk.post(sup, letters.message("the owner", "A letter.", { by: "agent-0", to: sup, at: 0 }));
   await h.idle(sup);
   assert.ok(h.agents.get(sup)!.sentIds.length > 0);
   assert.ok(h.agents.get(sup)!.sentIds.every((id) => id.startsWith("sw2-")));

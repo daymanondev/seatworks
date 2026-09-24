@@ -35,7 +35,7 @@ export const askOwner = defineTool({
       return { ...created };
     });
     if (!entry) return no("You have no open lane.");
-    await ctx.post(to, `ask:${entry.id}`, letters.askTo(entry, `the Lead of ${lane.id} (${lane.title})`));
+    await ctx.post(to, letters.askTo(entry, `the Lead of ${lane.id} (${lane.title})`));
     ctx.event(caller.project, { kind: "ask.opened", ask: entry.id, from: caller.id, to });
     return ok(`Asked as ${entry.id}. Keep working on your default where you can; the answer arrives as mail.`);
   },
@@ -76,7 +76,7 @@ export const askLead = defineTool({
       return { ...created };
     });
     if (!entry) return no(`${task.id} was accepted or cut while you asked, so there is nothing to ask about; end your turn.`);
-    await ctx.post(to, `ask:${entry.id}`, letters.askTo(entry, `the Peer on ${task.id} (${task.title})`));
+    await ctx.post(to, letters.askTo(entry, `the Peer on ${task.id} (${task.title})`));
     ctx.event(project, { kind: "ask.opened", ask: entry.id, from: caller.id, to });
     return ok(`Asked as ${entry.id}${to === lane.lead ? "" : ", of the owner, because your lead is not there"}. End your turn; the answer arrives as a message.`);
   },

@@ -29,8 +29,7 @@ export const rework = defineTool({
     if (!result.peer) return no(`${result.id} has no Peer.`);
     const seat = await roster.look(result.peer);
     if (seat.archivedAt) return no(`The Peer on ${result.id} is gone; cut the task and start a new one.`);
-    // Keyed by the task's clock, not the words: a repeated instruction is a second instruction, not a duplicate.
-    const posted = await ctx.post(result.peer, `rework:${result.id}:${result.reworks}`, letters.rework(text));
+    const posted = await ctx.post(result.peer, letters.rework(result, text));
     return posted === "duplicate"
       ? no(`That rework was already sent to the Peer on ${result.id} and it has not ended a turn since, so this would be the same letter twice. Wait for its hand-back, or cut it.`)
       : ok(`Rework sent to the Peer on ${result.id}; its next hand-back arrives as mail.`);

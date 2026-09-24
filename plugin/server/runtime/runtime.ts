@@ -302,7 +302,7 @@ export class Runtime implements HostHooks {
       return;
     }
     const owner = await this.turns.ownerOf(project, agent.id, role);
-    await this.desk.post(owner, `permission:${agent.id}:${request.id}`, letters.permission(`${role.label} ${agent.title ?? agent.id}`, request, this.addressOf(project, agent.id, role)));
+    await this.desk.post(owner, letters.permission(agent.id, `${role.label} ${agent.title ?? agent.id}`, request, this.addressOf(project, agent.id, role)));
   }
 
   private addressOf(project: Project, agentId: string, role: RoleSpec): string | undefined {

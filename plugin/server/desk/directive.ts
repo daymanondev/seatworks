@@ -3,7 +3,7 @@ import { serialPaths } from "../core/scope.ts";
 import { type Issue, fetchIssue } from "./issue.ts";
 import type { Lane } from "./ledger.ts";
 import { outside } from "../core/text.ts";
-import { letters, list } from "./letters.ts";
+import { list } from "./letters.ts";
 import type { Kit } from "../catalog/kit.ts";
 import { type Project, conceptFile, loadConfig, serialOnlyOf } from "./project.ts";
 
@@ -15,11 +15,16 @@ export async function directiveFor(kit: Kit, project: Project, lane: Lane, copy:
   return directive(lane, { gate: gateRegime(project), serial, concept: conceptFile(project.state), issue });
 }
 
+/** Read before the directive by a Lead seated on a lane already under way. */
+function takeover(lane: Lane, was: string): string {
+  return `You take over ${lane.id} from its Lead ${was}, which is gone. The lane branch, its working copy, its tasks and the asks waiting on its Lead are as that Lead left them: call status and read the branch's log before you start anything, and carry on from there rather than over it.`;
+}
+
 /** What a Lead seated on a lane already under way is told: that it takes over, then the directive, its issue read again. */
 export async function takeoverFor(kit: Kit, project: Project, lane: Lane, copy: string): Promise<string> {
   const fetched = lane.issue ? await fetchIssue(lane.issue, project.root) : undefined;
   const issue = fetched && !("error" in fetched) ? fetched : undefined;
-  return `${letters.takeover(lane, lane.lead ?? "its first Lead")}\n\n${await directiveFor(kit, project, lane, copy, issue)}`;
+  return `${takeover(lane, lane.lead ?? "its first Lead")}\n\n${await directiveFor(kit, project, lane, copy, issue)}`;
 }
 
 /** Which gate regime this project runs, because a Lead plans its splits against it. */

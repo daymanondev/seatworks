@@ -7,6 +7,7 @@ import { issueArgs } from "../../server/desk/issue.ts";
 import { type Lane, type Task, emptyLedger, nextAskId, nextLaneId, nextTaskId, slugify } from "../../server/desk/ledger.ts";
 import { directive } from "../../server/desk/directive.ts";
 import { letters } from "../../server/desk/letters.ts";
+import { reviewBrief, taskBrief } from "../../server/desk/briefs.ts";
 import { takeRequests, writeReply } from "../../server/runtime/spool.ts";
 import { hiddenWordsIn } from "../../server/catalog/hidden-words.ts";
 import { loadKit } from "../../server/catalog/kit.ts";
@@ -60,20 +61,21 @@ test("ids count per ledger and per lane, and titles become branch slugs", () => 
 });
 
 test("what a Peer and a Lead read carries none of the words hidden from them", () => {
-  const peerText = [letters.brief(task, lane), letters.rework("fix it"), letters.cut("wrong"), letters.nudge("done"), letters.message("your lead", "hi"), letters.reviewBrief({ ...task, id: "L1-R2", kind: "review" }, task, "Is rounding right?", lane.branch)].join("\n");
+  const sending = { by: "agent-1", to: task.id, at: 0 };
+  const peerText = [taskBrief(task, lane), letters.rework(task, "fix it").text, letters.nudge(task, "done").text, letters.message("your lead", "hi", sending).text, reviewBrief({ ...task, id: "L1-R2", kind: "review" }, task, "Is rounding right?", lane.branch)].join("\n");
   // Driven from the kit, not a copy: the copy had lost "seats", which `\bseat\b` does not cover.
   const kit = loadKit(join(import.meta.dirname, "..", ".."));
   const hides = (role: string) => kit.roles.find((entry) => entry.role === role)?.hidesWords ?? [];
   assert.ok(hides("peer").length > 0 && hides("lead").length > 0, "both roles hide words to check for");
   assert.deepEqual(hiddenWordsIn(peerText, hides("peer")), []);
   const opening = directive({ ...lane, writeSet: ["src/discounts/**"], contracts: ["src/orders.ts"] }, { gate: "npm test runs on the whole lane when you report it ready", serial: ["package-lock.json"], concept: "/state/CONTEXT.md" });
-  const leadText = [opening, letters.conflict(task, ["a.js"], lane.branch), letters.stalled(task, "bye", 2), letters.reconciled(lane, task, "agent-9", "stop using the old client")].join("\n");
+  const leadText = [opening, letters.conflict(task, ["a.js"], lane.branch).text, letters.stalled(task, "bye", 2).text, letters.reconciled(lane, task, "agent-9", "stop using the old client", sending).text].join("\n");
   assert.deepEqual(hiddenWordsIn(leadText, hides("lead")), []);
 });
 
 
 test("a hand-back names the Peer that wrote it, so its lead can read what it did", () => {
-  const named = letters.handback(task, "/state/handbacks/L1-T1.md", "Outcome: complete", "agent-7");
+  const named = letters.handback(task, "/state/handbacks/L1-T1.md", "Outcome: complete", "agent-7").text;
   assert.match(named, /HANDBACK L1-T1 \(Apply discount\) from agent-7/, "the lead is told which agent to read, at the moment it decides");
 });
 
@@ -152,5 +154,5 @@ test("an issue cannot close the fence it is read inside, or speak on the line ab
 });
 
 test("the nudge after a silent turn says where the hand-back tool is", () => {
-  assert.match(letters.nudge("done"), /`done` and `ask` are tools of the `team` MCP server/);
+  assert.match(letters.nudge(task, "done").text, /`done` and `ask` are tools of the `team` MCP server/);
 });

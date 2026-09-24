@@ -1,19 +1,19 @@
 import { z } from "zod";
 import { can } from "../../catalog/kit.ts";
 import { SETTLED } from "../../domain/task.ts";
-import { type Caller, hash, no, ok, str } from "../context.ts";
+import { type Caller, no, ok, str } from "../context.ts";
 import { type Task, findLane, findTask, laneOfLead, loadLedger } from "../ledger.ts";
-import { letters } from "../letters.ts";
+import { type Sending, letters } from "../letters.ts";
 import { type DeskServices, defineTool } from "../services.ts";
 
 /** Gives `text` to a seat: as its answer when it is stopped on a question, or else as mail it reads once it can. */
-async function handTo({ ctx, roster }: DeskServices, caller: Caller, to: { target: string; from: string; who: string }, key: string, text: string): Promise<string> {
+async function handTo({ ctx, roster }: DeskServices, caller: Caller, to: { target: string; from: string; who: string }, sending: Sending, text: string): Promise<string> {
   const reached = await roster.answerQuestion(to.target, `From ${to.from}: ${text}`);
   if (reached === "answered") {
     ctx.event(caller.project, { kind: "question.answered", agent: to.target, by: caller.id });
     return `It was stopped on a question, so this went to ${to.who} as the answer, and it carries on.`;
   }
-  const posted = await ctx.post(to.target, key, letters.message(to.from, text));
+  const posted = await ctx.post(to.target, letters.message(to.from, text, sending));
   if (posted === "sent") return `Delivered to ${to.who}.`;
   if (reached === "waiting") return `Queued for ${to.who}, which is stopped on a permission only the Human can give; it reads this once that is decided.`;
   return `Queued for ${to.who}; it reads this as soon as it can take it.`;
@@ -27,12 +27,11 @@ export const message = defineTool({
     const to = str(args.to);
     const text = str(args.text);
     const ledger = loadLedger(caller.project.state);
-    // Keyed by the event, not the words: keyed on text, the same instruction sent again was dropped as a repeat.
-    const key = `message:${caller.id}:${hash(to, text)}:${Date.now()}`;
+    const sending: Sending = { by: caller.id, to, at: Date.now() };
     const unread = (who: string) => `${who} is not seated any more, so a message would wait for nobody.`;
     const settled = (task: Task) =>
       SETTLED.includes(task.status) ? `${task.id} is ${task.status === "merged" ? "accepted" : "cut"}, and its Peer has been put away with it.` : undefined;
-    const deliver = (target: string, from: string, who: string) => handTo(desk, caller, { target, from, who }, key, text);
+    const deliver = (target: string, from: string, who: string) => handTo(desk, caller, { target, from, who }, sending, text);
     if (can(caller.role, "supervise")) {
       const lane = findLane(ledger, to);
       if (lane) {
@@ -56,7 +55,7 @@ export const message = defineTool({
           );
         }
         // The Lead is told first, so it is never the last to know what reached its own Peer.
-        await ctx.post(lead, `reconcile:${key}`, letters.reconciled(laneOf, task, task.peer, text));
+        await ctx.post(lead, letters.reconciled(laneOf, task, task.peer, text, sending));
         return ok(`${await deliver(task.peer, "the project owner", `the Peer on ${task.id}`)} Its Lead has been told what reached it and what is still its own.`);
       }
       return no(`There is no lane or task ${to}.`);

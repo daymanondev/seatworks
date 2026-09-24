@@ -1,9 +1,9 @@
-import { createHash } from "node:crypto";
 import type { Team } from "../catalog/team.ts";
 import type { Kit, RoleSpec } from "../catalog/kit.ts";
 import { LANE, type LaneMove } from "../domain/lane.ts";
 import { TASK, type TaskMove, type TaskStatus } from "../domain/task.ts";
 import type { DeskEvent } from "./events.ts";
+import type { Letter } from "./letters.ts";
 import { type Ledger, type Task, ledgerFault, loadLedger, saveLedger } from "./ledger.ts";
 import type { Project } from "./project.ts";
 import { appendRecord } from "./records.ts";
@@ -22,7 +22,6 @@ export const given = (args: Args, texts: string[], lists: string[]): Record<stri
   Object.fromEntries([...texts.map((key) => [key, str(args[key])] as const), ...lists.map((key) => [key, strs(args[key])] as const)].filter(([key]) => args[key] !== undefined));
 export const ok = (text: string): ToolReply => ({ ok: true, text });
 export const no = (text: string): ToolReply => ({ ok: false, text });
-export const hash = (...parts: string[]): string => createHash("sha1").update(parts.join("\n")).digest("hex").slice(0, 12);
 
 export type CodeIndex = {
   id: string;
@@ -108,9 +107,9 @@ export class DeskContext {
     }
   }
 
-  async post(to: string | undefined, key: string, text: string): Promise<Posted | "nobody"> {
+  async post(to: string | undefined, letter: Letter): Promise<Posted | "nobody"> {
     if (!to) return "nobody";
-    return this.deps.outbox.post({ to, key, text });
+    return this.deps.outbox.post({ to, ...letter });
   }
 
   setTask(project: Project, taskId: string, change: (task: Task) => void): Task | undefined {

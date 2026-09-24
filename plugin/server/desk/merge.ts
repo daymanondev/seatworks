@@ -7,7 +7,7 @@ import { errorText } from "../core/errors.ts";
 import { IN_QUEUE, TASK } from "../domain/task.ts";
 import { gateNote } from "./gates.ts";
 import { type Lane, type Task, loadLedger } from "./ledger.ts";
-import { letters } from "./letters.ts";
+import { type Letter, letters } from "./letters.ts";
 import type { Project } from "./project.ts";
 
 type Outcome = "merged" | "unmerged" | "conflict" | "fail";
@@ -83,7 +83,7 @@ export class MergeQueue {
     });
     if (!picked) return;
     const { task, lane } = picked;
-    const finish = (move: Outcome, text: string) => this.finish(project, task, lane, move, text);
+    const finish = (move: Outcome, letter: Letter) => this.finish(project, task, lane, move, letter);
     const cwd = lane.worktree;
     if (!cwd) return finish("fail", letters.mergeFailed(task, "the lane has no working copy", ""));
     const copy = await workState(cwd);
@@ -119,10 +119,10 @@ export class MergeQueue {
   }
 
   /** The record follows what the merge did, and its Lead is told. */
-  private async finish(project: Project, task: Task, lane: Lane, move: Outcome, text: string): Promise<void> {
+  private async finish(project: Project, task: Task, lane: Lane, move: Outcome, letter: Letter): Promise<void> {
     const moved = this.ctx.moveTask(project, task.id, move);
     if (typeof moved !== "object") return;
-    await this.ctx.post(lane.lead, `merge:${task.id}:${moved.status}:${Date.now()}`, text);
+    await this.ctx.post(lane.lead, letter);
     this.ctx.event(project, { kind: `merge.${moved.status}`, task: task.id });
     if (moved.status === "merged") await this.agents.retire(project, task, lane.branch);
   }

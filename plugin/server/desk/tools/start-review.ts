@@ -5,7 +5,7 @@ import { type DeskContext, no, ok, str } from "../context.ts";
 import { errorText } from "../../core/errors.ts";
 import { type Lane, type Task, findTask, laneOfLead, loadLedger, nextTaskId } from "../ledger.ts";
 import { clip } from "../../core/text.ts";
-import { letters } from "../letters.ts";
+import { reviewBrief } from "../briefs.ts";
 import { seatingKey } from "../opening.ts";
 import type { Project } from "../project.ts";
 import { defineTool } from "../services.ts";
@@ -79,7 +79,7 @@ export const startReview = defineTool({
       const reviewer = await agents.start(project, slot, reviewRole.role, {
         parent: caller.id,
         title: `${review.id} ${target?.title ?? review.title}`,
-        prompt: letters.reviewBrief(review, target, focus, lane.branch, change),
+        prompt: reviewBrief(review, target, focus, lane.branch, change),
         labels: { "seatworks.lane": lane.id, "seatworks.task": review.id, "seatworks.role": reviewRole.role },
       });
       ctx.setTask(project, review.id, (entry) => {

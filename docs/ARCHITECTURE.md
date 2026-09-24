@@ -53,8 +53,9 @@ These are mostly absences, so the code won't show them to you.
   what its handler reads; a tool set picks among tools of one name by the schema it shows.
 - **One table per lifecycle.** A task, lane, ask or incident changes status only through its table
   in `server/domain/`, checked inside the ledger transaction against the status it has then.
-- **One file writes letters.** Everything the desk says to a seat is in `desk/letters.ts`; a Lead's
-  directive, what it starts from, is in `desk/directive.ts`.
+- **One file writes letters.** Everything the desk mails a seat is in `desk/letters.ts`, each letter
+  keyed by its kind and ids; what a seat starts from is in `desk/briefs.ts`, and a Lead's directive in
+  `desk/directive.ts`.
 - **One writer per working copy.** A lane-mode task holds the lane's copy from start until it is
   accepted or cut.
 - **No hidden command chain.** When the Supervisor messages a Peer, the Peer's Lead is told first.

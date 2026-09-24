@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { hash, no, ok, str, strs } from "../context.ts";
+import { no, ok, str, strs } from "../context.ts";
 import { laneGate } from "../gates.ts";
 import { laneOfLead, loadLedger } from "../ledger.ts";
 import { letters } from "../letters.ts";
@@ -24,8 +24,8 @@ export const report = defineTool({
     if (!still) return no(`Lane ${lane.id} is no longer yours to report on: it closed, or has another Lead, while this was asked.`);
     const to = await roster.supervisorFor(caller.project, lane.opener);
     const letter = letters.report(lane, summary, args.ready === true, strs(args.carried), gate);
-    const posted = await ctx.post(to, `report:${lane.id}:${hash(summary)}`, letter);
-    ctx.event(caller.project, { kind: "lane.report", lane: lane.id, ready: args.ready === true, gate: gate?.ok, to: to ?? null, text: posted === "nobody" ? letter : undefined });
+    const posted = await ctx.post(to, letter);
+    ctx.event(caller.project, { kind: "lane.report", lane: lane.id, ready: args.ready === true, gate: gate?.ok, to: to ?? null, text: posted === "nobody" ? letter.text : undefined });
     // With nobody supervising seated the post goes nowhere; it is kept in the event log and the Lead told so.
     if (posted === "nobody") {
       return ok(`Nobody supervising this project is seated, so the report reached no one. It is kept in ${caller.project.state}/events.log for whoever comes back; there is nothing to wait for until someone does.`);

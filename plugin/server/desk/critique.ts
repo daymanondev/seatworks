@@ -4,6 +4,7 @@ import { roleThatCan } from "../catalog/kit.ts";
 import { errorText } from "../core/errors.ts";
 import { no, ok, str } from "./context.ts";
 import { type Lane, loadLedger } from "./ledger.ts";
+import { critiqueBrief } from "./briefs.ts";
 import { letters } from "./letters.ts";
 import { type Project, conceptFile } from "./project.ts";
 import { type DeskServices, defineTool } from "./services.ts";
@@ -40,7 +41,7 @@ export async function seatCritic(desk: DeskServices, project: Project, lane: Lan
     const concept = file ? readFileSync(file, "utf-8") : undefined;
     const id = await agents.startResident(project, role.role, {
       title: `${role.label} ${lane.id} ${project.slug}`,
-      prompt: letters.critiqueBrief(lane.id, human, concept, laneText(lane)),
+      prompt: critiqueBrief(lane.id, human, concept, laneText(lane)),
       labels: { [LABEL]: lane.id },
     });
     ctx.event(project, { kind: "critique.asked", lane: lane.id, agent: id, words: human.length });
@@ -68,7 +69,7 @@ export const findings = defineTool({
       if (finding.lane ? !written.includes(flat(finding.lane)) : finding.kind === "added") return no(finding.lane ? `"${finding.lane}" is not in the lane: copy its words exactly, or leave it empty when the lane says nothing of it.` : "An added point quotes what the lane added.");
     }
     ctx.event(project, { kind: "critique.found", lane: lane.id, agent: caller.id, found: listed.length, kinds: listed.map((finding) => finding.kind) });
-    if (listed.length > 0) await ctx.post(await roster.supervisorFor(project, lane.opener), `critique:${lane.id}:${caller.id}`, letters.critique(lane, listed));
+    if (listed.length > 0) await ctx.post(await roster.supervisorFor(project, lane.opener), letters.critique(lane, listed, caller.id));
     await roster.archive(caller.id);
     return ok(listed.length > 0 ? "Handed to the Supervisor. End your turn." : "Recorded that you found nothing. End your turn.");
   },

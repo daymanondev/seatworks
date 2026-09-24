@@ -34,7 +34,7 @@ export const amendTask = defineTool({
     if (typeof done === "string") return no(done);
     ctx.event(caller.project, { kind: "task.amended", task: done.task.id, fields: Object.keys(done.amendment.was), by: caller.id });
     if (done.task.status === "waiting") return ok(`${done.task.id} is amended; it starts as it is now.`);
-    const posted = await ctx.post(done.task.peer, `amended:${done.task.id}:${done.task.amended!.length}`, letters.amended(done.task, done.amendment, "worker"));
+    const posted = await ctx.post(done.task.peer, letters.amended(done.task, done.amendment, "worker"));
     return ok(`${done.task.id} is amended${posted === "nobody" ? ", and it has no Peer to tell" : "; its Peer has it at its next turn"}.`);
   },
 });

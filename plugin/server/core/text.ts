@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 /** Text from outside the team, fenced so it cannot speak as the desk: the words inside must not be able to close the fence. */
 export function outside(tag: string, text: string, limit: number): string {
   // One pass, cutting a fence as its last character arrives: a removal can join a new fence, and repeated sweeps go quadratic.
@@ -16,6 +18,8 @@ export function outside(tag: string, text: string, limit: number): string {
   }
   return clip(kept.join(""), limit);
 }
+
+export const hash = (...parts: string[]): string => createHash("sha1").update(parts.join("\n")).digest("hex").slice(0, 12);
 
 export function clip(text: string, limit: number): string {
   return text.length <= limit ? text : `${text.slice(0, limit).trimEnd()}\n[… ${text.length - limit} more characters]`;

@@ -75,13 +75,15 @@ of the same name in the state root replaces it, as `roles.json` does.
 
 ## Letters
 
-All of them are written in `desk/letters.ts`.
+All of them are written in `desk/letters.ts`; what a seat starts from is in `desk/briefs.ts` and, for a
+Lead, `desk/directive.ts`. Each letter carries a key made of its kind and the ids that make it that
+letter, never written by hand where it is posted.
 
 | Kind | Letters |
 |---|---|
 | Opening a seat | OWNER DIRECTIVE, TASK, REVIEW |
 | Between seats | MESSAGE, RECONCILE, ASK, ANSWER to your ask, ANSWERED FOR YOU, STILL OPEN, UNANSWERED |
-| Work moving | HANDBACK, REWORK, STOP, MERGED, MERGE FAILED, MERGE CONFLICT, REPORT, CAN LAND, CLEARED |
+| Work moving | HANDBACK, REWORK, MERGED, MERGE FAILED, MERGE CONFLICT, REPORT, CAN LAND, CLEARED |
 | The desk noticing | SILENT, FAILED, WAITING FOR PERMISSION, LANE IDLE, INCIDENT, the bare nudge |
 | Answering late | ANSWER to your `<tool>` call, NO ANSWER to your `<tool>` call |
 
@@ -108,7 +110,7 @@ else answered an ask addressed to it.
 | `team.mjs` polls for a reply | every 250 ms, for up to 300 s |
 | A call answered "arrives as mail" | after 240 s |
 | Spool requests dropped | after 10 minutes |
-| A duplicate letter, same key and reader | dropped while waiting, and for 30 minutes after sending |
+| A duplicate letter, same kind, same ids and same reader | dropped while waiting, and for 30 minutes after sending |
 | A letter nobody took | dropped after 7 days |
 
 ## Permission requests

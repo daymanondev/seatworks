@@ -61,7 +61,7 @@ export const accept = defineTool({
     const gate = gateNote(project, task);
     const updated = ctx.moveTask(project, task.id, "accept");
     if (typeof updated !== "object") return no(`${task.id} is ${updated ?? "gone"}.`);
-    await ctx.post(lane.lead, `merge:${task.id}:merged:${Date.now()}`, letters.merged(task, counts, outsideOwned(counts?.files ?? [], task.owned), gate));
+    await ctx.post(lane.lead, letters.merged(task, counts, outsideOwned(counts?.files ?? [], task.owned), gate));
     await agents.retire(project, updated, lane.branch);
     ctx.event(project, { kind: "task.accepted", task: task.id, mode: "lane" });
     await startWaiting(desk, project, true);
