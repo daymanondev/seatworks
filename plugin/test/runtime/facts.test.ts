@@ -422,13 +422,23 @@ test("removing only scratch files is not an irreversible command, and anything e
   assert.equal(shell("rm -rf /tmp/a src").length, 1, "one real target among scratch ones is enough");
 });
 
-test("a refusal the desk gave a seat is not a failed call, on every harness that names its calls: the desk already said why and what instead", () => {
+test("a refusal the desk gave a seat is not a failed call, on every harness that says which server answered: the desk already said why and what instead", () => {
   const failedCat = piRow(15);
+  const failing = (name: string, seq: number, detail?: Record<string, unknown>) => {
+    const copy = again(failedCat, `t${seq}`, seq);
+    copy.event.item!.name = name;
+    if (detail) copy.event.item!.detail = detail;
+    return copy;
+  };
+  const deskOf = (harness: string) => rules({ desk: callsTo(kit.harnesses[harness]!.mcpCall, kit.harnesses[harness]!.mcpServerField, TEAM_SERVER) });
   // As each harness recorded a refused team call live.
-  for (const [harness, name] of [["claude", "mcp__team__start_task"], ["pi", "team_plan_tasks"], ["devin", "Calling done from team"]] as const) {
-    const refused = again(failedCat, "t", 2);
-    refused.event.item!.name = name;
-    const given = rules({ desk: callsTo(kit.harnesses[harness]!.mcpCall, TEAM_SERVER) });
-    assert.deepEqual(kinds(play([...opening(), refused, again(failedCat, "x", 3)], given)), ["call-failed"], harness);
-  }
+  assert.deepEqual(kinds(play([...opening(), failing("mcp__team__start_task", 2)], deskOf("claude"))), [], "claude");
+  assert.deepEqual(kinds(play([...opening(), failing("Calling done from team", 2)], deskOf("devin"))), [], "devin");
+  // Pi names a call server_tool, so a pasted team_x server's calls start the same way; the server it records tells them apart.
+  const pi = [
+    failing("team_plan_tasks", 2, { type: "unknown", output: { content: [{ type: "text", text: "Error: The plan was not taken" }], details: { error: "tool_error", server: "team" } } }),
+    failing("team_plan_tasks", 3, { type: "unknown", output: { content: [{ type: "text", text: 'Validation failed for tool "team_plan_tasks"' }], details: {} } }),
+    failing("team_x_lookup", 4, { type: "unknown", output: { content: [{ type: "text", text: "Error: not found" }], details: { error: "tool_error", server: "team_x" } } }),
+  ];
+  assert.deepEqual(kinds(play([...opening(), ...pi], deskOf("pi"))), ["call-failed", "call-failed"], "pi: a call Pi refused before the desk saw it, and another server's, are still failures");
 });

@@ -196,7 +196,7 @@ export class Runtime {
         testPath: new RegExp(attention.testPath, "i"),
         suppressed: new RegExp(attention.suppressed, "i"),
         exit: harness.exitPattern ? new RegExp(harness.exitPattern) : undefined,
-        desk: callsTo(harness.mcpCall, TEAM_SERVER),
+        desk: callsTo(harness.mcpCall, harness.mcpServerField, TEAM_SERVER),
         gates: gateCommands(seat.cwd, loadConfig(project.state).gate),
         cwd: seat.cwd,
         temp: tmpdir(),

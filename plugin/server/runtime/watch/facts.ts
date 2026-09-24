@@ -62,7 +62,7 @@ export type Rules = {
   testPath: RegExp;
   suppressed: RegExp;
   exit?: RegExp;
-  desk?: RegExp;
+  desk?: (call: Call) => boolean;
   gates: string[];
   cwd?: string;
   temp?: string;
@@ -82,9 +82,11 @@ export function weakened(before: string, after: string): string | undefined {
   return now < was ? `${was} assertions become ${now}` : undefined;
 }
 
-/** Calls to `server` as the harness names them: `pattern` holds `{server}` where the name goes. */
-export function callsTo(pattern: string | undefined, server: string): RegExp | undefined {
-  return pattern ? new RegExp(pattern.replaceAll("{server}", server)) : undefined;
+/** Calls to `server`: read from the field the harness records it in, or else from the name, `pattern` holding `{server}` where it goes. */
+export function callsTo(pattern: string | undefined, field: string | undefined, server: string): ((call: Call) => boolean) | undefined {
+  if (field) return (call) => field.split(".").reduce<unknown>((at, key) => (at as Record<string, unknown> | undefined)?.[key], call.detail) === server;
+  const name = pattern ? new RegExp(pattern.replaceAll("{server}", server)) : undefined;
+  return name && ((call) => name.test(call.name));
 }
 
 export function failed(call: Call, exit?: RegExp): boolean {
@@ -236,7 +238,7 @@ export function onSettle(call: Call, rules: Rules, known?: (path: string) => str
   const detail = call.detail;
   const bad = failed(call, rules.exit);
   // The desk's refusals already told the seat why and what instead, and the desk records them.
-  if (bad && !rules.desk?.test(call.name)) facts.push({ kind: isGate(call, rules.gates) ? "gate-failed" : "call-failed", level: "note", quote: flat(describe(call)) });
+  if (bad && !rules.desk?.(call)) facts.push({ kind: isGate(call, rules.gates) ? "gate-failed" : "call-failed", level: "note", quote: flat(describe(call)) });
   const writes = detail.type === "edit" || detail.type === "write";
   const both = writes && !bad ? sides(detail, known) : undefined;
   if (both) {
