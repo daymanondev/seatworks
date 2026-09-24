@@ -7,16 +7,12 @@ import { type Ledger, type Task, findLane, findTask, laneOfLead, loadLedger } fr
 import { type Sending, letters } from "../letters.ts";
 import { type DeskServices, defineTool } from "../services.ts";
 
-/** Gives `text` to a seat: as its answer when it is stopped on a question, or else as mail it reads once it can. */
-async function handTo({ ctx, roster }: DeskServices, caller: Caller, to: { target: string; from: string; who: string }, sending: Sending, text: string): Promise<string> {
-  const reached = await roster.answerQuestion(to.target, `From ${to.from}: ${text}`);
-  if (reached === "answered") {
-    ctx.event(caller.project, { kind: "question.answered", agent: to.target, by: caller.id });
-    return `It was stopped on a question, so this went to ${to.who} as the answer, and it carries on.`;
-  }
+/** Gives `text` to a seat as mail it reads once it can; one stopped on a permission reads nothing until the Human decides it. */
+async function handTo({ ctx, roster }: DeskServices, to: { target: string; from: string; who: string }, sending: Sending, text: string): Promise<string> {
   const posted = await ctx.post(to.target, letters.message(to.from, text, sending));
   if (posted === "sent") return `Delivered to ${to.who}.`;
-  if (reached === "waiting") return `Queued for ${to.who}, which is stopped on a permission only the Human can give; it reads this once that is decided.`;
+  const seat = await roster.look(to.target).catch(() => undefined);
+  if ((seat?.pendingPermissions?.length ?? 0) > 0) return `Queued for ${to.who}, which is stopped on a permission only the Human can give; it reads this once that is decided.`;
   return `Queued for ${to.who}; it reads this as soon as it can take it.`;
 }
 
@@ -32,7 +28,7 @@ async function fromOwner(desk: DeskServices, caller: Caller, ledger: Ledger, sen
     if (lane.status !== "open" || !lane.lead) return no(`Lane ${lane.id} has no running Lead.`);
     if (!(await roster.seated(lane.lead))) return no(unread(`The Lead of ${lane.id} (${lane.lead})`));
     const refused = repeatsIncident(caller.project.state, lane.lead, text);
-    return refused ? no(refused) : ok(await handTo(desk, caller, { target: lane.lead, from: "the owner", who: `the Lead of ${lane.id}` }, sending, text));
+    return refused ? no(refused) : ok(await handTo(desk, { target: lane.lead, from: "the owner", who: `the Lead of ${lane.id}` }, sending, text));
   }
   const task = findTask(ledger, sending.to);
   if (!task?.peer) return no(`There is no lane or task ${sending.to}.`);
@@ -51,7 +47,7 @@ async function fromOwner(desk: DeskServices, caller: Caller, ledger: Ledger, sen
   if (refused) return no(refused);
   // The Lead is told first, so it is never the last to know what reached its own Peer.
   await ctx.post(lead, letters.reconciled(laneOf, task, task.peer, text, sending));
-  return ok(`${await handTo(desk, caller, { target: task.peer, from: "the project owner", who: `the Peer on ${task.id}` }, sending, text)} Its Lead has been told what reached it and what is still its own.`);
+  return ok(`${await handTo(desk, { target: task.peer, from: "the project owner", who: `the Peer on ${task.id}` }, sending, text)} Its Lead has been told what reached it and what is still its own.`);
 }
 
 export const message = defineTool({
@@ -70,6 +66,6 @@ export const message = defineTool({
     if (done) return no(done);
     if (!(await desk.roster.seated(task.peer))) return no(unread(`The Peer on ${task.id}`));
     const refused = repeatsIncident(caller.project.state, task.peer, text);
-    return refused ? no(refused) : ok(await handTo(desk, caller, { target: task.peer, from: "your lead", who: `the Peer on ${task.id}` }, sending, text));
+    return refused ? no(refused) : ok(await handTo(desk, { target: task.peer, from: "your lead", who: `the Peer on ${task.id}` }, sending, text));
   },
 });

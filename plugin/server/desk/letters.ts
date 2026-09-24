@@ -1,7 +1,7 @@
 import { TEAM_SERVER } from "../catalog/kit.ts";
 import type { Counts } from "../core/git.ts";
 import { clip, hash } from "../core/text.ts";
-import { type PendingPermission, questionsIn } from "../core/paseo.ts";
+import type { PendingPermission } from "../core/paseo.ts";
 import { IN_QUEUE } from "../domain/task.ts";
 import type { Incident } from "./incidents.ts";
 import type { Amendment, Ask, Lane, Task } from "./ledger.ts";
@@ -166,22 +166,11 @@ export const letters = {
     return mail("gone", [task.id], failedText(`the Peer on ${task.id} (${task.title})`, "its agent was closed or archived"));
   },
 
-  /** `address` is what the owner's `message` takes to reach that seat, when a message can answer it. */
-  permission(agent: string, who: string, request: PendingPermission, address?: string): Letter {
-    const questions = request.kind === "question" ? questionsIn(request) : [];
+  permission(agent: string, who: string, request: PendingPermission): Letter {
     const lines = [`WAITING FOR PERMISSION: ${who} has stopped until this is answered.`, ""];
-    if (questions.length > 0) {
-      questions.forEach((entry, index) => lines.push(`${index + 1}. ${clip(entry.question.trim(), 600)}${entry.options.length > 0 ? `\n   Options: ${entry.options.map((option) => clip(option, 120)).join(" / ")}` : ""}`));
-    } else {
-      lines.push(clip([...new Set([request.name, request.title].filter(Boolean))].join(": ") || request.kind || "a request", 600));
-      if (request.description && request.description !== request.title) lines.push(clip(request.description, 600));
-    }
-    lines.push("");
-    lines.push(
-      questions.length > 0 && address
-        ? `Answer it with \`message\` to ${address}: what you write goes back as its answer, and it carries on.`
-        : "Only the Human can answer this, in Paseo. Until they do, it reads nothing you send.",
-    );
+    lines.push(clip([...new Set([request.name, request.title].filter(Boolean))].join(": ") || request.kind || "a request", 600));
+    if (request.description && request.description !== request.title) lines.push(clip(request.description, 600));
+    lines.push("", "Only the Human can answer this, in Paseo. Until they do, it reads nothing you send.");
     return mail("permission", [agent, request.id ?? ""], lines.join("\n"));
   },
 
@@ -210,7 +199,7 @@ export const letters = {
     lines.push(
       "",
       steers
-        ? "A message reaches this seat inside a turn that has run a minute; otherwise when the turn ends. A seat stopped on a question takes a message as its answer; one stopped on another permission reads nothing until the Human decides."
+        ? "A message reaches this seat inside a turn that has run a minute; otherwise when the turn ends. One stopped on a permission reads nothing until the Human decides."
         : "This seat reads mail only when its turn ends; a message waits until then.",
     );
     lines.push(

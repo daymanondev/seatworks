@@ -127,7 +127,6 @@ where to look, not whether it matters.
 - Keep the correction to yourself unless the episode returns: an agent challenged by its owner
   tends to agree with any fault you hint at. A changed course with no new command or read behind it
   is agreement, not a check.
-- A seat stopped on a question takes anything you send as its answer.
 - Reach a Peer directly only when its Lead can't carry it; the desk tells the Lead. Openly and rarely:
   never a standing second channel. After one, go back through the Lead.
 

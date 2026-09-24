@@ -78,7 +78,7 @@ no `status` in a loop: the Peer is no faster for it, and mail waits until your t
 | MERGE FAILED | Clear what it names, then accept again. |
 | SILENT | If its last words are an uncalled hand-back, check the work and `accept` what you verified (`cut` would lose it). Else `message` it, or `cut` and restart. |
 | FAILED | Nothing restarts it: `message` it to continue; if its agent is gone, `cut` and start again. |
-| WAITING FOR PERMISSION | Follow the letter; answer a question with `message` to the task. |
+| WAITING FOR PERMISSION | Only the Human can give it, and the seat reads nothing until they do. If it holds the lane up, `ask`. |
 | INCIDENT | A signal, not a verdict. Read the Peer's record (`record` with the task), take the smallest step (usually none), `mark_incident` it by the tool's definitions from the record alone. |
 | MESSAGE, ANSWER | From the owner: act on it. |
 | ANSWERED FOR YOU, RECONCILE | The owner reached your Peer; the letter says what is still yours. |

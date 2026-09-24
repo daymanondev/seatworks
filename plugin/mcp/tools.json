@@ -97,7 +97,7 @@
     },
     {
       "name": "message",
-      "description": "Send one decision or one question to a Lead (by lane id) or, only when its Lead cannot carry it, a Peer (by task id; its Lead is told). It arrives when the seat can take it: inside a running turn on agents that take that, else when its turn ends; one stopped on a question gets it as the answer. Refused if it names or quotes an open incident about the seat it goes to: say what you read in the record in your own words.",
+      "description": "Send one decision or one question to a Lead (by lane id) or, only when its Lead cannot carry it, a Peer (by task id; its Lead is told). It arrives when the seat can take it: inside a running turn on agents that take that, else when its turn ends. Refused if it names or quotes an open incident about the seat it goes to: say what you read in the record in your own words.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -535,7 +535,7 @@
     },
     {
       "name": "message",
-      "description": "Send one of your Peers (by task id) one message. It arrives when the Peer can take it: inside a running turn on agents that take that, else when its turn ends; one stopped on a question gets it as the answer. Refused if it names or quotes an open incident about the seat it goes to: say what you read in the record in your own words.",
+      "description": "Send one of your Peers (by task id) one message. It arrives when the Peer can take it: inside a running turn on agents that take that, else when its turn ends. Refused if it names or quotes an open incident about the seat it goes to: say what you read in the record in your own words.",
       "inputSchema": {
         "type": "object",
         "properties": {

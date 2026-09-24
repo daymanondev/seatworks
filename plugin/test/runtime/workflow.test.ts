@@ -1484,49 +1484,32 @@ test("two projects on one daemon both name their first task L1-T1, and both Lead
   assert.equal(h.ledger(other).tasks["L1-T1"]!.status, "stalled", "and the second project's task is recorded stalled, not skipped");
 });
 
-test("a Peer stopped on a question is answered by its Lead's message, and one stopped on anything else waits for the Human", async () => {
+test("a question that would stop a seat's turn is refused with where to ask instead, while leave to run something waits for the Human", async () => {
   const h = harness();
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "open_lane", { title: "Colours", outcome: "the button is coloured", acceptance: ["a"], outOfScope: ["anything else"] });
   const lane = h.ledger().lanes.L1!;
   await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Colour", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"] }] });
   const peer = h.ledger().tasks["L1-T1"]!.peer!;
-  const question: Pending = {
-    id: "permission-1",
-    kind: "question",
-    name: "AskUserQuestion",
-    title: "Which colour should the button be?",
-    input: { questions: [{ question: "Which colour should the button be?", header: "Colour", options: [{ label: "Blue" }, { label: "Green" }] }] },
-  };
-  h.agents.get(peer)!.pending.push(question);
-  await h.permission(peer, question);
+  const question: Pending = { id: "permission-1", kind: "question", name: "AskUserQuestion", title: "Which colour should the button be?", input: { questions: [{ question: "Which colour should the button be?", options: [{ label: "Blue" }] }] } };
+  for (const [seat, text] of [[peer, /ask it with ask, then end your turn/], [sup, /ask the Human in your reply and end your turn/]] as const) {
+    h.agents.get(seat)!.pending.push(question);
+    await h.permission(seat, question);
+    assert.equal(h.agents.get(seat)!.answered.at(-1)!.response.behavior, "deny");
+    assert.match(String((h.agents.get(seat)!.answered.at(-1)!.response as { message?: string }).message), text);
+  }
   await h.idle(lane.lead!);
-  const letter = h.agents.get(lane.lead!)!.sent.join("\n");
-  assert.match(letter, /WAITING FOR PERMISSION/);
-  assert.match(letter, /1\. Which colour should the button be\?\n {3}Options: Blue \/ Green/, "the question itself, not only that there is one");
-  assert.match(letter, /`message` to L1-T1/);
-
-  // The Peer reads nothing until the question is answered, so a message held for it would never land.
-  const answered = await h.call(lane.lead!, "lead", "message", { to: "L1-T1", text: "Blue, to match the header." });
-  assert.equal(answered.ok, true, answered.text);
-  assert.match(answered.text, /as the answer/);
-  const words = "From your lead: Blue, to match the header.";
-  assert.deepEqual(h.agents.get(peer)!.answered, [
-    { requestId: "permission-1", response: { behavior: "allow", updatedInput: { answers: { "Which colour should the button be?": words, Colour: words } } } },
-  ]);
-  await h.idle(peer);
-  assert.doesNotMatch(h.agents.get(peer)!.sent.join("\n"), /Blue, to match/, "answered once, not also mailed");
+  assert.doesNotMatch(h.agents.get(lane.lead!)!.sent.join("\n"), /WAITING FOR PERMISSION/, "nobody is asked to answer a question the seat was told to put another way");
 
   // Leave to run something is the Human's to give; the desk answers nothing on anyone's behalf.
   const command: Pending = { id: "permission-2", kind: "tool", name: "Bash", title: "rm -rf build" };
   h.agents.get(peer)!.pending.push(command);
   await h.permission(peer, command);
   await h.idle(lane.lead!);
-  assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /Bash: rm -rf build\n\nOnly the Human can answer this/);
+  assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /WAITING FOR PERMISSION[^]*Bash: rm -rf build\n\nOnly the Human can answer this/);
   const held = await h.call(lane.lead!, "lead", "message", { to: "L1-T1", text: "Go ahead." });
-  assert.equal(held.ok, true, held.text);
   assert.match(held.text, /stopped on a permission only the Human can give/);
-  assert.equal(h.agents.get(peer)!.answered.length, 1);
+  assert.equal(h.agents.get(peer)!.answered.length, 1, "the command is left for the Human");
   assert.equal(h.runtime.outbox.pending(peer).length, 1, "and the message waits for it");
 });
 

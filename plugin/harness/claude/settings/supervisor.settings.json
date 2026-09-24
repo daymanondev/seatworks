@@ -5,6 +5,5 @@
       "Bash(git -C * commit *)",
       "Bash(sleep *)"
     ]
-  },
-  "askUserQuestionTimeout": "never"
+  }
 }

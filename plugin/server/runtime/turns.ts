@@ -57,21 +57,18 @@ export class TurnRules {
       await this.deps.seats.respond(agent.id, request.id, { behavior: "deny", message: `Lane ${hold.id} is on hold: ${hold.onHold!.reason}. Do nothing more until you are told it resumes.` });
       return;
     }
+    // A seat stopped on a question reads nothing, and a team waiting on a sleeping Human is stuck: the question goes by the desk.
+    if (request.kind === "question" && request.id) {
+      const instead = can(role, "supervise") ? "ask the Human in your reply and end your turn" : "ask it with ask, then end your turn; the answer arrives as a message";
+      await this.deps.seats.respond(agent.id, request.id, { behavior: "deny", message: `A question that stops your turn is not taken here: ${instead}.` });
+      return;
+    }
     if (can(role, "supervise")) {
       this.deps.log(project, `waiting on the Human: ${agent.id} ${request.title ?? request.name ?? request.kind}`);
       return;
     }
     const owner = await this.ownerOf(project, agent.id, role);
-    await this.deps.desk.post(owner, letters.permission(agent.id, `${role.label} ${agent.title ?? agent.id}`, request, this.addressOf(project, agent.id, role)));
-  }
-
-  private addressOf(project: Project, agentId: string, role: RoleSpec): string | undefined {
-    try {
-      const ledger = loadLedger(project.state);
-      return can(role, "lead") ? laneOfLead(ledger, agentId)?.id : taskOfPeer(ledger, agentId)?.id;
-    } catch {
-      return undefined;
-    }
+    await this.deps.desk.post(owner, letters.permission(agent.id, `${role.label} ${agent.title ?? agent.id}`, request));
   }
 
   async ended(event: TurnEnded): Promise<void> {

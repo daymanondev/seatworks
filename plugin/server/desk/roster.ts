@@ -1,5 +1,5 @@
 import { type Kit, can, seatOf } from "../catalog/kit.ts";
-import { answerWith, midTurn, questionsIn } from "../core/paseo.ts";
+import { midTurn } from "../core/paseo.ts";
 import type { SeatLook, SeatView, Seats, StreamRow } from "../core/ports.ts";
 import type { Intents } from "./intents.ts";
 import { type Project, projectOf } from "./project.ts";
@@ -41,24 +41,6 @@ export class Roster {
 
   history(agentId: string, limit: number): Promise<StreamRow[]> {
     return this.seats.history(agentId, limit);
-  }
-
-  /** A seat stopped on a question reads nothing until it is answered, so a message answers it. `waiting`: only the Human can. */
-  async answerQuestion(agentId: string, text: string): Promise<"answered" | "waiting" | undefined> {
-    let pending;
-    try {
-      pending = (await this.seats.look(agentId)).pendingPermissions ?? [];
-    } catch {
-      return undefined;
-    }
-    const question = pending.find((request) => request.kind === "question" && request.id && questionsIn(request).length > 0);
-    if (!question?.id) return pending.length > 0 ? "waiting" : undefined;
-    try {
-      await this.seats.respond(agentId, question.id, answerWith(question, text));
-      return "answered";
-    } catch {
-      return undefined;
-    }
   }
 
   async supervisorFor(project: Project, preferred?: string): Promise<string | undefined> {

@@ -38,13 +38,12 @@ const LONG_FILES: Record<string, number> = {
   "client/data.ts": 442,
   "mcp/code.mjs": 308,
   "server/catalog/seats.ts": 371,
-  "server/desk/letters.ts": 326,
   "server/desk/slots.ts": 378,
   "server/runtime/control.ts": 458,
   "server/runtime/runtime.ts": 399,
   "test/runtime/facts.test.ts": 418,
   "test/runtime/intake.test.ts": 559,
-  "test/runtime/workflow.test.ts": 1775,
+  "test/runtime/workflow.test.ts": 1758,
 };
 
 const LONG_FUNCTIONS: Record<string, number> = {
