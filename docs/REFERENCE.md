@@ -310,7 +310,8 @@ project keeps its ledger and logs, and is refused while a lane is open or a work
 ```
 
 `events.log` is the provenance record: one JSON line per tool call and per lane, task, merge, gate
-and slot event. The watch writes these kinds there:
+and slot event. Every kind and its fields are one type, `DeskEvent` in `desk/events.ts`; a kind only
+gains fields, and a field that changes meaning takes a new kind. The watch writes these kinds there:
 
 | Group | Kinds |
 |---|---|

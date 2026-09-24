@@ -2,8 +2,11 @@ import { Lifecycle } from "./lifecycle.ts";
 
 export type Held = "shadow" | "budget" | "nobody";
 
+/** How much a fact asks of whoever watches: a page now, attention soon, or only a note on the record. */
+export type Level = "page" | "attend" | "note";
+
 /** What a watch saw that the desk books as an incident. */
-export type Finding = { kind: string; level: "page" | "attend"; quote: string; facts: string[] };
+export type Finding = { kind: string; level: Exclude<Level, "note">; quote: string; facts: string[] };
 
 type Delivery = "unsent" | "held" | "told";
 

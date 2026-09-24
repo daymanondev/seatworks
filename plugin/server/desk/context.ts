@@ -3,6 +3,7 @@ import type { Team } from "../catalog/team.ts";
 import type { Kit, RoleSpec } from "../catalog/kit.ts";
 import { LANE, type LaneMove } from "../domain/lane.ts";
 import { TASK, type TaskMove, type TaskStatus } from "../domain/task.ts";
+import type { DeskEvent } from "./events.ts";
 import { type Ledger, type Task, ledgerFault, loadLedger, saveLedger } from "./ledger.ts";
 import type { Project } from "./project.ts";
 import { appendRecord } from "./records.ts";
@@ -99,7 +100,7 @@ export class DeskContext {
     return result;
   }
 
-  event(project: Project, data: Record<string, unknown>): void {
+  event(project: Project, data: DeskEvent): void {
     try {
       appendRecord(project.state, "events", `${JSON.stringify({ at: new Date().toISOString(), ...data })}\n`);
     } catch (error) {

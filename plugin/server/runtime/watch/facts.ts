@@ -2,9 +2,9 @@ import { isAbsolute, relative } from "node:path";
 import { weakened } from "../../catalog/kit.ts";
 import { globToRegex, normalize } from "../../core/scope.ts";
 import { mask } from "../../core/mask.ts";
+import type { Level } from "../../domain/incident.ts";
 import type { Call, Change, Unit, Window } from "./window.ts";
 
-type Level = "page" | "attend" | "note";
 
 /** Every fact the code raises and its level; one that can open an incident has the title a person reads it by. */
 export const FACTS = {

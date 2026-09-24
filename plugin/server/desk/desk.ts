@@ -10,6 +10,7 @@ import { argsProblems, shapeOf, withoutNulls } from "./args.ts";
 import { sortKeys } from "../core/store.ts";
 import { type Args, type Caller, type CodeIndex, DeskContext, type Mailer, type Posted, type Sync, type ToolReply, type ToolRequest, hash, no, ok } from "./context.ts";
 import { errorText } from "../core/errors.ts";
+import type { DeskEvent } from "./events.ts";
 import { type Ledger, type Task, loadLedger } from "./ledger.ts";
 import { clip } from "../core/text.ts";
 import { letters } from "./letters.ts";
@@ -78,7 +79,7 @@ export class Desk {
     return this.services.merges.settled(project);
   }
 
-  event(project: Project, data: Record<string, unknown>): void {
+  event(project: Project, data: DeskEvent): void {
     this.services.ctx.event(project, data);
   }
 
