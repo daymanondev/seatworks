@@ -38,7 +38,6 @@ const LONG_FILES: Record<string, number> = {
   "client/data.ts": 446,
   "mcp/code.mjs": 308,
   "server/catalog/seats.ts": 371,
-  "server/catalog/team.ts": 365,
   "server/desk/letters.ts": 341,
   "server/desk/slots.ts": 378,
   "server/runtime/control.ts": 459,

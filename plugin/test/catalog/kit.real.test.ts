@@ -11,7 +11,8 @@ import { desiredProvider, seatPairs } from "../../server/catalog/providers.ts";
 import { materialize, placeGuides, seatDir, seedRecords } from "../../server/catalog/seats.ts";
 import { git } from "../../server/core/git.ts";
 import { guidesDir, stateRoot } from "../../server/core/paths.ts";
-import { resolveTeam, serversFor, withHarness } from "../../server/catalog/team.ts";
+import { serversFor } from "../../server/catalog/servers.ts";
+import { resolveTeam, withHarness } from "../../server/catalog/team.ts";
 import { readConfig } from "../../server/core/config-file.ts";
 import { realProbes } from "../../server/runtime/doctor.ts";
 import { tempDir } from "../tempdir.ts";
@@ -312,4 +313,14 @@ test("a pasted server that names no roles is given to every role that works with
   const team = resolveTeam(kit, { mcp: { pasted: { enabled: true, label: "Pasted", connect: { type: "http", url: "https://mcp.example.com" } } } });
   assert.deepEqual(team.errors, []);
   assert.deepEqual(Object.entries(team.roles).filter(([, seat]) => seat.mcp.includes("pasted")).map(([name]) => name).sort(), ["lead", "peer", "reviewer", "supervisor"]);
+});
+
+test("the desk names each seat's fixed choices from the kit: who writes and with which skills, who reviews, who leads, where its pages go", () => {
+  const kit = loadKit(pluginRoot);
+  const team = resolveTeam(kit);
+  const choices = (role: string) => JSON.parse((serversFor(kit, team, role, { node: "/bin/node", spool: "/spool" }).team as { args: string[] }).args[4]!);
+  const skills = readdirSync(join(pluginRoot, "content", "skills", "peer")).sort();
+  assert.deepEqual(choices("lead"), { add_tasks: { role: ["peer"], skills }, start_review: { role: ["reviewer"] }, note: { kind: ["plans", "council", "ultra-review", "repo-refresh"] } });
+  assert.deepEqual(choices("supervisor"), { open_lane: { role: ["lead"] } });
+  assert.deepEqual(choices("peer"), {}, "a seat is named choices only for tools it has");
 });

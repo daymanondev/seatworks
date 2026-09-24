@@ -163,7 +163,7 @@ type ControlDeps = {
   kit: Kit;
   source: TeamSource;
   seating: Seating;
-  reconcile: (team: Team) => void;
+  reconcile: () => void;
   models: () => Promise<Record<string, { at: string; error: string | null; models: unknown[] }>>;
   seats: Seats;
   held: () => { to: string; text: string; at: number }[];
@@ -206,7 +206,7 @@ export class SettingsControl implements Control {
     const result = writeLayer(target.file, revision, values, check);
     if (result.status === "saved") {
       seating.forget();
-      if (!target.project) reconcile(source.teamFor());
+      if (!target.project) reconcile();
     }
     return result;
   }
@@ -428,7 +428,7 @@ export class SettingsControl implements Control {
     const content = await contentChanges(kit, stateRoot());
     if (!apply) return { ...migrationPlan(ctx), content };
     const done = migrate(ctx);
-    this.deps.reconcile(source.teamFor());
+    this.deps.reconcile();
     return { ...done, content };
   }
 

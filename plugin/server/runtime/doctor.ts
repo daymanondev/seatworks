@@ -3,7 +3,8 @@ import { existsSync } from "node:fs";
 import { postJsonRpc } from "../core/jsonrpc.ts";
 import { expandHome } from "../core/paths.ts";
 import { type Kit, hookTools } from "../catalog/kit.ts";
-import { type Team, connectToServer, proxyOf } from "../catalog/team.ts";
+import { connectToServer, proxyOf } from "../catalog/servers.ts";
+import type { Team } from "../catalog/team.ts";
 import { errorText } from "../core/errors.ts";
 import type { Check } from "../../shared/views.ts";
 

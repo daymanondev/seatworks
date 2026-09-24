@@ -1,7 +1,8 @@
 import { join } from "node:path";
 import type { AgentConfig, SessionOpen } from "../core/ports.ts";
 import { type Kit, type McpServers, type RoleSpec, agentDefault, seatOf } from "./kit.ts";
-import { type Team, preapprovedFor } from "./team.ts";
+import { preapprovedFor } from "./servers.ts";
+import type { Team } from "./team.ts";
 
 type RenderPrompt = (role: RoleSpec) => string;
 

@@ -269,7 +269,7 @@ export function paseoToolsPolicy(kit: Kit, role: RoleSpec): { enabled?: boolean;
 export const TEAM_SERVER = "team";
 export const PASEO_SERVER = "paseo";
 
-export function teamServer(kit: Kit, role: RoleSpec, spool: string, node: string): McpServers {
+export function teamServer(kit: Kit, role: RoleSpec, spool: string, node: string, choices: Record<string, Record<string, string[]>>): McpServers {
   if (!role.tools) return {};
-  return { [TEAM_SERVER]: { type: "stdio", command: node, args: [join(kit.dir, "mcp", "team.mjs"), role.role, role.tools, spool] } };
+  return { [TEAM_SERVER]: { type: "stdio", command: node, args: [join(kit.dir, "mcp", "team.mjs"), role.role, role.tools, spool, JSON.stringify(choices)] } };
 }

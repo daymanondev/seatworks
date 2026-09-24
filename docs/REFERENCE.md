@@ -12,7 +12,9 @@ are under `plugin/` unless they start with `~`.
 
 A call runs only when three things hold: the seat's provider maps to a role whose tool set (in
 `mcp/tools.json`) holds the verb, the seat's bridge names that same role, and the arguments fit the
-schema. A call that doesn't fit is refused, with what is wrong.
+schema. A call that doesn't fit is refused, with what is wrong. Where a field takes one of a set the kit
+fixes (the roles that write and their skills, the roles that review or lead, the folders a role keeps
+pages in), the seat's bridge shows that set as the field's choices.
 
 <!-- drawn from the code: verbs -->
 | Role | Tools |

@@ -8,7 +8,8 @@ import { applyModels } from "../../server/catalog/models.ts";
 import { materialize, seatDir, sweepSnapshots } from "../../server/catalog/seats.ts";
 import { contentRoot } from "../../server/core/paths.ts";
 import { seatPairs } from "../../server/catalog/providers.ts";
-import { resolveTeam, serversFor, withHarness } from "../../server/catalog/team.ts";
+import { serversFor } from "../../server/catalog/servers.ts";
+import { resolveTeam, withHarness } from "../../server/catalog/team.ts";
 import { reported } from "../console.ts";
 import { makeKit } from "../kit.ts";
 import { tempDir } from "../tempdir.ts";
@@ -165,7 +166,7 @@ test("a harness with TOML config files gets its layered settings and its MCP ser
   const mcp = parse(readFileSync(join(dir, "mcp.toml"), "utf-8")) as Record<string, any>;
   // The seat is told which role it is and which tool set it holds, so two roles can share one set.
   assert.equal(mcp.mcp_servers.team.command, "/bin/node");
-  assert.deepEqual(mcp.mcp_servers.team.args, [join(kit.dir, "mcp", "team.mjs"), "peer", "peer", "/spool"]);
+  assert.deepEqual(mcp.mcp_servers.team.args, [join(kit.dir, "mcp", "team.mjs"), "peer", "peer", "/spool", "{}"]);
   assert.equal(mcp.mcp_servers.docs.url, "https://docs.example/mcp");
   assert.deepEqual(materialize(kit, team, "peer", home, project, servers), []);
 });

@@ -8,7 +8,7 @@ import { applyReconcile, reloadDaemon } from "../catalog/providers.ts";
 import { placeProjectFiles } from "../catalog/project-files.ts";
 import { placeGuides, seatDir, seedRecords, sweepSnapshots } from "../catalog/seats.ts";
 import { stampKit } from "../upkeep/migrate.ts";
-import { type IndexedProxy, type Team, indexedProxies } from "../catalog/team.ts";
+import { type IndexedProxy, indexedProxies } from "../catalog/servers.ts";
 import { guidesDir, home, nodeBin, outboxPath, spoolDir, stateRoot } from "../core/paths.ts";
 import type { AgentConfig, HookAgent, Host, HostHooks, PermissionRequested, Seats, SessionOpen, TurnEnded, Workspaces } from "../core/ports.ts";
 import type { CodeIndex } from "../desk/context.ts";
@@ -103,7 +103,7 @@ export class Runtime implements HostHooks {
       kit,
       source: this.source,
       seating: this.seating,
-      reconcile: (team) => this.reconcileProviders(team),
+      reconcile: () => this.reconcileProviders(),
       models: () => this.refreshModels(),
       seats: this.seats,
       held: () => this.outbox.letters(),
@@ -191,9 +191,8 @@ export class Runtime implements HostHooks {
     } catch (error) {
       console.error("seatworks-v2: could not prepare the state directory:", error);
     }
-    const team = this.source.teamFor();
-    for (const problem of team.errors) console.error(`seatworks-v2: settings: ${problem}`);
-    this.reconcileProviders(team);
+    for (const problem of this.source.teamFor().errors) console.error(`seatworks-v2: settings: ${problem}`);
+    this.reconcileProviders();
   }
 
   /** A panel call is the first sign someone looks at the models, so the first one of a load asks the agents for them. */
@@ -333,14 +332,14 @@ export class Runtime implements HostHooks {
     applyModels(this.kit, cache);
     if (changed) {
       this.seating.forget();
-      this.reconcileProviders(this.source.teamFor());
+      this.reconcileProviders();
     }
     return cache;
   }
 
-  private reconcileProviders(team: Team): void {
+  private reconcileProviders(): void {
     try {
-      const changed = applyReconcile(this.kit, team);
+      const changed = applyReconcile(this.kit, this.source.teamFor());
       if (changed.length === 0) return;
       console.log(`seatworks-v2: config updated (${changed.join(", ")}); reloading the daemon`);
       void this.reload();
