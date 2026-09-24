@@ -1,4 +1,4 @@
-import { roleThatCan } from "../catalog/kit.ts";
+import { namedOrNot, roleThatCan } from "../catalog/kit.ts";
 import { trackedFiles } from "../core/git.ts";
 import type { SeatView } from "../core/paseo.ts";
 import { errorText } from "../core/errors.ts";
@@ -8,7 +8,6 @@ import { type Lane, type Ledger, type Task, type TaskStatus, activeTasks, loadLe
 import { letters, outside } from "./letters.ts";
 import { type Project, conceptFile, loadConfig } from "./project.ts";
 import type { DeskServices } from "./services.ts";
-import { namedOrNot } from "./tools/shared.ts";
 
 /** Why a lane cannot open, and what open_lane would do instead: the reason is shared, the advice is not. */
 export type Refusal = { why: string; instead: string };

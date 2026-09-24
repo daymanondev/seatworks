@@ -1,4 +1,5 @@
-import { type Attention, seatOf } from "../catalog/kit.ts";
+import type { Attention } from "../catalog/attention.ts";
+import { seatOf } from "../catalog/kit.ts";
 import type { Finding } from "../runtime/watch/findings.ts";
 import { type Held, type Incident, type Incidents, closeSeat, forget, settledAsNoise, sight, spentToday } from "./incidents.ts";
 import { type Lane, type Task, laneOfLead, loadLedger, taskOfPeer } from "./ledger.ts";

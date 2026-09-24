@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { hiddenWordsIn } from "../../server/catalog/content.ts";
+import { hiddenWordsIn } from "../../server/catalog/hidden-words.ts";
 import { loadKit } from "../../server/catalog/kit.ts";
 import { loadCases, openedSkills, rightRun, skillCards, triggerPrompt } from "./triggers.ts";
 

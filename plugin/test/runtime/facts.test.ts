@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 import { loadKit } from "../../server/catalog/kit.ts";
 import type { Seen } from "../../server/core/ports.ts";
 import type { StreamMessage } from "../../server/core/stream.ts";
-import { DESTRUCTIVE, FACTS, type Fact, type Rules, SUPPRESSED, TEST_PATH, callsTo, factTitle, onDetail, stuck } from "../../server/runtime/watch/facts.ts";
+import { ATTENTION } from "../../server/catalog/attention.ts";
+import { FACTS, type Fact, type Rules, callsTo, factTitle, onDetail, stuck } from "../../server/runtime/watch/facts.ts";
 import { TEAM_SERVER } from "../../server/catalog/kit.ts";
 import { SeatWatch } from "../../server/runtime/watch/watches.ts";
 
@@ -20,9 +21,9 @@ const fixture = (name: string): StreamMessage[] =>
     .map((line) => JSON.parse(line));
 
 const rules = (extra: Partial<Rules> = {}): Rules => ({
-  destructive: new RegExp(DESTRUCTIVE, "i"),
-  testPath: new RegExp(TEST_PATH, "i"),
-  suppressed: new RegExp(SUPPRESSED, "i"),
+  destructive: new RegExp(ATTENTION.destructive, "i"),
+  testPath: new RegExp(ATTENTION.testPath, "i"),
+  suppressed: new RegExp(ATTENTION.suppressed, "i"),
   gates: [],
   repeatsAt: 3,
   recoverWithin: 10,
@@ -285,7 +286,7 @@ test("a commit message written to the temp directory is not a write the gate has
 });
 
 test("irreversible commands are caught where a command starts, in any flag order, and not in quoted text", () => {
-  const destructive = new RegExp(DESTRUCTIVE, "i");
+  const destructive = new RegExp(ATTENTION.destructive, "i");
   for (const command of ["rm -r -f build", "sudo rm -rf /", "cd x && rm -fr dist", "find . -exec rm -f {} \;", "bash -c \"rm -rf tmp\"", "git -C repo push --force", "git branch -df feat", "git branch -d -f feat", "git branch --delete --force x"]) {
     assert.equal(destructive.test(command), true, command);
   }

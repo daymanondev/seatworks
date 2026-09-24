@@ -7,7 +7,7 @@ import { issueArgs } from "../../server/desk/issue.ts";
 import { type Lane, type Task, emptyLedger, nextAskId, nextLaneId, nextTaskId, slugify } from "../../server/desk/ledger.ts";
 import { letters } from "../../server/desk/letters.ts";
 import { takeRequests, writeReply } from "../../server/runtime/spool.ts";
-import { hiddenWordsIn } from "../../server/catalog/content.ts";
+import { hiddenWordsIn } from "../../server/catalog/hidden-words.ts";
 import { loadKit } from "../../server/catalog/kit.ts";
 import { tempDir } from "../tempdir.ts";
 

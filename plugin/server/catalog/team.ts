@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { Attention } from "./attention.ts";
 import {
-  type Attention,
   type HarnessSpec,
   type Kit,
   type McpEntry,

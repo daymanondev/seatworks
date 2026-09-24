@@ -1,12 +1,9 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, isAbsolute, join } from "node:path";
+import { hiddenWordsIn } from "./hidden-words.ts";
 import { type Kit, type RoleSpec, ownOr } from "./kit.ts";
 
 export type PromptPaths = { guides: string; state: string };
-
-export function hiddenWordsIn(text: string, words: string[]): string[] {
-  return words.filter((word) => new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(text));
-}
 
 export function renderText(role: RoleSpec, source: string, paths: PromptPaths): string {
   const text = source.replaceAll("{{guides}}", paths.guides).replaceAll("{{state}}", paths.state);

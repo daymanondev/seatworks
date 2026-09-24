@@ -3,7 +3,7 @@ import { type Caller, no, ok, str } from "../context.ts";
 import { type Incident, incidentsFault, loadIncidents } from "../incidents.ts";
 import { laneOfLead, loadLedger } from "../ledger.ts";
 import { clip } from "../letters.ts";
-import { mask } from "../../runtime/watch/mask.ts";
+import { mask } from "../../core/mask.ts";
 import type { Tool } from "../services.ts";
 
 const at = (ms: number) => new Date(ms).toISOString().slice(0, 16).replace("T", " ");

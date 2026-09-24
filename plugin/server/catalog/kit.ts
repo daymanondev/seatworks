@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { z } from "zod";
-import { DESTRUCTIVE, SUPPRESSED, TEST_PATH } from "../runtime/watch/facts.ts";
-import { hiddenWordsIn } from "./content.ts";
+import { ATTENTION, type Attention } from "./attention.ts";
+import { hiddenWordsIn } from "./hidden-words.ts";
 import { AttentionChoice } from "./settings.ts";
 import { isAbsolute, join } from "node:path";
 import { errorText } from "../core/errors.ts";
@@ -188,22 +188,6 @@ export type McpEntry = {
   requires?: string[];
 };
 
-export type Attention = {
-  tickSeconds: number;
-  leadIdleMinutes: number;
-  askRemindMinutes: number;
-  maxReminders: number;
-  watch: boolean;
-  destructive: string;
-  testPath: string;
-  repeatsAt: number;
-  reworksAt: number;
-  reviewsAt: number;
-  suppressed: string;
-  longTurnMinutes: number;
-  incidentsPerDay: number;
-};
-
 export type Kit = {
   dir: string;
   prefix: string;
@@ -214,19 +198,6 @@ export type Kit = {
   team?: string;
   own?: string;
   attention: Attention;
-};
-
-const ATTENTION: Attention = {
-  tickSeconds: 30, leadIdleMinutes: 12, askRemindMinutes: 15, maxReminders: 2,
-  watch: false,
-  destructive: DESTRUCTIVE,
-  testPath: TEST_PATH,
-  repeatsAt: 3,
-  reworksAt: 3,
-  reviewsAt: 3,
-  suppressed: SUPPRESSED,
-  longTurnMinutes: 30,
-  incidentsPerDay: 5,
 };
 
 function subdirs(root: string): string[] {
@@ -414,6 +385,13 @@ export function rolesThatCan(kit: Kit, capability: string): RoleSpec[] {
 export function roleThatCan(kit: Kit, capability: string, named?: string): RoleSpec | undefined {
   const holders = rolesThatCan(kit, capability);
   return named ? holders.find((role) => role.role === named) : holders[0];
+}
+
+/** Names the roles that do hold the capability, since the kit is data and only the desk has read it. */
+export function namedOrNot(kit: Kit, capability: string, named: string, doing: string): string {
+  const holders = rolesThatCan(kit, capability).map((role) => role.role);
+  if (holders.length === 0) return `No role in this kit can ${doing}.`;
+  return `This kit has no ${named} that can ${doing}. These can: ${holders.sort().join(", ")}.`;
 }
 
 export function toolsOf(kit: Kit, role: RoleSpec | undefined): string[] {

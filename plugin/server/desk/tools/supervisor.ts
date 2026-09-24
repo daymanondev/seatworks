@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { roleThatCan } from "../../catalog/kit.ts";
+import { namedOrNot, roleThatCan } from "../../catalog/kit.ts";
 import { configFault } from "../../core/config-file.ts";
 import { errorText } from "../../core/errors.ts";
 import { LAND_AS, branchExists, currentBranch, headSha, isAncestor, landLane, landedRef, mergeBranch } from "../../core/git.ts";
@@ -14,7 +14,6 @@ import type { Roster } from "../roster.ts";
 import type { DeskServices, Tool } from "../services.ts";
 import { directiveFor, leadSeatOf, overlap, openedReply, placement, seatingKey, startLead } from "../opening.ts";
 import { openWaiting, waitsFor } from "../waiting.ts";
-import { namedOrNot } from "./shared.ts";
 import { keepRun } from "../checkpoints.ts";
 import { seatCritic } from "../critique.ts";
 import { GATE_FAILED, NOT_READY, landCheck } from "../landing.ts";

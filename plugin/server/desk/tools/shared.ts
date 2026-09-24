@@ -1,4 +1,4 @@
-import { type Kit, can, roleNamed, rolesThatCan } from "../../catalog/kit.ts";
+import { can, roleNamed } from "../../catalog/kit.ts";
 import { uncommittedWork } from "../../catalog/project-files.ts";
 import { currentBranch, headSha } from "../../core/git.ts";
 import { hash, no, ok, str } from "../context.ts";
@@ -7,13 +7,6 @@ import { letters } from "../letters.ts";
 import { loadConfig } from "../project.ts";
 import type { Tool } from "../services.ts";
 import { type OwnCopy, statusText } from "../status.ts";
-
-/** Names the roles that do hold the capability, since the kit is data and only the desk has read it. */
-export function namedOrNot(kit: Kit, capability: string, named: string, doing: string): string {
-  const holders = rolesThatCan(kit, capability).map((role) => role.role);
-  if (holders.length === 0) return `No role in this kit can ${doing}.`;
-  return `This kit has no ${named} that can ${doing}. These can: ${holders.sort().join(", ")}.`;
-}
 
 export const message: Tool = async ({ ctx, roster }, caller, args) => {
   const to = str(args.to);

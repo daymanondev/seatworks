@@ -1,17 +1,7 @@
 import { isAbsolute, relative } from "node:path";
 import { globToRegex, normalize } from "../../core/scope.ts";
-import { mask } from "./mask.ts";
+import { mask } from "../../core/mask.ts";
 import type { Call, Change, Unit, Window } from "./window.ts";
-
-const COMMAND_START = "(?:^|[;&|(`{\\n]|\\$\\(|\\b(?:sudo|xargs|exec|env|nohup|time|command|then|do|else)\\s+|-exec(?:dir)?\\s+|\\b(?:ba|z)?sh\\s+-l?c\\s+)\\s*['\"]?";
-
-export const DESTRUCTIVE =
-  `${COMMAND_START}(?:rm\\s+(?:-\\S+\\s+)*(?:-[a-z]*[rf][a-z]*|--(?:recursive|force)\\b)|git\\s+(?:-C\\s+\\S+\\s+)?(?:reset\\s+--hard|clean\\s+-[a-z]*f|push\\s+[^|;&]*(?:--force|-f)\\b|branch\\s+(?:-\\S+\\s+)*(?-i:-D)\\b|branch\\b(?=[^|;&]*\\s(?:-[a-z]*d|--delete))[^|;&]*\\s(?:-[a-z]*f|--force)\\b))` +
-  "|--force-with-lease|\\bdrop\\s+(?:table|database)\\b|\\btruncate\\s+table\\b";
-
-export const TEST_PATH = "(^|/)(tests?|specs?|__tests__)/|[._-](test|spec)\\.[a-z]+$|(^|/)test_[^/]*\\.[a-z]+$";
-
-export const SUPPRESSED = "@ts-ignore|@ts-expect-error|@ts-nocheck|eslint-disable|#\\s*type:\\s*ignore|#\\s*noqa|\\bas\\s+any\\b(?![ \\t]+(?!as\\b)[a-z])";
 
 const ASSERTION = "\\b(assert|expect)\\b|\\.should\\b";
 const SKIPPED = "\\.(skip|only|todo)\\b|\\bx(it|describe|test)\\b|@Disabled\\b|pytest\\.mark\\.skip\\b";

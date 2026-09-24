@@ -1,4 +1,4 @@
-import { type RoleSpec, roleThatCan } from "../../catalog/kit.ts";
+import { type RoleSpec, namedOrNot, roleThatCan } from "../../catalog/kit.ts";
 import { skillSources } from "../../catalog/content.ts";
 import { skillDirsFor } from "../../catalog/team.ts";
 import { branchExists, currentBranch, diffCounts, git, headSha, outsideOwned, resetHard, trackedFiles } from "../../core/git.ts";
@@ -27,7 +27,6 @@ import { planFindings, readPlan } from "../plan.ts";
 import { type Project, loadConfig } from "../project.ts";
 import type { DeskServices, Tool } from "../services.ts";
 import { startWaiting, taskWaitsFor } from "../waiting.ts";
-import { namedOrNot } from "./shared.ts";
 
 /** What is in the way, named: a stray message file reads as unfinished work otherwise. */
 async function uncommittedIn(cwd: string): Promise<string> {
