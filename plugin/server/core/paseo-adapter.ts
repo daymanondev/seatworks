@@ -8,9 +8,9 @@ const DESK_MARK = "sw2-";
 
 const deskId = (kinds: string[]) => `${DESK_MARK}${kinds.join(".")}-${randomUUID()}`;
 
-/** Who a user message came from, by its id: the kinds of desk letter it carries, or a person. A prompt a person started a seat with has only a random messageId. */
+/** Who a user message came from, by the id the desk gives every letter and every prompt it starts a seat with: the kinds of letter it carries, or a person. */
 export function sentBy(item: Record<string, unknown>): string[] {
-  const id = item.clientMessageId ?? item.messageId;
+  const id = item.clientMessageId;
   return typeof id === "string" && id.startsWith(DESK_MARK) ? id.slice(DESK_MARK.length).split("-")[0]!.split(".") : ["person"];
 }
 

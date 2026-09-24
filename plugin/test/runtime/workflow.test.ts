@@ -2254,6 +2254,33 @@ test("each assessment is kept with the state, questions, facts and answers it wa
   h.runtime.dispose();
 });
 
+test("a turn is asked what applies to who sent its instruction, and kept with that turn", async (t) => {
+  const { h, peer, timeline } = await laneWithPeer("outbox-turn.json");
+  writeFileSync(join(HOME, ".local", "share", "seatworks-v2", "settings.json"), JSON.stringify({ sensor: { key: "sk-or-turn-test" }, attention: { by: "jev" } }));
+  const asked: string[][] = [];
+  t.mock.method(globalThis, "fetch", async (_url: string, init: { body: string }) => {
+    const body = JSON.parse(init.body) as { questions: Record<string, unknown> };
+    asked.push(Object.keys(body.questions));
+    return new Response(JSON.stringify({ answers: Object.fromEntries(Object.keys(body.questions).map((name) => [name, { type: "noul", noul: 0.1 }])), model: "m", id: "g", usage: { cost: 0 } }), { status: 200 });
+  });
+  const turn = async (id: string, message: Record<string, unknown>) => {
+    timeline.beat("turn_started", id);
+    timeline.add({ type: "user_message", text: "Carry on", ...message }, id);
+    timeline.add({ type: "tool_call", callId: `${id}-c`, name: "Edit", status: "completed", detail: { type: "edit", filePath: "a.txt", oldString: "x", newString: "y" } }, id);
+    timeline.beat("turn_completed", id);
+    await settle();
+    await new Promise((resolve) => setTimeout(resolve, 60));
+  };
+  await turn("t1", { clientMessageId: "sw2-amended-1", messageId: "sw2-amended-1" });
+  assert.ok(!asked.flat().includes("agreed_without_checking"), "the desk granting what the seat asked for doubts nothing");
+  await turn("t2", { clientMessageId: "c-2", messageId: "c-2" });
+  assert.ok(asked.flat().includes("agreed_without_checking"), "a person's word may");
+  const kept = readAssessments(h.project.state).kept.filter((record) => record.seat === peer);
+  assert.deepEqual(kept.map((record) => record.turn?.from), [["amended"], ["person"]]);
+  assert.deepEqual(kept[0]!.turn?.can, ["work", "write", "watched"]);
+  h.runtime.dispose();
+});
+
 test("the flow screen can say what the watch is doing: which seats, how many readings, what they cost", async (t) => {
   const { h, peer, timeline } = await laneWithPeer("outbox-watchview.json");
   t.mock.method(globalThis, "fetch", async (_url: string, init: { body: string }) => {

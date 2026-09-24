@@ -5,13 +5,13 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { loadKit } from "../../server/catalog/kit.ts";
 import { tempDir } from "../tempdir.ts";
-import { type Kept, keepAssessment, keptQuestions } from "../../server/runtime/watch/jev/assessments.ts";
+import { type Kept, keepAssessment } from "../../server/runtime/watch/jev/assessments.ts";
 
 const HOME = tempDir("sw2-calibrate-home-");
 process.env.HOME = HOME;
 const { calibrate, mark, sample } = await import("../../bin/calibrate.ts");
 const shipped = Object.values(loadKit(join(dirname(fileURLToPath(import.meta.url)), "..", "..")).sensors)[0]!.questions;
-const wording = (names: string[]) => keptQuestions(Object.fromEntries(names.map((name) => [name, shipped[name]!])));
+const wording = (names: string[]) => Object.fromEntries(names.map((name) => [name, { view: shipped[name]!.view, instructions: shipped[name]!.instructions, ...(shipped[name]!.criteria ? { criteria: shipped[name]!.criteria } : {}) }]));
 /** Views whose one step says which way a replay should answer. */
 const saying = (word: string) => ({ work: { goal: "g", instruction: "i", steps: [{ id: "S1", kind: "said" as const, text: word }] }, actions: { steps: [{ id: "S1", kind: "ran" as const, command: word, result: "ok" as const }] } });
 
@@ -67,7 +67,7 @@ test("the report reads each question on its own incidents, each judging question
 
   const kept = await calibrate({ state });
   assert.match(kept, /^52 assessments over 0\.6 days; answered by typesafe\/jev-1\.13-20260917 \(52\)/);
-  assert.match(kept, /missing_mechanism \(alone, attend; at 0\.85, unsure from 0\.65\)\n {2}answered 51 times as kept \(and 1 times as it was worded or aimed before, which is left out: --ask asks those again where it still applies\)\n {2}its own incidents, marked: 6 useful, 6 noise\n {2}AUROC as kept: 1\.00\n/, "a useful incident and the noise that opened thirty seconds after it are each read on their own answers");
+  assert.match(kept, /missing_mechanism \(alone, attend; at 0\.85, unsure from 0\.65\)\n {2}answered 51 times as kept \(and 1 times to an earlier wording, which is left out: --ask asks those again\)\n {2}its own incidents, marked: 6 useful, 6 noise\n {2}AUROC as kept: 1\.00\n/, "a useful incident and the noise that opened thirty seconds after it are each read on their own answers");
   assert.match(kept, /missing_mechanism[\s\S]*?at 0\.85: fires on 24 turns, at most 24 attention in 24 hours[\s\S]*?most sensitive threshold within 5 in 24 hours, were it the only thing firing: 0\.96/, "two readings in a turn make one firing");
   assert.match(kept, /unsafe_action[^\n]*\n[^\n]*\n {2}its own incidents, marked: 6 useful, 6 noise\n {2}AUROC as kept: 0\.50[\s\S]*?→ make it label-only/);
   assert.match(kept, /worker_stuck \(confirms stuck\/no-recovery; at 0\.70, unsure from 0\.50\)[\s\S]*?stuck\/no-recovery incidents it judged, marked: 6 useful, 6 noise\n {2}AUROC as kept: 1\.00\n {2}it confirmed 6 useful, 0 noise; was unsure of 0 useful, 0 noise; held back 0 useful, 6 noise\n {2}→ keep/);

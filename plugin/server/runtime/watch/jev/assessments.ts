@@ -2,10 +2,9 @@ import { closeSync, existsSync, openSync, readdirSync, readFileSync, readSync, s
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { appendRolling, rolledStamps } from "../../../core/rolling.ts";
-import type { Question } from "../../../catalog/kit.ts";
 import type { Turn, View, ViewName } from "./views.ts";
 
-/** One reading as it was kept; one kept before its `turn` was has none, and its questions no `for` or `after`. */
+/** One reading as it was kept; one kept before its `turn` was has none. */
 export type Kept = {
   at: number;
   askedAt: number;
@@ -17,7 +16,7 @@ export type Kept = {
   model: string;
   id: string | null;
   cost: number | null;
-  questions: Record<string, { view: ViewName; instructions: string; criteria?: { true: string; false: string }; for?: string; after?: string[] }>;
+  questions: Record<string, { view: ViewName; instructions: string; criteria?: { true: string; false: string } }>;
   answers: Record<string, number>;
   facts: { kind: string; level: string; quote: string }[];
   found: string[];
@@ -25,16 +24,6 @@ export type Kept = {
   views: Partial<Record<ViewName, View>>;
   turn?: Turn;
 };
-
-/** A question as a reading keeps it: enough to tell a later wording or aim from the one this answer was given to. */
-export function keptQuestions(questions: Record<string, Question>): Kept["questions"] {
-  return Object.fromEntries(
-    Object.entries(questions).map(([name, question]) => [
-      name,
-      { view: question.view, instructions: question.instructions, ...(question.criteria ? { criteria: question.criteria } : {}), ...(question.for ? { for: question.for } : {}), ...(question.after ? { after: question.after } : {}) },
-    ]),
-  );
-}
 
 export const ROTATE_BYTES = 32 * 1024 * 1024;
 export const KEEP_BYTES = 96 * 1024 * 1024;

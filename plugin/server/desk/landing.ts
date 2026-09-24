@@ -42,6 +42,7 @@ export async function landCheck(project: Project, ledger: Ledger, lane: Lane, ga
   // What the sensor answered is its reading of a turn, not a record: shown beside the lane, it holds nothing.
   const open = Object.values(loadIncidents(project.state).items).filter((incident) => incident.open && incident.lane === lane.id);
   const read = open.filter((incident) => incident.p !== undefined);
+  const recorded = open.filter((incident) => incident.p === undefined);
   const signals = [
     ...(lane.ready ? [] : [NOT_READY]),
     ...(!gate.set ? ["This project has no gate, so nothing ran the lane's checks."] : gate.ok ? [] : [GATE_FAILED]),
@@ -51,7 +52,7 @@ export async function landCheck(project: Project, ledger: Ledger, lane: Lane, ga
     ...(lines > checks.landLines ? [`${lines} lines changed, over the ${checks.landLines} this project reviews in one sitting.`] : []),
     ...(lane.writeSet.length > 0 ? outsideOwned(files, lane.writeSet).map((path) => `${path} is outside the lane's write set, ${lane.writeSet.join(", ")}.`) : []),
     ...tasks.filter((task) => task.status === "merged" && task.handback?.gate?.ok === false).map((task) => `${task.id} was accepted over its red gate: ${task.handback!.gate!.note}.`),
-    ...open.filter((incident) => !read.includes(incident)).map((incident) => `Incident ${incident.id} on this lane is still open: ${incident.kind}.`),
+    ...recorded.map((incident) => `Incident ${incident.id} on this lane is still open: ${incident.kind}.`),
   ];
   const commits = await commitsAhead(root, lane.base, lane.branch);
   const evidence = [

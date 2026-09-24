@@ -54,8 +54,7 @@ export class Window {
   readonly units: Unit[] = [];
   private readonly calls = new Map<string, Call>();
   private readonly limit: number;
-  private instruction = "";
-  private from: string[] = [];
+  private instruction: { text: string; from: string[] } = { text: "", from: [] };
   private instructionAt = -1;
   private pushed = 0;
 
@@ -68,9 +67,8 @@ export class Window {
     const type = text(item.type);
     if (type === "tool_call") return this.called(row);
     if (type === "user_message") {
-      this.instruction = text(item.text);
-      this.from = sentBy(item);
-      this.push({ kind: "user", text: this.instruction });
+      this.instruction = { text: text(item.text), from: sentBy(item) };
+      this.push({ kind: "user", text: this.instruction.text });
       this.instructionAt = this.pushed - 1;
     }
     else if (type === "assistant_message") this.join("said", text(item.text), text(item.messageId) || undefined);
@@ -91,8 +89,7 @@ export class Window {
   clear(): void {
     this.units.length = 0;
     this.calls.clear();
-    this.instruction = "";
-    this.from = [];
+    this.instruction = { text: "", from: [] };
     this.instructionAt = -1;
     this.pushed = 0;
   }
@@ -102,7 +99,7 @@ export class Window {
   }
 
   lastInstruction(): { text: string; from: string[] } {
-    return { text: this.instruction, from: this.from };
+    return this.instruction;
   }
 
   lostSinceInstruction(): number {

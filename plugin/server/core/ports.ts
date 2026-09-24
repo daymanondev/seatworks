@@ -32,7 +32,6 @@ export type Stream = { readonly ready: Promise<void>; stop(): void };
 export type Seats = {
   open(): Promise<SeatView[]>;
   look(id: string): Promise<SeatLook>;
-  /** `kinds` name the desk letters in `text`, so a reader of the seat's timeline can tell them from a person's words. */
   send(id: string, text: string, steer: boolean, kinds: string[]): Promise<void>;
   /** What a person said to the seat, oldest first: the messages the desk did not send, and their answers when it asked. */
   typed(id: string): Promise<string[]>;

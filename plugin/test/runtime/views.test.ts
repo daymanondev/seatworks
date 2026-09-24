@@ -152,8 +152,7 @@ test("a turn's instruction is told apart by who sent it: a person, or the kinds 
     return trailOf(window, false, {}).from;
   };
   assert.deepEqual(from({ clientMessageId: "sw2-rework.amended-6f1c2a", messageId: "sw2-rework.amended-6f1c2a" }), ["rework", "amended"]);
-  assert.deepEqual(from({ clientMessageId: null, messageId: "sw2-brief-6f1c2a" }), ["brief"], "a seat's first prompt has only a messageId");
-  assert.deepEqual(from({ clientMessageId: null, messageId: "0b9e5d4a" }), ["person"], "nor has one a person starts a seat with");
+  assert.deepEqual(from({ clientMessageId: null, messageId: "0b9e5d4a" }), ["person"], "a prompt a person starts a seat with has only a random messageId");
   assert.deepEqual(from({ clientMessageId: "c-17" }), ["person"]);
 });
 
