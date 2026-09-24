@@ -92,7 +92,7 @@ and reloads the plugin. It waits until no seat runs in any project, because ever
 the new version at once. Below the version, one row for each thing that needs you:
 
 - A changed **prompt**, **skill** or **team block**: **Use new**, or **Keep mine** to go on with the
-  version you had. Yours is copied to `~/.local/share/seatworks-v2/own/` for you to edit by hand, and
+  version you had. Yours is copied to `~/.local/share/seatworks-v3/own/` for you to edit by hand, and
   you are still told when the original changes.
 - Changed **guides** and **records**: named only, for you to read in git.
 - Settings this version cannot read, a stale `AGENTS.md` block, seats still on an older version.
@@ -118,7 +118,7 @@ its own working copy sees only what is committed.
 
 The panel has four tabs: **Team** (agents and the watch), **Flow** (lanes, tasks and questions,
 live), **MCP** (optional servers per role) and **Health**. Everything the desk keeps lives under
-`~/.local/share/seatworks-v2/`.
+`~/.local/share/seatworks-v3/`.
 
 ## The watch
 

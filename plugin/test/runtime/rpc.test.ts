@@ -4,7 +4,6 @@ import { chmodSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { paseoConfigPath, stateRoot } from "../../server/core/paths.ts";
-import { STATE_VERSION } from "../../server/core/state.ts";
 import { registerRpc } from "../../server/runtime/rpc.ts";
 import { Runtime } from "../../server/runtime/runtime.ts";
 import { KEPT } from "../../shared/rpc.ts";
@@ -148,16 +147,16 @@ test("attaching a project is undone by detaching it, unless work is still runnin
   await call("seatworks.settings.write", { project: added.slug, revision: read.revision, values: { roles: { peer: { harness: "devin" } } } });
 
   const state = join(stateRoot(), "projects", added.slug);
-  writeFileSync(join(state, "ledger.json"), JSON.stringify({ version: STATE_VERSION, lanes: { L1: { id: "L1", status: "open" } }, tasks: {} }));
+  writeFileSync(join(state, "ledger.json"), JSON.stringify({ lanes: { L1: { id: "L1", status: "open" } }, tasks: {} }));
   const refused = await call("seatworks.projects.remove", { project: added.slug });
   assert.match(refused.error, /1 open or waiting lane\(s\)/);
-  writeFileSync(join(state, "ledger.json"), JSON.stringify({ version: STATE_VERSION, lanes: { L1: { id: "L1", status: "waiting", after: ["L0"] } }, tasks: {} }));
+  writeFileSync(join(state, "ledger.json"), JSON.stringify({ lanes: { L1: { id: "L1", status: "waiting", after: ["L0"] } }, tasks: {} }));
   assert.match((await call("seatworks.projects.remove", { project: added.slug })).error, /1 open or waiting lane\(s\)/, "a lane waiting to open is work still to come");
 
   // Closed lanes and their cut tasks are provenance that nothing deletes, so they must not count as work.
   writeFileSync(
     join(state, "ledger.json"),
-    JSON.stringify({ version: STATE_VERSION, lanes: { L1: { id: "L1", status: "closed" } }, tasks: { "L1-T1": { id: "L1-T1", lane: "L1", status: "cut" } } }),
+    JSON.stringify({ lanes: { L1: { id: "L1", status: "closed" } }, tasks: { "L1-T1": { id: "L1-T1", lane: "L1", status: "cut" } } }),
   );
   assert.deepEqual(await call("seatworks.projects.remove", { project: added.slug }), { removed: added.slug });
   const listed = await call("seatworks.projects.list");

@@ -1,3 +1,0 @@
-The files Seatworks kept in state format 6, as a machine with one project held them. Never edited:
-a new format gets its own folder, and state.test.ts carries every folder up to the current one.
-Format 6 adds who approves plans and which plan a task came from: L1's second plan waits for the Human, over a migration.

@@ -279,7 +279,7 @@ verdict. It calls Jev only with `--ask`.
 
 ## Settings
 
-There are two layers: `~/.local/share/seatworks-v2/settings.json` for the machine, and
+There are two layers: `~/.local/share/seatworks-v3/settings.json` for the machine, and
 `projects/<slug>/settings.json` for a project. The project layer wins per value.
 
 | Setting | Where |
@@ -307,7 +307,7 @@ There are two layers: `~/.local/share/seatworks-v2/settings.json` for the machin
 | `reworksAt` / `reviewsAt` | 3 / 3 |
 | `destructive` / `testPath` / `suppressed` / `repeatsAt` | patterns, and 3 |
 
-A `roles.json` in `~/.local/share/seatworks-v2/` replaces the preset whole. A role names `defaults`
+A `roles.json` in `~/.local/share/seatworks-v3/` replaces the preset whole. A role names `defaults`
 or `follows`, never both. A follower takes the agent, model and thinking of the role it follows until
 it is given its own. Each role still needs its settings files under `harness/<agent>/settings/`.
 
@@ -334,12 +334,11 @@ project keeps its ledger and logs, and is refused while a lane is open or a work
 
 ```
 ~/.paseo/config.json                      providers sw2-<role>-<agent>, agent profiles
-~/.local/share/seatworks-v2/
+~/.local/share/seatworks-v3/
   roles.json                              optional; replaces the shipped preset
   settings.json                           machine settings, including the sensor key
   settings.json.bak-<time>                what Migrate repaired, as it was; can hold the key
   kit.json                                which kit runs, and since when
-  state.json                              the format of the files kept here
   content.json                            the shipped prompts, skills and guides you have taken in
   own/                                    your own copies, kept over the shipped ones
   models.json                             each agent's models as Paseo lists them
@@ -354,7 +353,6 @@ project keeps its ledger and logs, and is refused while a lane is open or a work
     assessments/                          what Jev was shown and said
     events.log  attention.log  status.md
     handbacks/  gates/  notebook.md  CONTEXT.md
-    backup-state-<from>-<time>/           the files as they were before their format was upgraded
 <profileRoot>/sw2-<role>-<agent>-<slug>/  one seat directory per role, agent and project
 ```
 

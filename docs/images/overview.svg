@@ -80,7 +80,7 @@
 <text class="group-label" x="40" y="498">ON DISK</text>
 <path class="edge" d="M447,440 L447,474" style="stroke:var(--slate)" marker-end="url(#a-slate)"/>
 <text class="note mono" x="40" y="522" text-anchor="start">~/.paseo/config.json</text>
-<text class="note mono" x="40" y="541" text-anchor="start">~/.local/share/seatworks-v2/</text>
+<text class="note mono" x="40" y="541" text-anchor="start">~/.local/share/seatworks-v3/</text>
 <text class="note mono" x="40" y="560" text-anchor="start">  settings.json · outbox.json · spool/</text>
 <text class="note mono" x="40" y="579" text-anchor="start">  worktrees/ · guides/</text>
 <text class="note mono" x="348" y="522" text-anchor="start">projects/&lt;slug&gt;/</text>

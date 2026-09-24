@@ -20,7 +20,7 @@ export function paseoConfigPath(homeDir = home()): string {
 }
 
 export function stateRoot(homeDir = home()): string {
-  return join(homeDir, ".local", "share", "seatworks-v2");
+  return join(homeDir, ".local", "share", "seatworks-v3");
 }
 
 export function guidesDir(homeDir = home()): string {

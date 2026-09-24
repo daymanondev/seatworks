@@ -97,5 +97,4 @@ export type MigrateView = {
   steps: MigrateStep[];
   done: string[];
   content: ContentChange[];
-  state: { upgraded: string[]; failed: { where: string; error: string }[] };
 };

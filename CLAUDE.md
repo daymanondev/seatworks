@@ -11,8 +11,9 @@ Only the Claude Code specifics are below; everything in `AGENTS.md` applies.
   suite has agreed with bugs before (it compared tool names where schemas mattered).
 - **Never start the daemon or launch seats to test.** Seats are real agents with broad permissions
   and they cost money. The suite, your reading and `~/.paseo/daemon.log` are the evidence.
-- **Never print or cat a file that can hold a key:** `~/.local/share/seatworks-v2/settings.json`,
-  any project `settings.json`, `~/.paseo/config.json`. Test fixtures use fake `sk-or-v1-…` keys.
+- **Never print or cat a file that can hold a key:** `settings.json` under `~/.local/share/seatworks-v2/`
+  or `seatworks-v3/`, any project `settings.json`, `~/.paseo/config.json`. Test fixtures use fake
+  `sk-or-v1-…` keys.
 - **`plugin/content/**` is runtime content.** Before touching a file the KEEP list names (prompts,
   skills, harness settings, some code), read its row in `../v3/CONCEPT.md` §6;
   `plugin/test/catalog/keep.test.ts` fails when one of its anchors goes.

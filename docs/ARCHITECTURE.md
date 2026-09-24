@@ -243,7 +243,7 @@ Then it pumps every seat that has mail.
 
 ## Settings
 
-There are two JSON layers: the machine layer (`~/.local/share/seatworks-v2/settings.json`) and a
+There are two JSON layers: the machine layer (`~/.local/share/seatworks-v3/settings.json`) and a
 project layer. For any single value the project wins, and rules from both are joined. Unknown keys
 are refused.
 

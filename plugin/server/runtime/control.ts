@@ -16,7 +16,6 @@ import { removeGarbage, scanGarbage } from "../upkeep/clean.ts";
 import { type LiveSeat, migrate, migrationPlan } from "../upkeep/migrate.ts";
 import { applyUpdate, checkUpdate, npmInstall, reloadSoon } from "../upkeep/update.ts";
 import { contentChanges, decide } from "../upkeep/content.ts";
-import type { StateReport } from "../upkeep/state.ts";
 import { loadLedger, readLedger } from "../desk/ledger.ts";
 import { type Project, gitRoot, loadConfig, projectOf } from "../desk/project.ts";
 import { statusText } from "../desk/status.ts";
@@ -178,7 +177,6 @@ export type ControlDeps = {
   seating: Seating;
   reconcile: (team: Team) => void;
   models: () => Promise<Record<string, { at: string; error: string | null; models: unknown[] }>>;
-  state: () => StateReport;
   seats: Seats;
   held: () => { to: string; text: string; at: number }[];
   watch: (project: Project, seats: Iterable<SeatView>) => WatchView;
@@ -451,11 +449,10 @@ export class SettingsControl implements Control {
       now: Date.now(),
     };
     const content = await contentChanges(kit, stateRoot());
-    const state = this.deps.state();
-    if (!apply) return { ...migrationPlan(ctx), content, state };
+    if (!apply) return { ...migrationPlan(ctx), content };
     const done = migrate(ctx);
     this.deps.reconcile(source.teamFor());
-    return { ...done, content, state };
+    return { ...done, content };
   }
 
   async decide(unit: string, choice: "new" | "mine" | "seen"): Promise<MigrateView> {

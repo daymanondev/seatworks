@@ -7,6 +7,7 @@ import { DESK_OWNED, skillSources } from "../../server/catalog/content.ts";
 import { loadKit, providerId } from "../../server/catalog/kit.ts";
 import { type AgentConfig, type SessionOpen, applyRole, seatEnv } from "../../server/catalog/launch.ts";
 import { resolveTeam } from "../../server/catalog/team.ts";
+import { stateRoot } from "../../server/core/paths.ts";
 import { makeKit } from "../kit.ts";
 
 const kit = makeKit();
@@ -76,7 +77,7 @@ test("a seat's shell may write every place under state its own content names, an
   // The sandbox binds the shell only; a file tool that could rewrite project.json's gate escapes it via /bin/sh.
   const deny: string[] = JSON.parse(readFileSync(join(real.dir, "harness", "claude", "settings.json"), "utf-8")).permissions.deny;
   for (const owned of DESK_OWNED) {
-    const rule = owned.includes(".") ? `Edit(~/.local/share/seatworks-v2/projects/*/${owned})` : `Edit(~/.local/share/seatworks-v2/projects/*/${owned}/**)`;
+    const rule = owned.includes(".") ? `Edit(${stateRoot("~")}/projects/*/${owned})` : `Edit(${stateRoot("~")}/projects/*/${owned}/**)`;
     assert.ok(deny.includes(rule), `nothing keeps a Claude seat's file tools off ${owned}`);
   }
 

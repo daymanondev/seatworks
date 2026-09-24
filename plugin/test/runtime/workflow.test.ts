@@ -8,12 +8,10 @@ import { placeProjectFiles } from "../../server/catalog/project-files.ts";
 import { sentBy } from "../../server/core/paseo-adapter.ts";
 import { stateRoot } from "../../server/core/paths.ts";
 import { SERIAL_ONLY, firstOverlap, serialHits, serialPaths } from "../../server/core/scope.ts";
-import { STATE_VERSION } from "../../server/core/state.ts";
 import { KEEP_CLOSED_LANES } from "../../server/desk/archive.ts";
 import { saveLedger } from "../../server/desk/ledger.ts";
 import { loadConfig, projectOf } from "../../server/desk/project.ts";
 import { readAssessments } from "../../server/runtime/watch/jev/assessments.ts";
-import { upgradeState } from "../../server/upkeep/state.ts";
 import { tempDir } from "../tempdir.ts";
 import { settle } from "./fake-timeline.ts";
 import { type Pending, harness, ideCalls, laneWithPeer, repo } from "./harness.ts";
@@ -332,34 +330,6 @@ test("a new branch the Human agreed to starts where their copy is, takes their u
   const onBase = await h.call(sup, "supervisor", "open_lane", { title: "Straight on main", outcome: "x", acceptance: ["a"], outOfScope: ["anything else in the repository"], onBranch: true });
   assert.equal(onBase.ok, true, onBase.text);
   assert.match(onBase.text, /carries on main [^,]*, which is the project's base: nothing separates this work from it/, "allowed, and said plainly");
-});
-
-test("a lane open when the Human updates the plugin from state 1 carries on and lands as the lane branch it was", async () => {
-  const h = harness();
-  const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
-  await h.call(sup, "supervisor", "set_project", { gate: "true" });
-  const opened = await h.call(sup, "supervisor", "open_lane", { title: "Numbers", outcome: "a.txt gains words", acceptance: ["four"], outOfScope: ["anything else in the repository"] });
-  assert.equal(opened.ok, true, opened.text);
-  const lane = h.ledger().lanes.L1!;
-  h.commit(h.root, "a.txt", "one\ntwo\nthree\nfour\n");
-
-  // What the plugin before this version left on disk: the same ledger, numbered 1, and a machine with no number.
-  const file = join(h.project.state, "ledger.json");
-  writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, "utf-8")), version: 1 }));
-  const root = stateRoot();
-  rmSync(join(root, "state.json"), { force: true });
-  const report = upgradeState(root);
-  assert.deepEqual(report.failed, []);
-  assert.ok(report.upgraded.includes(`${h.project.slug}: 1 → ${STATE_VERSION}`), report.upgraded.join(", "));
-  assert.deepEqual(h.ledger().lanes.L1, lane, "the open lane is on record exactly as it was");
-
-  const closed = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true });
-  assert.equal(closed.ok, true, closed.text);
-  assert.equal(h.git(h.root, "show", "main:a.txt"), "one\ntwo\nthree\nfour\n", "the lane landed on its base");
-  h.agents.get(lane.lead!)!.status = "idle";
-  await h.endTurn(lane.lead!, "closing up");
-  assert.equal(h.git(h.root, "branch", "--show-current").trim(), "main", "the copy is handed back on its base once the Lead stops");
-  assert.equal(h.git(h.root, "branch", "--list", lane.branch).trim(), "", "and the landed lane branch is gone");
 });
 
 test("a gate the owner switched off is still off when the next lane opens", async () => {
@@ -870,7 +840,7 @@ test("a ledger the desk cannot read is not written over, and the seat is told wh
 
   // Whatever wrote it, an unreadable ledger must not read like a project that has not started.
   const file = join(h.project.state, "ledger.json");
-  const kept = '{ "version": 1, "lanes": ';
+  const kept = '{ "lanes": ';
   writeFileSync(file, kept);
 
   const refused = await h.call(sup, "supervisor", "open_lane", { title: "After", outcome: "y", acceptance: ["a"], ...scope });
