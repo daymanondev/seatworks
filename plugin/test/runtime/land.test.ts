@@ -232,3 +232,45 @@ test("a READY stands until the lane is amended: status says so, and the Lead mus
   assert.doesNotMatch((await h.call(sup, "supervisor", "status", {})).text, /Reported ready/);
   h.runtime.dispose();
 });
+
+test("an approval stands when all a landing still lacks is its Lead's READY, and the lane lands once the Lead reports again", async () => {
+  const { h, sup, lane, land, onMain } = await laneWith("outbox-land-ready-approved.json", risky, { checkpoints: { land: "on" } });
+  await land();
+  // As seen live: the Supervisor amends the lane while the Human reads the held landing, which undoes the READY.
+  await h.call(sup, "supervisor", "amend_lane", { lane: "L1", writeSet: ["a.txt", "src/**", ".gitignore"], why: "the lane ignores its backups" });
+  const decided = (await h.runtime.control.decideLand(h.project.slug, "L1", true, "")) as { decided?: string };
+  assert.match(decided.decided ?? "", /^Approved\. It could not land yet: its Lead has not reported it ready as it now stands/);
+  assert.ok(h.ledger().lanes.L1!.landApproval?.approved, "the Human looked at this lane as it is; only the Lead's word is missing");
+  await h.call(lane.lead!, "lead", "report", { summary: "done", ready: true });
+  const landed = await land();
+  assert.equal(landed.ok, true, landed.text);
+  assert.ok(onMain("src/auth/login.ts"));
+  assert.deepEqual(runs(h.project.state).map((run) => run.decision), ["ask", "approved"]);
+  h.runtime.dispose();
+});
+
+test("a held landing is read again when it is asked about, so it waits only on what still holds it", async () => {
+  const { h, sup, lane, land } = await laneWith("outbox-land-held-again.json", risky, { checkpoints: { land: "on" } });
+  await h.call(sup, "supervisor", "amend_lane", { lane: "L1", acceptance: ["a", "b"], why: "the Human added b" });
+  assert.match((await land()).text, /Its Lead has not reported it ready/);
+  await h.call(lane.lead!, "lead", "report", { summary: "done", ready: true });
+  const again = await land();
+  assert.match(again.text, /Lane L1 still waits for the Human's approval to land, since \d+ min ago, because src\/auth\/login\.ts is a path this project counts as risky\./);
+  assert.doesNotMatch(again.text, /not reported it ready/);
+  assert.deepEqual(h.ledger().lanes.L1!.landApproval!.signals, ["src/auth/login.ts is a path this project counts as risky."]);
+  h.runtime.dispose();
+});
+
+test("a landing held only for a missing READY lands once the Lead reports, with nothing left for the Human to look at", async () => {
+  const { h, sup, lane, land, onMain } = await laneWith("outbox-land-held-ready-only.json", { "a.txt": "one\nfour\n" }, { checkpoints: { land: "on" } });
+  await h.call(sup, "supervisor", "amend_lane", { lane: "L1", acceptance: ["a", "b"], why: "the Human added b" });
+  assert.match((await land()).text, /waits for the Human's approval[^]*Its Lead has not reported it ready/);
+  await h.call(lane.lead!, "lead", "report", { summary: "done", ready: true });
+  const landed = await land();
+  assert.equal(landed.ok, true, landed.text);
+  assert.doesNotMatch(landed.text, /waits/);
+  assert.equal(h.ledger().lanes.L1!.status, "closed");
+  assert.ok(onMain("a.txt"));
+  assert.deepEqual(runs(h.project.state).map((run) => run.decision), ["ask", "pass"]);
+  h.runtime.dispose();
+});
