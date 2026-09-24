@@ -7,7 +7,7 @@ import { type ToolReply, no, ok, str } from "./context.ts";
 import { laneGate } from "./gates.ts";
 import { GATE_FAILED, NOT_READY, landCheck } from "./landing.ts";
 import { type Lane, type Ledger, type Task, findLane, loadLedger, tasksOf } from "./ledger.ts";
-import { letters } from "./letters.ts";
+import { landLetters } from "./land-letters.ts";
 import { type Project, loadConfig } from "./project.ts";
 import type { Roster } from "./roster.ts";
 import type { DeskServices } from "./services.ts";
@@ -81,7 +81,7 @@ async function checkLanding(desk: DeskServices, project: Project, lane: Lane, ga
       if (entry) entry.landApproval = { since: Date.now(), head, signals, evidence, overGate };
     });
     ctx.event(project, { kind: "land.held", lane: lane.id, signals: signals.length });
-    await ctx.post(lane.lead, letters.landHeld(lane, reason, head));
+    await ctx.post(lane.lead, landLetters.landHeld(lane, reason, head));
     return { held: `Lane ${lane.id} was not landed: it waits for the Human's approval, on the Flow tab of the panel, because ${reason}\n\nEvidence: ${evidence.join(" ")}\n\nYou cannot approve it; tell them it waits, and why. LANDED or SENT BACK comes as mail.`, note: "" };
   }
   const verdict = approved
@@ -105,6 +105,7 @@ export async function close(desk: DeskServices, project: Project, by: string, ar
     return ok(`Lane ${lane.id} was waiting and is dropped; nothing had started for it.`);
   }
   if (lane.status !== "open") return no(`Lane ${lane.id} is already closed.`);
+  if (args.land === true && lane.onHold) return no(`Lane ${lane.id} is on hold: ${lane.onHold.reason}. Resume it with resume_lane before landing it.`);
   // One close of a lane at a time: a second landed it and retired it again, and both were told it closed.
   const key = seatingKey(project, lane.id);
   if (ctx.closing.has(key)) return no(`Lane ${lane.id} is already being closed by another call; read status once that call has answered.`);
@@ -185,6 +186,7 @@ async function retire(desk: DeskServices, project: Project, lane: Lane, args: Cl
     const entry = current.lanes[lane.id];
     if (entry && LANE.move(entry, "close")) entry.landed = args.land === true || undefined;
     delete entry?.landApproval;
+    delete entry?.onHold;
     const tasks: Task[] = [];
     for (const task of Object.values(current.tasks).filter((item) => item.lane === lane.id)) {
       TASK.move(task, "cut");
@@ -210,7 +212,7 @@ async function retire(desk: DeskServices, project: Project, lane: Lane, args: Cl
   }
   if (lane.detourOf) {
     const waiting = loadLedger(project.state).lanes[lane.detourOf];
-    if (waiting?.status === "open" && waiting.lead) await ctx.post(waiting.lead, letters.detourLanded(lane, waiting, landed.how));
+    if (waiting?.status === "open" && waiting.lead) await ctx.post(waiting.lead, landLetters.detourLanded(lane, waiting, landed.how));
   }
   ctx.event(project, { kind: "lane.closed", lane: lane.id, land: args.land === true, landing: landed.how, reason: str(args.reason), writers });
   const copy = lane.onBranch
@@ -246,7 +248,7 @@ export async function decideLand(desk: DeskServices, project: Project, laneId: s
   if (!decided) return none;
   const { held } = decided;
   const supervisor = await desk.roster.supervisorFor(project, lane.opener);
-  const tell = (how: Parameters<typeof letters.landDecided>[1], text: string) => ctx.post(supervisor, letters.landDecided(lane, how, text));
+  const tell = (how: Parameters<typeof landLetters.landDecided>[1], text: string) => ctx.post(supervisor, landLetters.landDecided(lane, how, text));
   if (decided.changed) {
     await tell("changed", "");
     return ok(`Lane ${laneId} changed after it was held, so this approval is not for what it holds now. It is checked again when the Supervisor lands it.`);
@@ -254,7 +256,7 @@ export async function decideLand(desk: DeskServices, project: Project, laneId: s
   keepRun(project, { checkpoint: "land", mode: "on", lane: laneId, by: "human", decision: approve ? "approved" : "sent back", findings: note ? [note] : [], waitedMs: Date.now() - held.since });
   ctx.event(project, { kind: approve ? "land.approved" : "land.sentBack", lane: laneId });
   if (!approve) {
-    await ctx.post(lane.lead, letters.landSentBack(lane, note, held.head));
+    await ctx.post(lane.lead, landLetters.landSentBack(lane, note, held.head));
     await tell("sent back", note);
     return ok(`Lane ${laneId} is sent back to its Lead with your note; it stays open.`);
   }

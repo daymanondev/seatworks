@@ -13,6 +13,7 @@ import { errorText } from "../core/errors.ts";
 import type { DeskEvent } from "./events.ts";
 import { type Ledger, type Task, loadLedger } from "./ledger.ts";
 import { clip } from "../core/text.ts";
+import { landLetters } from "./land-letters.ts";
 import { type Letter, letters } from "./letters.ts";
 import { Intents } from "./intents.ts";
 import { tidyRecords } from "./records.ts";
@@ -154,7 +155,7 @@ export class Desk {
           delete entry.landing;
           return by;
         });
-        if (by) await ctx.post(by, letters.canLand(lane));
+        if (by) await ctx.post(by, landLetters.canLand(lane));
       }
     }
   }

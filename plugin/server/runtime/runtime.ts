@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { renderPrompt } from "../catalog/content.ts";
-import { type Kit, type RoleSpec, TEAM_SERVER, can, seatOf, watchPatterns } from "../catalog/kit.ts";
+import { type Kit, TEAM_SERVER, seatOf, watchPatterns } from "../catalog/kit.ts";
 import { type ModelCache, applyModels, fetchModels, listingProviders } from "../catalog/models.ts";
 import { applyRole, seatEnv } from "../catalog/launch.ts";
 import { applyReconcile, reloadDaemon } from "../catalog/providers.ts";
@@ -13,7 +13,7 @@ import { guidesDir, home, nodeBin, outboxPath, spoolDir, stateRoot } from "../co
 import type { AgentConfig, HookAgent, Host, HostHooks, PermissionRequested, Seats, SessionOpen, TurnEnded, Workspaces } from "../core/ports.ts";
 import type { CodeIndex } from "../desk/context.ts";
 import { Desk } from "../desk/desk.ts";
-import { laneOfLead, loadLedger, openAsksTo, taskOfPeer } from "../desk/ledger.ts";
+import { laneOfLead, laneOnHold, loadLedger, openAsksTo, taskOfPeer } from "../desk/ledger.ts";
 import { TOOLS } from "../desk/tools/registry.ts";
 import { letters } from "../desk/letters.ts";
 import { appendRecord } from "../desk/records.ts";
@@ -21,7 +21,7 @@ import { type Project, gateCommands, loadConfig, projectOf } from "../desk/proje
 import { SettingsControl } from "./control.ts";
 import { type Trouble, watchView } from "./watch-view.ts";
 import { codeIndex } from "./code-index.ts";
-import { type Letter, Outbox } from "./outbox.ts";
+import { type Letter, Outbox, type Rules } from "./outbox.ts";
 import { Patrol } from "./patrol.ts";
 import { Seating } from "./seating.ts";
 import { replyFile, spoolDirs, takeRequests, writeReply } from "./spool.ts";
@@ -74,10 +74,7 @@ export class Runtime implements HostHooks {
       options.outboxFile ?? outboxPath(),
       (to, list) => this.compose(to, list),
       this.seats,
-      (letter, at) =>
-        console.error(`seatworks-v2: a letter for ${letter.to} (${letter.key}) was never taken and has been given up on after ${Math.round((at - letter.at) / 3_600_000)} hours`),
-      (seat) => seatOf(kit, seat.provider)?.harness.steers === true,
-      (agentId) => this.waitedOn(agentId).length > 0,
+      this.outboxRules(kit),
     );
     const log = (project: Project, line: string) => this.log(project, line);
     const remember = (project: Project) => this.remember(project);
@@ -91,7 +88,7 @@ export class Runtime implements HostHooks {
       teamFor: (project) => this.source.teamFor(project),
       indexesFor: (project) => this.indexesFor(project),
     });
-    this.turns = new TurnRules({ kit, desk: this.desk, remember });
+    this.turns = new TurnRules({ kit, desk: this.desk, seats: this.seats, remember, log: (project, line) => this.log(project, line) });
     this.watches = new Watches({
       kit,
       seats: this.seats,
@@ -290,26 +287,8 @@ export class Runtime implements HostHooks {
     }
   }
 
-  async permissionRequested({ agent, request }: PermissionRequested): Promise<void> {
-    const role = seatOf(this.kit, agent.provider)?.role;
-    if (!role?.tools) return;
-    const project = projectOf(agent.cwd);
-    const what = request.title ?? request.name ?? request.kind;
-    if (can(role, "supervise")) {
-      this.log(project, `waiting on the Human: ${agent.id} ${what}`);
-      return;
-    }
-    const owner = await this.turns.ownerOf(project, agent.id, role);
-    await this.desk.post(owner, letters.permission(agent.id, `${role.label} ${agent.title ?? agent.id}`, request, this.addressOf(project, agent.id, role)));
-  }
-
-  private addressOf(project: Project, agentId: string, role: RoleSpec): string | undefined {
-    try {
-      const ledger = loadLedger(project.state);
-      return can(role, "lead") ? laneOfLead(ledger, agentId)?.id : taskOfPeer(ledger, agentId)?.id;
-    } catch {
-      return undefined;
-    }
+  permissionRequested(event: PermissionRequested): Promise<void> {
+    return this.turns.permission(event);
   }
 
   private remember(project: Project): void {
@@ -367,6 +346,16 @@ export class Runtime implements HostHooks {
   }
 
   /** A call is waited on until the seat's bridge has taken its answer, which it deletes as it reads it. */
+  private outboxRules(kit: Kit): Rules {
+    return {
+      dropped: (letter, at) =>
+        console.error(`seatworks-v2: a letter for ${letter.to} (${letter.key}) was never taken and has been given up on after ${Math.round((at - letter.at) / 3_600_000)} hours`),
+      steers: (seat) => seatOf(kit, seat.provider)?.harness.steers === true,
+      calling: (agentId) => this.waitedOn(agentId).length > 0,
+      holding: (seat) => Boolean(seat.cwd && laneOnHold(projectOf(seat.cwd).state, seat.id)),
+    };
+  }
+
   private waitedOn(agentId: string): { id: string; replied: boolean }[] {
     const live = (this.calls.get(agentId) ?? []).filter((call) => !call.replied || existsSync(replyFile(this.spool, call.id)));
     if (live.length > 0) this.calls.set(agentId, live);

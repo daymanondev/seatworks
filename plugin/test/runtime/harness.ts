@@ -38,6 +38,7 @@ type Fake = {
   sent: string[];
   sentIds: string[];
   steered: string[];
+  interrupted: string[];
   pending: Pending[];
   answered: { requestId: string; response: { behavior: string; updatedInput?: { answers?: Record<string, string> } } }[];
   prompt?: string;
@@ -73,6 +74,7 @@ function fakePaseo() {
         agent?.sent.push(text);
         if (options?.messageId) agent?.sentIds.push(options.messageId);
         if (options?.activeTurnBehavior === "steer") agent?.steered.push(text);
+        if (options?.activeTurnBehavior === "interrupt") agent?.interrupted.push(text);
       },
       async respondToPermission({ requestId, response }: Fake["answered"][number]) {
         const at = agent?.pending.findIndex((request) => request.id === requestId) ?? -1;
@@ -85,7 +87,7 @@ function fakePaseo() {
   };
   const add = (provider: string, cwd: string, title: string, status = "idle", prompt?: string, labels: Record<string, string> = {}) => {
     const id = `agent-${++count}`;
-    agents.set(id, { id, provider, cwd, title, status, archivedAt: null, updatedAt: new Date().toISOString(), sent: [], sentIds: [], steered: [], pending: [], answered: [], prompt, labels });
+    agents.set(id, { id, provider, cwd, title, status, archivedAt: null, updatedAt: new Date().toISOString(), sent: [], sentIds: [], steered: [], interrupted: [], pending: [], answered: [], prompt, labels });
     return id;
   };
   const workspace = (id: string) => ({

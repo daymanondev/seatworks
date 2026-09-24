@@ -29,6 +29,7 @@ export const accept = defineTool({
     const found = laneTask(loadLedger(project.state), caller, str(args.task));
     if (typeof found === "string") return no(found);
     const { lane, task } = found;
+    if (lane.onHold) return no(`Lane ${lane.id} is on hold: ${lane.onHold.reason}. Nothing is accepted, started or landed in it until it resumes.`);
     if (task.kind !== "code") return no(`${task.id} is a review; cut it when you are done with it.`);
     if (!TASK.may(task.status, task.mode === "parallel" ? "queue" : "accept")) return no(`${task.id} is ${task.status}.`);
     if (task.mode === "parallel") {

@@ -32,6 +32,13 @@ export class Roster {
     return this.seats.look(agentId);
   }
 
+  /** Sends past the outbox, cutting a running turn short; a seat that is gone is left so, since a send would start it again. */
+  async interrupt(agentId: string, letter: { key: string; text: string }): Promise<boolean> {
+    if (!(await this.seated(agentId))) return false;
+    await this.seats.send(agentId, letter.text, [letter.key.split(":")[0]!], "interrupt");
+    return true;
+  }
+
   history(agentId: string, limit: number): Promise<StreamRow[]> {
     return this.seats.history(agentId, limit);
   }

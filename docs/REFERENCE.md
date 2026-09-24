@@ -19,7 +19,7 @@ pages in), the seat's bridge shows that set as the field's choices.
 <!-- drawn from the code: verbs -->
 | Role | Tools |
 |---|---|
-| Supervisor | `open_lane` `message` `answer` `land_lane` `drop_lane` `amend_lane` `replace_lead` `set_project` `status` `incidents` `mark_incident` `record` |
+| Supervisor | `open_lane` `message` `answer` `land_lane` `drop_lane` `amend_lane` `hold_lane` `resume_lane` `replace_lead` `set_project` `status` `incidents` `mark_incident` `record` |
 | Lead | `add_tasks` `start_review` `message` `answer` `accept` `rework` `amend_task` `cut` `ask` `report` `status` `incidents` `mark_incident` `record` `note` |
 | Peer, Reviewer | `done` `ask` |
 <!-- end -->
@@ -31,6 +31,8 @@ pages in), the seat's bridge shows that set as the field's choices.
 | `drop_lane` | Waits for queued merges, then closes the lane without landing, with a reason: it cuts leftover tasks, archives their seats and the Lead, puts the copy away, and keeps the branch. A waiting lane is dropped before anything starts |
 | `amend_lane` | Changes what an open or waiting lane is asked, keeping what it was asked before and why. Its Lead is told, and a READY it reported no longer stands. A write set or `contracts` that would overlap an open lane's is refused |
 | `replace_lead` | Seats a new Lead on an open lane whose Lead is gone, where the lane stands. A Lead Paseo already started for it is taken on instead, and the asks waiting on the old Lead move to the new one |
+| `hold_lane` | Stops a lane where it stands, with a reason: its Lead and each Peer and reviewer get HOLD at once. Until `resume_lane`, mail to them waits, their permission requests are refused, and `add_tasks`, `accept`, `land_lane` and waiting tasks or lanes do not go ahead; a landing it was waiting on is called off |
+| `resume_lane` | Lifts a hold: each seat of the lane gets RESUMED with the mail held for it, and what waited may start |
 | `set_project` | Sets the base branch, the gate command and its timeout (30 min by default), whether the gate runs per lane or per task, the serial-only paths, and `laneHome`, where lanes work when a call does not say (`onBranch`, `newBranch`, `isolate`). An empty gate is an answer, and the desk never detects one over it |
 | `add_tasks` | Records tasks in the lane in one call, each waiting for what it names, and starts what can start. A task in the lane's copy waits while another holds it. The whole call is refused when two tasks that may run at once own one path, a parallel task owns a one-writer path, a task owns a path outside the lane's write set, or a task takes a path a running task still writes |
 | `start_review` | Seats a read-only reviewing role. It runs where the change is now: the task's copy, the lane's copy, or the task branch |
@@ -98,13 +100,15 @@ letter, never written by hand where it is posted.
 | Work moving | HANDBACK, REWORK, AMENDED, MERGED, MERGE FAILED, MERGE CONFLICT, REPORT, CAN LAND, CLEARED |
 | Landing held for the Human | LAND HELD, LANDED, HELD AGAIN, CHANGED, APPROVED, SENT BACK, LAND SENT BACK |
 | Waiting and starting again | WAITING, OPENED, NOT OPENED, NOT STARTED, LEAD GONE |
+| A lane stopped | HOLD, RESUMED |
 | The desk noticing | SILENT, FAILED, WAITING FOR PERMISSION, LANE IDLE, INCIDENT, the bare nudge |
 | Answering late | ANSWER to your `<tool>` call, NO ANSWER to your `<tool>` call |
 
 CAN LAND tells whoever tried to land a lane under a seat mid-turn that the turn has ended. NO ANSWER
 tells a seat that the plugin stopped before the call it was told to wait for by mail had finished.
 RECONCILE tells a Lead what the Supervisor sent its Peer. ANSWERED FOR YOU tells a seat that someone
-else answered an ask addressed to it.
+else answered an ask addressed to it. HOLD is the one letter sent past the outbox, cutting a running turn
+short where the seat's agent allows it.
 
 ## Mail
 

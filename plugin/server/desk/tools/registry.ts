@@ -10,12 +10,14 @@ import { dropLane } from "./drop-lane.ts";
 import { cut } from "./cut.ts";
 import { done, doneReview } from "./done.ts";
 import { incidents } from "./incidents.ts";
+import { holdLane } from "./hold-lane.ts";
 import { message } from "./message.ts";
 import { note } from "./note.ts";
 import { landLane } from "./land-lane.ts";
 import { openLane } from "./open-lane.ts";
 import { record } from "./record.ts";
 import { replaceLead } from "./replace-lead.ts";
+import { resumeLane } from "./resume-lane.ts";
 import { report } from "./report.ts";
 import { rework } from "./rework.ts";
 import { setProject } from "./set-project.ts";
@@ -27,6 +29,8 @@ export const TOOLS: ToolDef[] = [
   landLane,
   dropLane,
   amendLane,
+  holdLane,
+  resumeLane,
   replaceLead,
   setProject,
   addTasks,

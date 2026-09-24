@@ -13,10 +13,10 @@ function fakeSeats(agents: Record<string, FakeAgent>): Pick<Seats, "look" | "sen
       const agent = agents[id]!;
       return { id, status: agent.status, pendingPermissions: agent.pendingPermissions, archivedAt: agent.archivedAt };
     },
-    async send(id: string, text: string, steer: boolean, kinds: string[]) {
+    async send(id: string, text: string, kinds: string[], into?: "steer" | "interrupt") {
       agents[id]!.sent.push(text);
       agents[id]!.kinds.push(kinds);
-      if (steer) agents[id]!.steered.push(text);
+      if (into === "steer") agents[id]!.steered.push(text);
     },
   };
 }
@@ -24,7 +24,7 @@ function fakeSeats(agents: Record<string, FakeAgent>): Pick<Seats, "look" | "sen
 const agent = (status: string): FakeAgent => ({ status, pendingPermissions: [], archivedAt: null, sent: [], steered: [], kinds: [] });
 
 const outboxOn = (agents: Record<string, FakeAgent>, compose: (to: string, list: { text: string }[]) => string, steers = false) =>
-  new Outbox(join(tempDir(), "outbox.json"), compose, fakeSeats(agents), undefined, () => steers);
+  new Outbox(join(tempDir(), "outbox.json"), compose, fakeSeats(agents), { steers: () => steers });
 
 test("a letter to an idle seat is sent at once and the same key is not sent twice", async () => {
   const agents = { sup: agent("idle") };

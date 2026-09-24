@@ -48,6 +48,20 @@ function checkLines(project: Project, checks: Team["checkpoints"]): string[] {
   return ["## Land check", "", `${checks.forced ? `On, because ${checks.forced}` : set}. ${set === "off" && !checks.forced ? "Nothing is checked." : `${approval}. In checkpoints.log: ${kept}.`}`, ""];
 }
 
+/** Where an open lane stands beyond its seats: on hold, reported ready, and a landing held for the Human. */
+function laneNotes(lane: Lane, now: number): string[] {
+  const land = lane.landApproval;
+  return [
+    ...(lane.onHold ? [`On hold for ${minutes(now, lane.onHold.at)} min: ${lane.onHold.reason} resume_lane lifts it.`] : []),
+    ...(lane.ready ? [`Reported ready ${minutes(now, lane.ready.at)} min ago.`] : []),
+    ...(land?.approved
+      ? [`Landing approved by the Human ${minutes(now, land.approved.at)} min ago; land_lane lands it.`]
+      : land
+        ? [`Landing waits ${minutes(now, land.since)} min for the Human's approval: ${land.signals.join(" ") || "every landing here is approved first."}`]
+        : []),
+  ];
+}
+
 function laneAim(lane: Lane): string[] {
   const outcome = lane.outcome.replace(/\s+/g, " ").trim();
   return [
@@ -106,16 +120,7 @@ export function statusText(
   if (open.length === 0) lines.push("No open lanes.", "");
   for (const lane of open) {
     const detour = lane.detourOf ? ` Clearing the way for ${lane.detourOf}.` : "";
-    const land = lane.landApproval;
-    const approval = [
-      ...(lane.ready ? [`Reported ready ${minutes(now, lane.ready.at)} min ago.`] : []),
-      ...(land?.approved
-        ? [`Landing approved by the Human ${minutes(now, land.approved.at)} min ago; land_lane lands it.`]
-        : land
-          ? [`Landing waits ${minutes(now, land.since)} min for the Human's approval: ${land.signals.join(" ") || "every landing here is approved first."}`]
-          : []),
-    ];
-    lines.push(`## ${lane.id} ${lane.title}`, "", `Branch ${lane.branch}${lane.onBranch ? ", carried on in the project's own copy" : ` off ${lane.base}`}. Lead ${seatLine(seats, lane.lead, now)}.${detour}`, ...approval, ...(copy ? laneAim(lane) : []), "");
+    lines.push(`## ${lane.id} ${lane.title}`, "", `Branch ${lane.branch}${lane.onBranch ? ", carried on in the project's own copy" : ` off ${lane.base}`}. Lead ${seatLine(seats, lane.lead, now)}.${detour}`, ...laneNotes(lane, now), ...(copy ? laneAim(lane) : []), "");
     const tasks = Object.values(ledger.tasks).filter((task) => task.lane === lane.id);
     if (tasks.length === 0) lines.push("- no tasks yet");
     for (const task of tasks) {
@@ -137,7 +142,7 @@ export function statusText(
       const other = ledger.lanes[id];
       return `${id} ${other?.status === "closed" ? (other.landed ? "landed" : "closed without landing") : (other?.status ?? "gone")}`;
     });
-    lines.push(`- ${lane.id} ${lane.title}: after ${after.join(", ")}${lane.held ? `. Not open: ${lane.held.why}` : ""}`, ...(copy ? laneAim(lane).map((line) => `  ${line}`) : []));
+    lines.push(`- ${lane.id} ${lane.title}: after ${after.join(", ")}${lane.onHold ? `. On hold: ${lane.onHold.reason}` : lane.held ? `. Not open: ${lane.held.why}` : ""}`, ...(copy ? laneAim(lane).map((line) => `  ${line}`) : []));
   }
   if (pending.length > 0) lines.push("");
   if (!laneId) {

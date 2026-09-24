@@ -36,7 +36,8 @@ export type Stream = { readonly ready: Promise<void>; stop(): void };
 export type Seats = {
   open(): Promise<SeatView[]>;
   look(id: string): Promise<SeatLook>;
-  send(id: string, text: string, steer: boolean, kinds: string[]): Promise<void>;
+  /** Into a running turn only as `into` says: steered in beside it, or the turn cut short for it. */
+  send(id: string, text: string, kinds: string[], into?: "steer" | "interrupt"): Promise<void>;
   /** The last `limit` entries of the seat's history, whole, as Paseo projects them; an archived seat is started again to read it. */
   history(id: string, limit: number): Promise<StreamRow[]>;
   respond(id: string, requestId: string, response: PermissionResponse): Promise<void>;

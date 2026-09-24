@@ -13,19 +13,19 @@ const line = (text: string, limit: number) => clip(text.replace(/\s+/g, " ").tri
 
 /** A person's note as a sentence: theirs often ends in a full stop already, and one more reads as a typo. */
 const theirDefault = (ask: Ask): string[] => (ask.default ? ["", `Their default: ${ask.default}`] : []);
-const ended = (text: string) => (/[.!?]$/.test(text.trim()) ? text.trim() : `${text.trim()}.`);
+export const ended = (text: string) => (/[.!?]$/.test(text.trim()) ? text.trim() : `${text.trim()}.`);
 
 /** Every kind of letter the desk mails. A letter's key starts with its kind, and so does the id Paseo shows for the message. */
 type Kind =
   | "answer" | "answeredFor" | "ask" | "amended" | "canland" | "detour" | "done" | "escalate" | "failed" | "gone"
-  | "halfopen" | "held" | "idle" | "incident" | "land" | "landback" | "landheld" | "later" | "leadgone" | "merge" | "message"
-  | "notstarted" | "nudge" | "opened" | "permission" | "reconcile" | "remind" | "report" | "rework" | "silent" | "started" | "unanswered";
+  | "halfopen" | "held" | "hold" | "idle" | "incident" | "land" | "landback" | "landheld" | "later" | "leadgone" | "merge" | "message"
+  | "notstarted" | "nudge" | "opened" | "permission" | "reconcile" | "remind" | "report" | "resumed" | "rework" | "silent" | "started" | "unanswered";
 
 /** A letter the desk mails a seat: its text, and the key under which a second one to that seat is the same letter. */
 export type Letter = { key: string; text: string };
 
 /** Keyed by its kind and the ids that make it this letter, never by hand where it is posted. */
-const mail = (kind: Kind, ids: (string | number)[], text: string): Letter => ({ key: [kind, ...ids].join(":"), text });
+export const mail = (kind: Kind, ids: (string | number)[], text: string): Letter => ({ key: [kind, ...ids].join(":"), text });
 
 /** A call a seat was told to stop waiting for: the one identity its late answer and its lost answer share. */
 type Waited = { agent: string; tool: string; started: number };
@@ -231,20 +231,6 @@ export const letters = {
     return mail("report", [lane.id, hash(summary)], lines.join("\n"));
   },
 
-  canLand(lane: Lane): Letter {
-    return mail("canland", [lane.id, Date.now()], `CAN LAND ${lane.id} (${lane.title}): the turn that was in the way has ended. land_lane it again.`);
-  },
-
-  /** The way back out of a DETOUR: the lane that waited is told, since it cannot see the other one. */
-  detourLanded(detour: Lane, waiting: Lane, landing: string): Letter {
-    const text = [
-      `CLEARED ${detour.id} (${detour.title}), the detour your lane ${waiting.id} was waiting on: ${landing}.`,
-      "",
-      `Read what it did before you go on. Your lane branch ${waiting.branch} does not have it yet — ask if your work needs it there.`,
-    ].join("\n");
-    return mail("detour", [detour.id, Date.now()], text);
-  },
-
   amended(entry: Lane | Task, amendment: Amendment, reader: "lead" | "worker"): Letter {
     const now = entry as unknown as Record<string, string | string[]>;
     const show = (value: string | string[]) => (Array.isArray(value) ? list(value) : value);
@@ -257,24 +243,6 @@ export const letters = {
         : "Work to it as it stands now. If what you have already done no longer fits it, say so in your hand-back.",
     ].join("\n");
     return mail("amended", [entry.id, entry.amended?.length ?? 0], text);
-  },
-
-  /** `head` is the lane's tip it was held at: a hold is told once per commit. */
-  landHeld(lane: Lane, reason: string, head: string): Letter {
-    return mail("landheld", [lane.id, head], `LAND HELD ${lane.id} (${lane.title}): the owner looks at it before it lands, because ${reason} Commit nothing more on the lane until LANDED or LAND SENT BACK arrives: a new commit means it is looked at again from the start.`);
-  },
-
-  landSentBack(lane: Lane, note: string, head: string): Letter {
-    return mail("landback", [lane.id, head], `LAND SENT BACK ${lane.id} (${lane.title}): ${ended(note || "no reason was given; ask the owner what to change")} The lane stays open; report it ready again once that is dealt with.`);
-  },
-
-  landDecided(lane: Lane, how: "landed" | "blocked" | "again" | "changed" | "sent back", text: string): Letter {
-    const told = (said: string) => mail("land", [lane.id, how, Date.now()], said);
-    if (how === "landed") return told(`LANDED ${lane.id} (${lane.title}) after the Human approved it: ${text}`);
-    if (how === "again") return told(`HELD AGAIN ${lane.id} (${lane.title}): the Human approved it, but landing it turned up more. ${text}`);
-    if (how === "changed") return told(`CHANGED ${lane.id} (${lane.title}) after its landing was held, so the Human's approval did not count. land_lane it to have it checked as it is now.`);
-    if (how === "blocked") return told(`APPROVED ${lane.id} (${lane.title}) for landing by the Human, but it could not land yet: ${text}. The approval stands while the lane does not change: once that is cleared, land_lane lands it without asking again.`);
-    return told(`SENT BACK ${lane.id} (${lane.title}) by the Human: ${ended(text || "no reason was given")} The lane stays open, and its Lead has the note.`);
   },
 
   notStarted(task: Task): Letter {
@@ -298,6 +266,17 @@ export const letters = {
   /** Why a lane or task still waits, told once per reason. */
   held(entry: Lane | Task, why: string): Letter {
     return mail("held", [entry.id, hash(why)], waited(entry, `${"lane" in entry ? "it has not started" : "it is not open"}: ${why}`));
+  },
+
+  /** Sent past the outbox, cutting a running turn short: to the Lead of `lane`, or else the Peer of `task`. */
+  onHold(lane: Lane, reason: string, task?: Task): Letter {
+    const what = task ? `HOLD: the work on ${task.id} is stopped: ${reason}` : `HOLD ${lane.id} (${lane.title}): the owner has stopped this lane: ${reason}`;
+    return mail("hold", [lane.id, task?.id ?? "lead", hash(reason)], `${what}\n\nStop where you are and end your turn now. Start nothing and send nothing until you are told it resumes.`);
+  },
+
+  resumed(lane: Lane, note: string, task?: Task): Letter {
+    const what = task ? `RESUMED: carry on with ${task.id} from where you stopped.` : `RESUMED ${lane.id} (${lane.title}): the owner lifted the hold. Carry on from where you stopped.`;
+    return mail("resumed", [lane.id, task?.id ?? "lead", Date.now()], note ? `${what}\n\n${note}` : what);
   },
 
   started(task: Task, what: string): Letter {

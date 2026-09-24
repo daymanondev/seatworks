@@ -57,7 +57,7 @@ async function hold(desk: DeskServices, project: Project, entry: Lane | Task, he
 export async function openWaiting(desk: DeskServices, project: Project, retryHeld: boolean): Promise<void> {
   await putBackHalfOpen(desk, project);
   const ledger = loadLedger(project.state);
-  for (const waiting of Object.values(ledger.lanes).filter((lane) => lane.status === "waiting" && (retryHeld || !lane.held?.tried))) {
+  for (const waiting of Object.values(ledger.lanes).filter((lane) => lane.status === "waiting" && !lane.onHold && (retryHeld || !lane.held?.tried))) {
     const pending = waitsFor(ledger, waiting.after ?? [], waiting.onBranch === true);
     if (Array.isArray(pending) && pending.length > 0) continue;
     const held = typeof pending === "string" ? { why: `${pending} Close this lane to drop it, or close it and open the work again without waiting.` } : await release(desk, project, waiting);
@@ -74,7 +74,7 @@ export async function startWaiting(desk: DeskServices, project: Project, retryHe
   const ledger = loadLedger(project.state);
   for (const waiting of Object.values(ledger.tasks).filter((task) => task.status === "waiting" && (retryHeld || !task.held?.tried))) {
     const lane = ledger.lanes[waiting.lane];
-    if (lane?.status !== "open" || !lane.lead) continue;
+    if (lane?.status !== "open" || !lane.lead || lane.onHold) continue;
     const pending = taskWaitsFor(ledger, lane.id, waiting.after ?? []);
     if (Array.isArray(pending) && pending.length > 0) continue;
     const told = !answered.has(waiting.id);
@@ -91,7 +91,7 @@ async function releaseTask(desk: DeskServices, project: Project, lane: Lane, tas
   const claimed = desk.ctx.transact(project, (ledger): Task | Refusal | undefined => {
     const entry = ledger.tasks[task.id];
     const now = ledger.lanes[lane.id];
-    if (!entry || !now || !TASK.may(entry.status, "start")) return undefined;
+    if (!entry || !now || now.onHold || !TASK.may(entry.status, "start")) return undefined;
     const problem = taskPlacement(ledger, now, entry.owned, parallel, serial);
     if (problem) return problem;
     TASK.move(entry, "start");
@@ -121,7 +121,7 @@ async function release(desk: DeskServices, project: Project, lane: Lane): Promis
   const serial = moved ? [] : await serialIn(desk.ctx.kit, project, project.root);
   const placed = moved ?? desk.ctx.transact(project, (ledger): { claimed: Lane; ownCopy: boolean } | Refusal | undefined => {
     const entry = ledger.lanes[lane.id];
-    if (!entry || !LANE.may(entry.status, "open")) return undefined;
+    if (!entry || entry.onHold || !LANE.may(entry.status, "open")) return undefined;
     const where = placement(ledger, entry, entry.opening?.isolate === true, serial, entry.id);
     if ("why" in where) return where;
     LANE.move(entry, "open");

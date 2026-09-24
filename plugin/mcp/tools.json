@@ -231,6 +231,45 @@
       }
     },
     {
+      "name": "hold_lane",
+      "description": "Stop a lane where it stands when going on could do harm that cannot be undone, or the Human asks you to: its Lead and every Peer and reviewer in it are told to stop at once, cutting a running turn short where their agent allows it, else when it ends. Until resume_lane nothing reaches them, their permission requests are refused, no task starts, nothing is accepted and nothing lands. A landing it was waiting on is called off. Tell the Human why.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "lane": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why it stops, as its seats will read it."
+          }
+        },
+        "required": [
+          "lane",
+          "reason"
+        ]
+      }
+    },
+    {
+      "name": "resume_lane",
+      "description": "Lift a hold: each seat of the lane is told to carry on from where it stopped, with the mail held for it, and what waited on the lane may start.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "lane": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string",
+            "description": "What its Lead should know as it carries on."
+          }
+        },
+        "required": [
+          "lane"
+        ]
+      }
+    },
+    {
       "name": "replace_lead",
       "description": "Seat a new Lead on an open lane whose Lead is gone, where the lane stands: its copy, branch, tasks and the asks waiting on the old Lead carry over, and the new Lead is told it takes over. A Lead Paseo already started for the lane is taken on instead of a second one.",
       "inputSchema": {

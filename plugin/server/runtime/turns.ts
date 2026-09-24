@@ -1,8 +1,8 @@
 import { type Kit, type RoleSpec, can, seatOf, worksTasks } from "../catalog/kit.ts";
-import type { TurnEnded } from "../core/ports.ts";
+import type { PermissionRequested, Seats, TurnEnded } from "../core/ports.ts";
 import { DECIDED, TASK } from "../domain/task.ts";
 import type { Desk } from "../desk/desk.ts";
-import { type Ledger, laneOfLead, loadLedger, taskOfPeer } from "../desk/ledger.ts";
+import { type Ledger, laneOfLead, laneOnHold, loadLedger, taskOfPeer } from "../desk/ledger.ts";
 import { letters } from "../desk/letters.ts";
 import { type Project, projectOf } from "../desk/project.ts";
 import { deniedCall, lastToolCall, outputText } from "./timeline.ts";
@@ -10,7 +10,9 @@ import { deniedCall, lastToolCall, outputText } from "./timeline.ts";
 type TurnDeps = {
   kit: Kit;
   desk: Desk;
+  seats: Pick<Seats, "respond">;
   remember: (project: Project) => void;
+  log: (project: Project, line: string) => void;
 };
 
 export class TurnRules {
@@ -43,6 +45,33 @@ export class TurnRules {
     const ledger = loadLedger(project.state);
     const task = taskOfPeer(ledger, agentId);
     return task ? ledger.lanes[task.lane]?.lead : undefined;
+  }
+
+  /** A seat stopped on a permission: refused while its lane is on hold, else its owner is told, for the Human to give it. */
+  async permission({ agent, request }: PermissionRequested): Promise<void> {
+    const role = seatOf(this.deps.kit, agent.provider)?.role;
+    if (!role?.tools) return;
+    const project = projectOf(agent.cwd);
+    const hold = laneOnHold(project.state, agent.id);
+    if (hold && request.id) {
+      await this.deps.seats.respond(agent.id, request.id, { behavior: "deny", message: `Lane ${hold.id} is on hold: ${hold.onHold!.reason}. Do nothing more until you are told it resumes.` });
+      return;
+    }
+    if (can(role, "supervise")) {
+      this.deps.log(project, `waiting on the Human: ${agent.id} ${request.title ?? request.name ?? request.kind}`);
+      return;
+    }
+    const owner = await this.ownerOf(project, agent.id, role);
+    await this.deps.desk.post(owner, letters.permission(agent.id, `${role.label} ${agent.title ?? agent.id}`, request, this.addressOf(project, agent.id, role)));
+  }
+
+  private addressOf(project: Project, agentId: string, role: RoleSpec): string | undefined {
+    try {
+      const ledger = loadLedger(project.state);
+      return can(role, "lead") ? laneOfLead(ledger, agentId)?.id : taskOfPeer(ledger, agentId)?.id;
+    } catch {
+      return undefined;
+    }
   }
 
   async ended(event: TurnEnded): Promise<void> {

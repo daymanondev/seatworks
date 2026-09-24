@@ -4,7 +4,7 @@ import { readJson, writeJson } from "../core/store.ts";
 import { errorText } from "../core/errors.ts";
 import type { AskStatus } from "../domain/ask.ts";
 import type { LaneStatus } from "../domain/lane.ts";
-import { ACTIVE, type TaskStatus } from "../domain/task.ts";
+import { ACTIVE, SETTLED, type TaskStatus } from "../domain/task.ts";
 
 /** Free-form: the ledger carries whatever it is told, because nothing routes on it. */
 export type AskKind = string;
@@ -35,6 +35,8 @@ export type Lane = {
   after?: string[];
   opening?: { isolate?: boolean; role?: string };
   held?: { why: string; tried?: boolean };
+  /** Stopped by whoever supervises it: its seats read nothing, and nothing starts or lands, until it is resumed. */
+  onHold?: { at: number; by: string; reason: string };
   /** When its Lead last reported it ready; an amendment takes it away, since what it was ready against has changed. */
   ready?: { at: number };
   /** A landing held for the Human, for the lane branch at `head`; approved, it lands without being asked again while that holds. */
@@ -227,6 +229,24 @@ export function findLane(ledger: Ledger, id: string): Lane | undefined {
 
 export function laneOfLead(ledger: Ledger, agentId: string): Lane | undefined {
   return Object.values(ledger.lanes).find((lane) => lane.lead === agentId && lane.status === "open");
+}
+
+/** The seats working in a lane: its Lead, then the Peer or reviewer of each task not yet settled. */
+export function laneSeats(ledger: Ledger, lane: Lane): { seat: string; task?: Task }[] {
+  const working = Object.values(ledger.tasks).filter((task) => task.lane === lane.id && task.peer && !SETTLED.includes(task.status));
+  return [...(lane.lead ? [{ seat: lane.lead }] : []), ...working.map((task) => ({ seat: task.peer!, task }))];
+}
+
+/** The lane on hold that this seat works in, as its Lead, a Peer or a reviewer; none where the ledger cannot be read. */
+export function laneOnHold(state: string, agentId: string): Lane | undefined {
+  let ledger: Ledger;
+  try {
+    ledger = loadLedger(state);
+  } catch {
+    return undefined;
+  }
+  const lane = ledger.lanes[ledger.agents[agentId]?.lane ?? ""];
+  return lane?.onHold && lane.status !== "closed" ? lane : undefined;
 }
 
 export function taskOfPeer(ledger: Ledger, agentId: string): Task | undefined {

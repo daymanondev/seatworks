@@ -78,6 +78,7 @@ export const addTasks = defineTool({
     const added = ctx.transact(project, (ledger) => {
       const now = laneOfLead(ledger, caller.id);
       if (!now) return "You have no open lane.";
+      if (now.onHold) return `Lane ${now.id} is on hold: ${now.onHold.reason}. Nothing is accepted, started or landed in it until it resumes.`;
       const plan = readPlan(ledger, now, args.tasks);
       if (typeof plan === "string") return plan;
       const problems = layoutProblems(ledger, now, plan, serial);
