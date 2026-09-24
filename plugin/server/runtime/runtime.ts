@@ -167,12 +167,12 @@ export class Runtime implements HostHooks {
 
   /** A call the harness refused because its input was not JSON; it never reaches the desk, so only this reports it. */
   private malformedCalls(event: TurnEnded): void {
-    const role = seatOf(this.kit, event.agent.provider)?.role;
-    if (!role?.tools) return;
+    const seat = seatOf(this.kit, event.agent.provider);
+    if (!seat?.role.tools) return;
     const project = projectOf(event.agent.cwd);
-    for (const call of malformed(event.timeline)) {
-      this.desk.event(project, { kind: "call.malformed", agent: event.agent.id, role: role.role, tool: call.tool, error: call.quote });
-      this.troubled(project, "call.malformed", `the ${role.label}'s ${call.tool} was written with an input that is not JSON, and never reached the desk`);
+    for (const call of malformed(event.timeline, seat.harness.timeline?.unparsed)) {
+      this.desk.event(project, { kind: "call.malformed", agent: event.agent.id, role: seat.role.role, tool: call.tool, error: call.quote });
+      this.troubled(project, "call.malformed", `the ${seat.role.label}'s ${call.tool} was written with an input that is not JSON, and never reached the desk`);
     }
   }
 

@@ -1,3 +1,4 @@
+import type { HarnessSpec } from "../../catalog/kit.ts";
 import { sentBy } from "../../core/sent-by.ts";
 import type { StreamRow } from "../../core/ports.ts";
 
@@ -37,16 +38,20 @@ export type Change = { call?: Call; detailed: boolean; settled: boolean };
 
 const TERMINAL = new Set(["completed", "failed", "canceled"]);
 
-/** Devin names a file it creates "Wrote <path>": the path is what every reader of a write compares. */
-function withPath(detail: Detail): Detail {
+/** How a harness writes its timeline where it differs from the rest, as its harness file says. */
+export type Quirks = NonNullable<HarnessSpec["timeline"]>;
+
+/** A path given with the harness's own prefix is read bare: the path is what every reader of a write compares. */
+function withPath(detail: Detail, prefix: string | undefined): Detail {
   const path = detail.filePath;
-  return typeof path === "string" && path.startsWith("Wrote ") ? { ...detail, filePath: path.slice("Wrote ".length) } : detail;
+  return prefix && typeof path === "string" && path.startsWith(prefix) ? { ...detail, filePath: path.slice(prefix.length) } : detail;
 }
 
-function pseudo(item: Record<string, unknown>): boolean {
+/** A call Paseo marks as its own, or one the harness sends that is no call the seat made. */
+function pseudo(item: Record<string, unknown>, quirks: Quirks): boolean {
   const metadata = item.metadata as { synthetic?: unknown } | undefined;
   const detail = item.detail as { type?: unknown } | undefined;
-  return metadata?.synthetic === true || (item.name === "terminal" && detail?.type === "plain_text");
+  return metadata?.synthetic === true || (quirks.pseudoCalls ?? []).some((call) => item.name === call.name && detail?.type === call.detail);
 }
 const text = (value: unknown): string => (typeof value === "string" ? value : "");
 
@@ -54,13 +59,15 @@ export class Window {
   readonly units: Unit[] = [];
   private readonly calls = new Map<string, Call>();
   private readonly limit: number;
+  private readonly quirks: Quirks;
   private instruction: { text: string; from: string[] } = { text: "", from: [] };
   private instructionAt = -1;
   private pushed = 0;
   private seq = 0;
 
-  constructor() {
+  constructor(quirks: Quirks = {}) {
     this.limit = UNITS;
+    this.quirks = quirks;
   }
 
   add(row: StreamRow): Change {
@@ -114,7 +121,7 @@ export class Window {
     const item = row.item;
     const id = text(item.callId) || `seq-${row.seq}`;
     const status = text(item.status) || "running";
-    const detail = withPath((item.detail && typeof item.detail === "object" ? item.detail : {}) as Detail);
+    const detail = withPath((item.detail && typeof item.detail === "object" ? item.detail : {}) as Detail, this.quirks.writePathPrefix);
     const seen = this.calls.get(id);
     if (!seen) {
       const call: Call = {
@@ -124,7 +131,7 @@ export class Window {
         detail,
         error: item.error ?? null,
         ended: TERMINAL.has(status),
-        pseudo: pseudo(item),
+        pseudo: pseudo(item, this.quirks),
       };
       this.calls.set(id, call);
       this.push({ kind: "call", call });

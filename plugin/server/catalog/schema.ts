@@ -48,6 +48,13 @@ export const HarnessFile = z
       .optional(),
     mcpCall: z.string().includes("{server}", { error: "does not say where the server's name goes" }).optional(),
     mcpServerField: text.optional(),
+    timeline: z
+      .strictObject({
+        writePathPrefix: text.optional(),
+        pseudoCalls: z.array(z.strictObject({ name: text, detail: text })).optional(),
+        unparsed: z.strictObject({ input: text, error: pattern }).optional(),
+      })
+      .optional(),
     settings: z.strictObject({
       file: text,
       source: text,

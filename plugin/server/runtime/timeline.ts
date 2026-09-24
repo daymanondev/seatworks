@@ -55,21 +55,21 @@ export function deniedCall(timeline: Timeline, refused: string): LastCall | unde
   return { what: [String(call.name ?? "tool"), what].filter(Boolean).join(": "), refused: denied };
 }
 
-const UNPARSED = "__unparsedToolInput";
-const NOT_JSON = /InputValidationError[^"]*could not be parsed as JSON/;
 const QUOTE_CHARS = 300;
 
 type Malformed = { tool: string; quote: string };
 
-/** Tool calls whose input was not JSON: the harness refused them, so nothing else reports them. */
-export function malformed(timeline: Timeline): Malformed[] {
+/** Tool calls whose input was not JSON, by the marks the harness leaves on them: it refused them, so nothing else reports them. */
+export function malformed(timeline: Timeline, unparsed: { input: string; error: string } | undefined): Malformed[] {
+  if (!unparsed) return [];
+  const notJson = new RegExp(unparsed.error);
   // This turn only: Paseo hands the whole session, so one bad call would be found again every turn.
   return timeline.slice(lastUserIndex(timeline) + 1).flatMap((item) => {
     if (item.type !== "tool_call" || item.status !== "failed") return [];
     // The input only, never `output`: a tool's own output may print these strings legitimately.
     const sent = JSON.stringify((item.detail as { input?: unknown } | undefined)?.input ?? null);
     const said = JSON.stringify(item.error ?? null).replace(/\\[nrt]/g, " ");
-    if (!sent.includes(UNPARSED) && !NOT_JSON.test(said)) return [];
-    return [{ tool: String(item.name ?? "tool"), quote: (NOT_JSON.test(said) ? said : sent).slice(0, QUOTE_CHARS) }];
+    if (!sent.includes(unparsed.input) && !notJson.test(said)) return [];
+    return [{ tool: String(item.name ?? "tool"), quote: (notJson.test(said) ? said : sent).slice(0, QUOTE_CHARS) }];
   });
 }

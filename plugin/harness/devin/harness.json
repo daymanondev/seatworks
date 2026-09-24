@@ -6,6 +6,9 @@
   "configDirEnv": "XDG_CONFIG_HOME",
   "promptFile": "devin/AGENTS.md",
   "skillsDir": "devin/skills",
+  "timeline": {
+    "writePathPrefix": "Wrote "
+  },
   "mcp": {
     "file": "devin/mcp_config.json",
     "delivery": "file",

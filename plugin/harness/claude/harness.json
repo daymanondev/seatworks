@@ -5,6 +5,12 @@
   "profileRoot": "HOME/.claude/profiles",
   "configDirEnv": "CLAUDE_CONFIG_DIR",
   "skillsDir": "skills",
+  "timeline": {
+    "unparsed": {
+      "input": "__unparsedToolInput",
+      "error": "InputValidationError[^\"]*could not be parsed as JSON"
+    }
+  },
   "steers": true,
   "mcp": {
     "file": ".claude.json",

@@ -155,6 +155,7 @@ only you can answer.
 | `steers` | Whether mail may be steered into a running turn |
 | `exitPattern` | How the agent writes a failed exit, so the watch can tell failure from output |
 | `mcpCall`, `mcpServerField` | How the agent names a call to an MCP server, or the field that holds the server's name, so a call to the desk is known as one |
+| `timeline` | Where the agent's timeline differs from the rest: a prefix it puts on a written path, calls it sends that are not the seat's, and the marks of an input that was not JSON |
 | `checks` | Files the Health tab looks for |
 | `hasThinking` | Whether the agent takes a thinking level |
 | `provider` | Env, launch command, `forceFlags`, and the starting mode |

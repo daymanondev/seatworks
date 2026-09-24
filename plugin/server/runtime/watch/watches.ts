@@ -1,7 +1,7 @@
 import { type Kit, can, seatOf } from "../../catalog/kit.ts";
 import type { Seen, SeatView, Seats, Stream } from "../../core/ports.ts";
 import { type Fact, Recovery, type Rules, afterChange, contradicted, fact, stuck, unverified } from "./facts.ts";
-import { Window } from "./window.ts";
+import { type Quirks, Window } from "./window.ts";
 
 export type WatchedSeat = { id: string; provider: string; cwd: string; title?: string | null };
 
@@ -15,7 +15,7 @@ const median = (values: number[]): number => {
 
 export class SeatWatch {
   readonly seat: WatchedSeat;
-  readonly window = new Window();
+  readonly window: Window;
   running = false;
   turnId: string | null = null;
   startedAt = 0;
@@ -25,9 +25,10 @@ export class SeatWatch {
   private readonly context: () => SeatContext | undefined;
   private current: SeatContext | undefined;
 
-  constructor(seat: WatchedSeat, context: () => SeatContext | undefined) {
+  constructor(seat: WatchedSeat, context: () => SeatContext | undefined, quirks?: Quirks) {
     this.seat = seat;
     this.context = context;
+    this.window = new Window(quirks);
   }
 
   private rules(): Rules | undefined {
@@ -168,7 +169,7 @@ export class Watches {
 
   follow(seat: WatchedSeat): void {
     if (this.followed.has(seat.id) || !this.watched(seat.provider)) return;
-    const watch = new SeatWatch(seat, () => this.deps.context(seat));
+    const watch = new SeatWatch(seat, () => this.deps.context(seat), seatOf(this.deps.kit, seat.provider)?.harness.timeline);
     let stream: Stream;
     try {
       stream = this.deps.seats.watch(seat.id, (seen) => this.seen(watch, seen));

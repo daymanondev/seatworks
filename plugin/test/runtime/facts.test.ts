@@ -37,9 +37,9 @@ function toSeen(message: StreamMessage, epochs: Map<string, number>): Exclude<Se
   return { kind: "row", row: { item: event.item!, seqStart: message.seq, seq: message.seq, epoch: message.epoch!, turnId: event.turnId ?? null, replay } };
 }
 
-/** `handed` is the outcome of a hand-back the turn made, if it made one. */
-function play(messages: StreamMessage[], given: Rules, handed?: string) {
-  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: given, handedBack: () => handed, placed: true }));
+/** `handed` is the outcome of a hand-back the turn made, if it made one; `quirks` are the harness's way of writing its timeline. */
+function play(messages: StreamMessage[], given: Rules, handed?: string, quirks?: ConstructorParameters<typeof SeatWatch>[2]) {
+  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: given, handedBack: () => handed, placed: true }), quirks);
   const facts: (Fact & { seq?: number })[] = [];
   const epochs = new Map<string, number>();
   let now = 1_000;
@@ -277,9 +277,9 @@ test("a commit message written to the temp directory is not a write the gate has
   assert.deepEqual(kinds(play([start, fixture("pi")[1]!, wrote, gate, message, end], rules({ gates: ["npm test"], cwd: "/work" }), "complete")).filter((kind) => kind === "unverified"), []);
   // Devin names a file it creates "Wrote <path>", which read as a relative path inside the project.
   const created = again(edit, "c", 5, (detail) => Object.assign(detail, { filePath: "Wrote /var/folders/xy/T/bench.mjs" }));
-  assert.deepEqual(kinds(play([start, fixture("pi")[1]!, wrote, gate, created, end], rules({ gates: ["npm test"], cwd: "/work" }), "complete")).filter((kind) => kind === "unverified"), []);
+  assert.deepEqual(kinds(play([start, fixture("pi")[1]!, wrote, gate, created, end], rules({ gates: ["npm test"], cwd: "/work" }), "complete", kit.harnesses.devin!.timeline)).filter((kind) => kind === "unverified"), []);
   const inside = again(edit, "i", 5, (detail) => Object.assign(detail, { filePath: "Wrote ./src/b.ts" }));
-  assert.deepEqual(kinds(play([start, fixture("pi")[1]!, wrote, gate, inside, end], rules({ gates: ["npm test"], cwd: "/work" }), "complete")).filter((kind) => kind === "unverified"), ["unverified"]);
+  assert.deepEqual(kinds(play([start, fixture("pi")[1]!, wrote, gate, inside, end], rules({ gates: ["npm test"], cwd: "/work" }), "complete", kit.harnesses.devin!.timeline)).filter((kind) => kind === "unverified"), ["unverified"]);
 });
 
 test("irreversible commands are caught where a command starts, in any flag order, and not in quoted text", () => {

@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
+import { loadKit } from "../../server/catalog/kit.ts";
 import type { TimelineItem } from "../../server/core/ports.ts";
 import { deniedCall, malformed, outputText } from "../../server/runtime/timeline.ts";
-import { makeKit } from "../kit.ts";
 
 const t = (...items: TimelineItem[]) => items;
-const { refused } = makeKit().ecosystem.watch;
+const kit = loadKit(join(dirname(fileURLToPath(import.meta.url)), "..", ".."));
+const { refused } = kit.ecosystem.watch;
+const unparsed = kit.harnesses.claude!.timeline?.unparsed;
 
 test("output text joins the assistant's words after the last user message", () => {
   const timeline = t(
@@ -75,16 +79,16 @@ test("a call the harness refused because its input was not JSON is reported, and
     { type: "tool_call", callId: "c3", name: "Bash", status: "failed", error: "exit 1", detail: { type: "shell", command: "npm test" } },
   );
   assert.deepEqual(
-    malformed(timeline).map((call) => call.tool),
+    malformed(timeline, unparsed).map((call) => call.tool),
     ["mcp__team__open_lane"],
     "the retry and the ordinary failure are not malformed input",
   );
-  assert.match(malformed(timeline)[0]!.quote, /could not be parsed as JSON/);
+  assert.match(malformed(timeline, unparsed)[0]!.quote, /could not be parsed as JSON/);
 });
 
 test("a malformed call is still reported when only the input it could not read survives", () => {
   const timeline = t({ type: "tool_call", callId: "c1", name: "done", status: "failed", error: null, detail: { type: "unknown", input: { __unparsedToolInput: { raw: "{" } }, output: null } });
-  assert.deepEqual(malformed(timeline).map((call) => call.tool), ["done"]);
+  assert.deepEqual(malformed(timeline, unparsed).map((call) => call.tool), ["done"]);
 });
 
 test("a failed call whose own output happens to mention unparsed JSON is not a malformed call", () => {
@@ -94,7 +98,7 @@ test("a failed call whose own output happens to mention unparsed JSON is not a m
     { type: "tool_call", callId: "c1", name: "Bash", status: "failed", error: { content: "exit 1" }, detail: { type: "shell", command: "npm test", exitCode: 1, output: "FAIL config.test.ts: could not be parsed as JSON" } },
     { type: "tool_call", callId: "c2", name: "Grep", status: "failed", error: null, detail: { type: "unknown", input: { pattern: "boom" }, output: "timeline.ts: const UNPARSED = /__unparsedToolInput|could not be parsed as JSON/" } },
   );
-  assert.deepEqual(malformed(timeline), []);
+  assert.deepEqual(malformed(timeline, unparsed), []);
 });
 
 test("a malformed call belongs to the turn it was made in, and is not reported again at the end of the next", () => {
@@ -105,7 +109,7 @@ test("a malformed call belongs to the turn it was made in, and is not reported a
     { type: "tool_call", callId: "c2", name: "mcp__team__open_lane", status: "completed", detail: { type: "unknown", input: { title: "t" }, output: "Lane L1 is open" } },
     { type: "assistant_message", text: "Opened." },
   ];
-  assert.deepEqual(malformed(t(...turn)).map((call) => call.tool), ["mcp__team__open_lane"]);
+  assert.deepEqual(malformed(t(...turn), unparsed).map((call) => call.tool), ["mcp__team__open_lane"]);
   const later = t(...turn, { type: "user_message", text: "now start a task" }, { type: "tool_call", callId: "c3", name: "status", status: "completed", detail: {} }, { type: "assistant_message", text: "Done." });
-  assert.deepEqual(malformed(later), [], "the same call is not written to the log again every turn for the rest of the session");
+  assert.deepEqual(malformed(later, unparsed), [], "the same call is not written to the log again every turn for the rest of the session");
 });

@@ -6,6 +6,14 @@
   "configDirEnv": "CODEX_HOME",
   "contextFile": "AGENTS.md",
   "skillsDir": "skills",
+  "timeline": {
+    "pseudoCalls": [
+      {
+        "name": "terminal",
+        "detail": "plain_text"
+      }
+    ]
+  },
   "steers": true,
   "systemPrompt": "config",
   "mcp": {
