@@ -26,12 +26,10 @@ export function outputText(timeline: Timeline): string {
 
 const QUIET_CHARS = 200;
 
-const REFUSED = "permission|denied|not allowed|refused|blocked by";
-
 /** What ended the turn on its last tool call: a refusal, or a call that simply never finished. */
 type LastCall = { what: string; refused: boolean };
 
-export function deniedCall(timeline: Timeline, refused = REFUSED): LastCall | undefined {
+export function deniedCall(timeline: Timeline, refused: string): LastCall | undefined {
   const turn = timeline.slice(lastUserIndex(timeline) + 1);
   let lastTool = -1;
   for (let index = turn.length - 1; index >= 0; index--) {

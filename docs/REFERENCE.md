@@ -57,7 +57,8 @@ CLEARED letter.
 
 ## Gate detection
 
-The first `open_lane` of a project with no gate on record looks in the project root:
+The first `open_lane` of a project with no gate on record looks in the project root, by the rules in
+`catalog/ecosystem.json` (the shipped ones below):
 
 | Found | Gate |
 |---|---|
@@ -67,6 +68,10 @@ The first `open_lane` of a project with no gate on record looks in the project r
 | `Cargo.toml` | `cargo test` |
 | `go.mod` | `go test ./...` |
 | `pyproject.toml` or `pytest.ini` | `pytest -q` |
+
+`catalog/ecosystem.json` also holds the paths only one writer at a time may write (a project's own
+`serialOnly` replaces them), how test and docs files are named, and the watch's default patterns. A file
+of the same name in the state root replaces it, as `roles.json` does.
 
 ## Letters
 

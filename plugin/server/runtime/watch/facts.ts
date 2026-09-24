@@ -3,9 +3,6 @@ import { globToRegex, normalize } from "../../core/scope.ts";
 import { mask } from "../../core/mask.ts";
 import type { Call, Change, Unit, Window } from "./window.ts";
 
-const ASSERTION = "\\b(assert|expect)\\b|\\.should\\b";
-const SKIPPED = "\\.(skip|only|todo)\\b|\\bx(it|describe|test)\\b|@Disabled\\b|pytest\\.mark\\.skip\\b";
-
 type Level = "page" | "attend" | "note";
 
 /** Every fact the code raises and its level; one that can open an incident has the title a person reads it by. */
@@ -40,10 +37,14 @@ export function factTitle(kind: string): string | undefined {
   return (FACTS as Record<string, { title?: string }>)[kind]?.title;
 }
 
+/** `skipped` and `assertion` are global, since they are counted; `runners` are the commands whose first word says little. */
 export type Rules = {
   destructive: RegExp;
   testPath: RegExp;
   suppressed: RegExp;
+  skipped: RegExp;
+  assertion: RegExp;
+  runners: Set<string>;
   exit?: RegExp;
   desk?: (call: Call) => boolean;
   gates: string[];
@@ -54,14 +55,14 @@ export type Rules = {
   recoverWithin: number;
 };
 
-const count = (text: string, pattern: string): number => (text.match(new RegExp(pattern, "gi")) ?? []).length;
+const count = (text: string, pattern: RegExp): number => (text.match(pattern) ?? []).length;
 const flat = (text: string, limit = 200): string => within(mask(text).replace(/\s+/g, " ").trim(), limit);
 const str = (value: unknown): string => (typeof value === "string" ? value : "");
 
 /** How a change to a test file weakened it, if it did: a new skip marker, or fewer assertions. */
-export function weakened(before: string, after: string): string | undefined {
-  if (count(after, SKIPPED) > count(before, SKIPPED)) return "adds a skip marker";
-  const [was, now] = [count(before, ASSERTION), count(after, ASSERTION)];
+export function weakened(before: string, after: string, markers: Pick<Rules, "skipped" | "assertion">): string | undefined {
+  if (count(after, markers.skipped) > count(before, markers.skipped)) return "adds a skip marker";
+  const [was, now] = [count(before, markers.assertion), count(after, markers.assertion)];
   return now < was ? `${was} assertions become ${now}` : undefined;
 }
 
@@ -228,7 +229,7 @@ function onSettle(call: Call, rules: Rules, known?: (path: string) => string | u
     const path = str(detail.filePath);
     const [before, after] = both;
     if (rules.testPath.test(path) && (before || after)) {
-      const how = weakened(before, after);
+      const how = weakened(before, after, rules);
       if (how) facts.push(fact("test-weakened", `${flat(path)}: ${how}`));
     }
     if (!PROSE.test(path)) {
@@ -244,12 +245,10 @@ function onSettle(call: Call, rules: Rules, known?: (path: string) => string | u
   return facts;
 }
 
-const RUNNERS = new Set(["npm", "pnpm", "yarn", "bun", "npx", "bunx", "uv", "uvx", "poetry", "pipenv", "python", "python3", "cargo", "go", "make", "just", "deno", "node", "dotnet", "mvn", "gradle", "./gradlew", "git", "gh", "docker", "kubectl"]);
-
-function head(command: string): string {
+function head(command: string, runners: Set<string>): string {
   const main = command.split(/&&|;/).map((part) => part.trim()).filter((part) => part && !/^cd\s/.test(part)).at(-1) ?? command;
   const words = main.split("|")[0]!.trim().split(/\s+/).filter((word) => !/^[A-Za-z_][A-Za-z0-9_]*=/.test(word));
-  if (!RUNNERS.has(words[0] ?? "")) return words[0] ?? "";
+  if (!runners.has(words[0] ?? "")) return words[0] ?? "";
   return words.slice(0, /^(run|exec|-m|x|dlx)$/.test(words[1] ?? "") ? 3 : 2).join(" ");
 }
 
@@ -260,12 +259,12 @@ export class Recovery {
     const shell = call.detail.type === "shell";
     const command = str(call.detail.command);
     const bad = failed(call, rules.exit);
-    if (shell && bad && (!this.open || head(command) !== this.open.head)) {
-      this.open = { command, head: head(command), steps: 0, told: false };
+    if (shell && bad && (!this.open || head(command, rules.runners) !== this.open.head)) {
+      this.open = { command, head: head(command, rules.runners), steps: 0, told: false };
       return [];
     }
     if (!this.open) return [];
-    if (shell && !bad && (head(command) === this.open.head || isGate(call, rules.gates))) {
+    if (shell && !bad && (head(command, rules.runners) === this.open.head || isGate(call, rules.gates))) {
       this.open = undefined;
       return [];
     }

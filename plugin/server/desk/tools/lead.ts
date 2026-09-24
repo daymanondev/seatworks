@@ -1,4 +1,4 @@
-import { type RoleSpec, namedOrNot, roleThatCan } from "../../catalog/kit.ts";
+import { type RoleSpec, fileKinds, namedOrNot, roleThatCan } from "../../catalog/kit.ts";
 import { skillSources } from "../../catalog/content.ts";
 import { skillDirsFor } from "../../catalog/team.ts";
 import { branchExists, currentBranch, diffCounts, git, headSha, outsideOwned, resetHard, trackedFiles } from "../../core/git.ts";
@@ -24,7 +24,7 @@ import {
 import { clip, letters } from "../letters.ts";
 import { holderOf, parallelProblem, seatingKey, startPeer, taskPlacement } from "../opening.ts";
 import { planFindings, readPlan } from "../plan.ts";
-import { type Project, loadConfig } from "../project.ts";
+import { type Project, serialOnlyOf } from "../project.ts";
 import type { DeskServices, Tool } from "../services.ts";
 import { startWaiting, taskWaitsFor } from "../waiting.ts";
 
@@ -103,7 +103,7 @@ export const startTask: Tool = async (desk, caller, args) => {
   if (!lane?.worktree) return no("You have no open lane.");
   const pending = after.length > 0 ? taskWaitsFor(ledger, lane.id, after) : [];
   if (typeof pending === "string") return no(`${pending} Start this task without waiting for it.`);
-  const problem = pending.length > 0 ? undefined : await taskPlacement(project, ledger, lane, owned, parallel);
+  const problem = pending.length > 0 ? undefined : await taskPlacement(desk.ctx.kit, project, ledger, lane, owned, parallel);
   if (problem) return no(`${problem.why} ${problem.instead}`);
   const workRole = workRoleFor(ctx, project, args);
   if (typeof workRole === "string") return no(workRole);
@@ -133,7 +133,7 @@ export const planTasks: Tool = async (desk, caller, args) => {
     if (typeof role === "string") return no(`${task.key}: ${role}`);
     roles.set(task.key, role.role);
   }
-  const findings = planFindings(ledger, lane, plan, serialPaths(await trackedFiles(lane.worktree), loadConfig(project.state).serialOnly));
+  const findings = planFindings(ledger, lane, plan, serialPaths(await trackedFiles(lane.worktree), serialOnlyOf(project, ctx.kit)));
   const ids = new Map<string, string>();
   for (const task of plan) {
     const after = task.after.map((id) => ids.get(id) ?? id);
@@ -268,7 +268,7 @@ export const accept: Tool = async (desk, caller, args) => {
         : `The lane's working copy has uncommitted changes: ${await uncommittedIn(lane.worktree)}. Send rework asking the Peer on ${task.id} for those, then accept again.`,
     );
   }
-  const counts = await diffCounts(lane.worktree, task.startSha ?? lane.base, "HEAD");
+  const counts = await diffCounts(lane.worktree, task.startSha ?? lane.base, "HEAD", fileKinds(ctx.kit));
   // Not rerun: a per-task gate already gave the Lead its verdict with the hand-back.
   const gate = gateNote(project, task);
   const updated = await ctx.setTask(project, task.id, (entry) => {
@@ -320,7 +320,7 @@ export const amendTask: Tool = async ({ ctx }, caller, args) => {
   const current = laneTask(ledger, caller, str(args.task));
   // Checked as a start is: a task beside others that takes more paths could take what another is writing. A waiting one is checked when it starts.
   if (typeof current !== "string" && changes.owned && current.task.mode === "parallel" && current.task.status !== "waiting") {
-    const problem = await parallelProblem(caller.project, ledger, current.lane, changes.owned as string[], current.task.id);
+    const problem = await parallelProblem(ctx.kit, caller.project, ledger, current.lane, changes.owned as string[], current.task.id);
     if (problem) return no(`${problem.why} Leave those paths out of ${current.task.id}.`);
   }
   const done = await ctx.ledger(caller.project, (ledger) => {

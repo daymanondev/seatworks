@@ -1,4 +1,5 @@
 import { commitsAhead, diffCounts, mergeBranch, outsideOwned } from "../core/git.ts";
+import { fileKinds } from "../catalog/kit.ts";
 import { workState } from "../catalog/project-files.ts";
 import type { Agents } from "./agents.ts";
 import { type DeskContext } from "./context.ts";
@@ -72,7 +73,7 @@ export class MergeQueue {
         ? finish("rework", letters.conflict(task, merged.conflicts, lane.branch))
         : finish("failed", letters.mergeFailed(task, "git merge failed", merged.message));
     }
-    const counts = await diffCounts(cwd, merged.before, merged.after);
+    const counts = await diffCounts(cwd, merged.before, merged.after, fileKinds(this.ctx.kit));
     // No gate here: the Lead accepted with the verdict in hand, and undoing the merge on red would take that decision back.
     const gate = gateNote(project, task);
     await this.ctx.setTask(project, taskId, (entry) => {

@@ -1,9 +1,10 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { z } from "zod";
 import { ATTENTION, type Attention } from "./attention.ts";
 import { hiddenWordsIn } from "./hidden-words.ts";
-import { HarnessFile, McpFile, RolesFile } from "./schema.ts";
+import type { FileKinds } from "../core/git.ts";
+import { EcosystemFile, HarnessFile, McpFile, RolesFile } from "./schema.ts";
 
 type ThinkingSpec = { id: string; label: string; isDefault?: boolean };
 export type ModelSpec = { id: string; label: string; isDefault?: boolean; thinkingOptions?: ThinkingSpec[] };
@@ -16,6 +17,7 @@ export type RoleSpec = Omit<RoleFile, "defaults"> & { defaults: NonNullable<Role
 export type HarnessSpec = z.infer<typeof HarnessFile> & { models?: ModelSpec[] };
 export type McpEntry = z.infer<typeof McpFile> & { dir: string };
 export type McpTransport = HarnessSpec["mcp"]["transports"][number];
+export type Ecosystem = z.infer<typeof EcosystemFile>;
 export type ProxySpec = NonNullable<McpEntry["proxy"]>;
 
 export type Kit = {
@@ -28,6 +30,7 @@ export type Kit = {
   team?: string;
   own?: string;
   attention: Attention;
+  ecosystem: Ecosystem;
 };
 
 function subdirs(root: string): string[] {
@@ -70,14 +73,15 @@ function loadMcp(dir: string): Record<string, McpEntry> {
   return entries;
 }
 
-/** The shipped SLP preset, unless the state root holds a file of the same name, which replaces it. */
-function rolesFile(dir: string, stateDir?: string): string {
-  const own = stateDir ? join(stateDir, "roles.json") : undefined;
-  return own && existsSync(own) ? own : join(dir, "roles.json");
+/** The shipped file, unless the state root holds one of the same name, which replaces it: the SLP preset, or the ecosystem. */
+function chosen(shipped: string, stateDir?: string): string {
+  const own = stateDir ? join(stateDir, basename(shipped)) : undefined;
+  return own && existsSync(own) ? own : shipped;
 }
 
 export function loadKit(dir: string, stateDir?: string): Kit {
-  const raw = parsed(RolesFile, rolesFile(dir, stateDir), "roles.json");
+  const raw = parsed(RolesFile, chosen(join(dir, "roles.json"), stateDir), "roles.json");
+  const ecosystem = parsed(EcosystemFile, chosen(join(dir, "catalog", "ecosystem.json"), stateDir), "ecosystem.json");
   const harnesses: Record<string, HarnessSpec> = {};
   for (const id of subdirs(join(dir, "harness"))) {
     const file = join(dir, "harness", id, "harness.json");
@@ -109,8 +113,29 @@ export function loadKit(dir: string, stateDir?: string): Kit {
     toolSets: loadToolSets(dir),
     team: loadTeam(dir, loaded, own),
     own,
-    attention: { ...ATTENTION, ...raw.attention },
+    attention: { ...ATTENTION, destructive: ecosystem.watch.destructive, testPath: ecosystem.watch.testPath, suppressed: ecosystem.watch.suppressed, ...raw.attention },
+    ecosystem,
   };
+}
+
+/** What a test file's change is read for: a skip marker it adds, or assertions it loses; global, since they are counted. */
+export function testMarkers(kit: Kit): { skipped: RegExp; assertion: RegExp } {
+  return { skipped: new RegExp(kit.ecosystem.watch.skipped, "gi"), assertion: new RegExp(kit.ecosystem.watch.assertion, "gi") };
+}
+
+/** The patterns the watch reads calls with: the ecosystem's, and attention's where a settings layer set its own. */
+export function watchPatterns(kit: Kit, attention: Attention) {
+  return {
+    destructive: new RegExp(attention.destructive, "i"),
+    testPath: new RegExp(attention.testPath, "i"),
+    suppressed: new RegExp(attention.suppressed, "i"),
+    ...testMarkers(kit),
+    runners: new Set(kit.ecosystem.watch.runners),
+  };
+}
+
+export function fileKinds(kit: Kit): FileKinds {
+  return { test: new RegExp(kit.ecosystem.files.test, "i"), docs: new RegExp(kit.ecosystem.files.docs, "i") };
 }
 
 function shippedOrOwn(dir: string, own: string | undefined, path: string): string {

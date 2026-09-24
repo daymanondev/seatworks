@@ -4,6 +4,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { RISKY_PATHS } from "../../server/catalog/team.ts";
+import { makeKit } from "../kit.ts";
 import { saveIncidents } from "../../server/desk/incidents.ts";
 import { type Lane, type Task, emptyLedger } from "../../server/desk/ledger.ts";
 import { landCheck } from "../../server/desk/landing.ts";
@@ -12,6 +13,7 @@ import { tempDir } from "../tempdir.ts";
 
 const checks = { risk: RISKY_PATHS, land: "on" as const, landApprove: "risky" as const, landLines: 1000 };
 const passed = { set: true, ok: true };
+const kit = makeKit();
 
 /** A repository whose main holds a test with two assertions, and a lane branch the test writes on. */
 function shop() {
@@ -48,7 +50,7 @@ test("a lane with nothing in it to worry about lands on evidence alone: what cha
   write("src/cart.ts", "export const total = 2;\n");
   write("test/cart.test.ts", "assert.equal(total, 2);\nassert.ok(total);\nassert.ok(total > 0);\n");
   commit();
-  const checked = await landCheck(project, ledger, lane, passed, checks);
+  const checked = await landCheck(kit, project, ledger, lane, passed, checks);
   assert.deepEqual(checked.signals, []);
   assert.deepEqual(checked.evidence, ["1 commit; 2 files, 5 lines changed.", "Gate: passed on the lane.", "Tests changed: test/cart.test.ts."]);
 });
@@ -71,7 +73,7 @@ test("each thing that should reach a person before a lane lands is named, one en
       I2: { id: "I2", seat: "peer-2", where: "w", lane: "L2", kind: "destructive", level: "page", quote: "q", facts: [], opened: 0, last: 0, count: 1, open: true },
     },
   });
-  const checked = await landCheck(project, ledger, lane, { set: true, ok: false }, checks);
+  const checked = await landCheck(kit, project, ledger, lane, { set: true, ok: false }, checks);
   assert.deepEqual(checked.signals, [
     "The gate failed on the lane, and landing was asked for over it.",
     "test/old.test.ts is deleted.",
@@ -90,8 +92,8 @@ test("a project without a gate is held, and its evidence says no gate ran", asyn
   const { write, commit, project, lane, ledger } = shop();
   write("src/cart.ts", "export const total = 3;\n");
   commit();
-  assert.deepEqual((await landCheck(project, ledger, lane, { set: false, ok: true }, checks)).signals, ["This project has no gate, so nothing ran the lane's checks."]);
-  assert.match((await landCheck(project, ledger, lane, { set: false, ok: true }, checks)).evidence.join("\n"), /Gate: none set\./);
+  assert.deepEqual((await landCheck(kit, project, ledger, lane, { set: false, ok: true }, checks)).signals, ["This project has no gate, so nothing ran the lane's checks."]);
+  assert.match((await landCheck(kit, project, ledger, lane, { set: false, ok: true }, checks)).evidence.join("\n"), /Gate: none set\./);
 });
 
 test("a lane its Lead has not reported ready as it now stands is held: never reported, or amended since", async () => {
@@ -99,5 +101,5 @@ test("a lane its Lead has not reported ready as it now stands is held: never rep
   write("src/cart.ts", "export const total = 4;\n");
   commit();
   delete lane.ready;
-  assert.deepEqual((await landCheck(project, ledger, lane, passed, checks)).signals, ["Its Lead has not reported it ready as it now stands: never, or the lane was amended since."]);
+  assert.deepEqual((await landCheck(kit, project, ledger, lane, passed, checks)).signals, ["Its Lead has not reported it ready as it now stands: never, or the lane was amended since."]);
 });

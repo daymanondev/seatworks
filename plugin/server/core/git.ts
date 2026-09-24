@@ -112,17 +112,17 @@ export async function resetHard(cwd: string, sha: string): Promise<boolean> {
 
 export type Counts = { src: number; test: number; docs: number; files: string[] };
 
-export function kindOf(path: string): "src" | "test" | "docs" {
-  if (/(^|\/)(tests?|__tests__|spec|specs)\//i.test(path) || /\.(test|spec)\.[a-z0-9]+$/i.test(path) || /(Test|Tests|IT)\.(java|kt|scala|cs)$/.test(path) || /_test\.(go|py|rb)$/.test(path) || /(^|\/)test_[^/]+\.py$/.test(path)) {
-    return "test";
-  }
-  if (/\.(md|mdx|txt|rst|adoc)$/i.test(path) || /(^|\/)docs?\//i.test(path)) return "docs";
-  return "src";
+/** Which paths are tests and which are docs, as the ecosystem the kit holds names them. */
+export type FileKinds = { test: RegExp; docs: RegExp };
+
+export function kindOf(path: string, kinds: FileKinds): "src" | "test" | "docs" {
+  if (kinds.test.test(path)) return "test";
+  return kinds.docs.test(path) ? "docs" : "src";
 }
 
 /** Uses `-z` so a rename yields both real paths, not the `src/{old.ts => new.ts}` form that matches no owned path. */
 /** Lines of an `uncounted` path are left out of the counts; the path is still listed. */
-export function countNumstat(numstat: string, uncounted: (path: string) => boolean = () => false): Counts {
+export function countNumstat(numstat: string, kinds: FileKinds, uncounted: (path: string) => boolean = () => false): Counts {
   const counts: Counts = { src: 0, test: 0, docs: 0, files: [] };
   const fields = numstat.split("\0");
   for (let index = 0; index < fields.length; index++) {
@@ -141,7 +141,7 @@ export function countNumstat(numstat: string, uncounted: (path: string) => boole
       index += 2;
     }
     for (const path of paths) {
-      if (!uncounted(path)) counts[kindOf(path)] += lines;
+      if (!uncounted(path)) counts[kindOf(path, kinds)] += lines;
       counts.files.push(path);
     }
   }
@@ -149,9 +149,9 @@ export function countNumstat(numstat: string, uncounted: (path: string) => boole
 }
 
 /** Undefined when git could not answer: zeroed counts read as "nothing changed", which is a claim. */
-export async function diffCounts(cwd: string, from: string, to: string, uncounted?: (path: string) => boolean): Promise<Counts | undefined> {
+export async function diffCounts(cwd: string, from: string, to: string, kinds: FileKinds, uncounted?: (path: string) => boolean): Promise<Counts | undefined> {
   const run = await git(cwd, ["diff", "-z", "--numstat", `${from}..${to}`]);
-  return run.code === 0 ? countNumstat(run.stdout, uncounted) : undefined;
+  return run.code === 0 ? countNumstat(run.stdout, kinds, uncounted) : undefined;
 }
 
 export function outsideOwned(files: string[], owned: string[]): string[] {

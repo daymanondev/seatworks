@@ -141,3 +141,27 @@ export const RolesFile = z.strictObject({
   attention: AttentionChoice.optional(),
   roles: z.array(Role),
 });
+
+const Gate = z.strictObject({
+  files: z.array(text).min(1),
+  script: text.optional(),
+  run: text,
+  lockfiles: z.record(z.string(), text).optional(),
+});
+
+export const EcosystemFile = z.strictObject({
+  serialOnly: texts,
+  gates: z.array(Gate),
+  scriptRunners: texts,
+  unsetScript: text,
+  files: z.strictObject({ test: pattern, docs: pattern }),
+  watch: z.strictObject({
+    destructive: pattern,
+    testPath: pattern,
+    suppressed: pattern,
+    skipped: pattern,
+    assertion: pattern,
+    refused: pattern,
+    runners: texts,
+  }),
+});

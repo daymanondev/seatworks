@@ -4,7 +4,8 @@ import { globToRegex } from "../core/scope.ts";
 import { weakened } from "../runtime/watch/facts.ts";
 import { loadIncidents } from "./incidents.ts";
 import { type Lane, type Ledger, tasksOf } from "./ledger.ts";
-import { type Project, loadConfig } from "./project.ts";
+import { type Kit, fileKinds, testMarkers } from "../catalog/kit.ts";
+import { type Project, serialOnlyOf } from "./project.ts";
 
 type LandGate = { set: boolean; ok: boolean };
 
@@ -22,19 +23,21 @@ async function changed(root: string, range: string, filter: "D" | "M"): Promise<
  * What a lane brings onto its base, read from git and the record rather than from anything a seat said: `signals` are
  * the reasons a person should see it before it lands, any one enough; `evidence` is the rest of what they would read.
  */
-export async function landCheck(project: Project, ledger: Ledger, lane: Lane, gate: LandGate, checks: Checkpoints): Promise<{ signals: string[]; evidence: string[] }> {
+export async function landCheck(kit: Kit, project: Project, ledger: Ledger, lane: Lane, gate: LandGate, checks: Checkpoints): Promise<{ signals: string[]; evidence: string[] }> {
   const { root } = project;
   const range = `${lane.base}..${lane.branch}`;
-  const serial = loadConfig(project.state).serialOnly.map((rule) => globToRegex(rule));
-  const counts = await diffCounts(root, lane.base, lane.branch, (path) => serial.some((rule) => rule.test(path)));
+  const serial = serialOnlyOf(project, kit).map((rule) => globToRegex(rule));
+  const kinds = fileKinds(kit);
+  const markers = testMarkers(kit);
+  const counts = await diffCounts(root, lane.base, lane.branch, kinds, (path) => serial.some((rule) => rule.test(path)));
   const files = [...new Set(counts?.files ?? [])];
   const lines = counts ? counts.src + counts.test + counts.docs : 0;
-  const tests = files.filter((path) => kindOf(path) === "test");
-  const deleted = (await changed(root, range, "D")).filter((path) => kindOf(path) === "test");
+  const tests = files.filter((path) => kindOf(path, kinds) === "test");
+  const deleted = (await changed(root, range, "D")).filter((path) => kindOf(path, kinds) === "test");
   const weaker: string[] = [];
-  for (const path of (await changed(root, range, "M")).filter((file) => kindOf(file) === "test")) {
+  for (const path of (await changed(root, range, "M")).filter((file) => kindOf(file, kinds) === "test")) {
     const [before, after] = await Promise.all([lane.base, lane.branch].map(async (ref) => (await git(root, ["show", `${ref}:${path}`])).stdout));
-    const how = weakened(before!, after!);
+    const how = weakened(before!, after!, markers);
     if (how) weaker.push(`${path}: ${how}.`);
   }
   const risky = new RegExp(checks.risk, "i");

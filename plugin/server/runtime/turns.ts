@@ -84,7 +84,7 @@ export class TurnRules {
     }
     // A call still in flight is not silence: a nudge here started a second gate beside the first.
     if (desk.inFlight(agent.id)) return;
-    const denied = deniedCall(timeline);
+    const denied = deniedCall(timeline, this.deps.kit.ecosystem.watch.refused);
     desk.event(project, { kind: "turn.silent", task: task.id, denied: denied?.what ?? null, refused: denied?.refused ?? false, lastCall: JSON.stringify(lastToolCall(timeline) ?? null).slice(0, 600) });
     const updated = await desk.setTask(project, task.id, (entry) => {
       entry.silent += 1;

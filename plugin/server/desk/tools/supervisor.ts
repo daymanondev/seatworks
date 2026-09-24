@@ -81,7 +81,7 @@ export const openLane: Tool = async (desk, caller, args) => {
   if (!config.base || config.gate === undefined) {
     const fault = configFault(configFile(project.state));
     if (fault) return no(`${fault}\nOnly the Human can repair it or move it aside — no seat may write the desk's own files — so tell them; the desk will not write its own defaults over a file it could not read.`);
-    saveConfig(project.state, { ...config, base: config.base ?? (onBranch ? undefined : base), gate: config.gate ?? detectGate(project.root) });
+    saveConfig(project.state, { ...config, base: config.base ?? (onBranch ? undefined : base), gate: config.gate ?? detectGate(project.root, desk.ctx.kit.ecosystem) });
   }
   const place = { base, onBranch, branch: onBranch ? base : undefined };
   if (pending.length > 0) {
@@ -91,7 +91,7 @@ export const openLane: Tool = async (desk, caller, args) => {
     await seatCritic(desk, project, lane);
     return ok(`Lane ${lane.id} waits for ${pending.map((entry) => `${entry.id} (${entry.status})`).join(", ")}. It opens by itself once they have all landed, checked again against the lanes open then; if it cannot, or one closes without landing, you get a letter. Close it to drop it.`);
   }
-  const placed = await placement(project, { onBranch, writeSet: strs(args.writeSet), contracts: strs(args.contracts), detourOf: str(args.detourOf).trim().toUpperCase() || undefined }, args.isolate === true);
+  const placed = await placement(desk.ctx.kit, project, { onBranch, writeSet: strs(args.writeSet), contracts: strs(args.contracts), detourOf: str(args.detourOf).trim().toUpperCase() || undefined }, args.isolate === true);
   if ("why" in placed) return no(`${placed.why} ${placed.instead}`.trim());
   const { issue, unread } = await readIssue(args, project);
   const lane = await recordLane(desk, caller, args, place, issue);
@@ -154,7 +154,7 @@ async function checkLanding(desk: DeskServices, project: Project, lane: Lane, ga
   const checks = ctx.team(project).checkpoints;
   const mode = checks.land;
   if (mode === "off") return { note: "" };
-  const { signals, evidence } = await landCheck(project, loadLedger(project.state), lane, { set: Boolean(loadConfig(project.state).gate), ok: gateOk }, checks);
+  const { signals, evidence } = await landCheck(ctx.kit, project, loadLedger(project.state), lane, { set: Boolean(loadConfig(project.state).gate), ok: gateOk }, checks);
   const asks = signals.length > 0 || checks.landApprove === "every";
   const fresh = approved ? signals.filter((signal) => !approved.signals.includes(signal)) : signals;
   if (approved && fresh.length > 0 && fresh.every((signal) => signal === NOT_READY)) return { blocked: "its Lead has not reported it ready as it now stands", note: "" };
@@ -208,7 +208,7 @@ async function close(desk: DeskServices, project: Project, by: string, args: Arg
     if (held && !held.approved && held.head === tip) {
       const checks = ctx.team(project).checkpoints;
       // No commit since the hold, so the gate's verdict then still stands; READY, the write set and incidents are read again.
-      const now = await landCheck(project, ledger, lane, { set: Boolean(loadConfig(project.state).gate), ok: !held.signals.includes(GATE_FAILED) }, checks);
+      const now = await landCheck(ctx.kit, project, ledger, lane, { set: Boolean(loadConfig(project.state).gate), ok: !held.signals.includes(GATE_FAILED) }, checks);
       if (checks.land === "on" && (now.signals.length > 0 || checks.landApprove === "every")) {
         await ctx.ledger(project, (current) => {
           const entry = current.lanes[lane.id]?.landApproval;
@@ -353,7 +353,7 @@ export const amendLane: Tool = async ({ ctx }, caller, args) => {
   if (lane.status === "closed") return no(`Lane ${lane.id} is closed; ask for the work again with open_lane.`);
   if (lane.status === "open" && (changes.writeSet || changes.contracts)) {
     const others = Object.values(ledger.lanes).filter((entry) => entry.status === "open" && entry.id !== lane.id);
-    const problem = await overlap(project, others, (changes.writeSet ?? lane.writeSet) as string[], (changes.contracts ?? lane.contracts) as string[]);
+    const problem = await overlap(ctx.kit, project, others, (changes.writeSet ?? lane.writeSet) as string[], (changes.contracts ?? lane.contracts) as string[]);
     if (problem) return no(`${problem.why} Leave those paths out of this lane, or ask for that work in a lane that waits for the other.`);
   }
   const done = await ctx.ledger(project, (current) => {
@@ -399,7 +399,7 @@ export const replaceLead: Tool = async ({ ctx, roster, agents }, caller, args) =
         lead = await agents.start(project, { path: lane.worktree, workspaceId: lane.workspaceId }, leadRole.role, {
           parent: caller.id,
           title: `${lane.id} ${lane.title}`,
-          prompt: await takeoverFor(project, lane, lane.worktree),
+          prompt: await takeoverFor(ctx.kit, project, lane, lane.worktree),
           labels: { "seatworks.lane": lane.id, "seatworks.role": leadRole.role },
         });
       } catch (error) {

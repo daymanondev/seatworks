@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { renderPrompt } from "../catalog/content.ts";
-import { type Kit, type RoleSpec, TEAM_SERVER, can, seatOf } from "../catalog/kit.ts";
+import { type Kit, type RoleSpec, TEAM_SERVER, can, seatOf, watchPatterns } from "../catalog/kit.ts";
 import { type ModelCache, applyModels, fetchModels, listingProviders } from "../catalog/models.ts";
 import { applyRole, seatEnv } from "../catalog/launch.ts";
 import { applyReconcile, reloadDaemon } from "../catalog/providers.ts";
@@ -130,12 +130,10 @@ export class Runtime implements HostHooks {
     return {
       placed,
       rules: {
-        destructive: new RegExp(attention.destructive, "i"),
-        testPath: new RegExp(attention.testPath, "i"),
-        suppressed: new RegExp(attention.suppressed, "i"),
+        ...watchPatterns(this.kit, attention),
         exit: found.harness.exitPattern ? new RegExp(found.harness.exitPattern) : undefined,
         desk: callsTo(found.harness.mcpCall, found.harness.mcpServerField, TEAM_SERVER),
-        gates: gateCommands(seat.cwd, loadConfig(project.state).gate),
+        gates: gateCommands(seat.cwd, loadConfig(project.state).gate, this.kit.ecosystem),
         cwd: seat.cwd,
         temp: tmpdir(),
         owned,

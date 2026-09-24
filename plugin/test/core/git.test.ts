@@ -3,8 +3,12 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
+import { fileKinds } from "../../server/catalog/kit.ts";
 import { contains, countNumstat, diffCounts, headSha, kindOf, landLane, mergeBranch, outsideOwned } from "../../server/core/git.ts";
+import { makeKit } from "../kit.ts";
 import { tempDir } from "../tempdir.ts";
+
+const kinds = fileKinds(makeKit());
 
 function repo(): { root: string; run: (...args: string[]) => string; commit: (file: string, text: string, message: string) => void } {
   const root = tempDir("sw2-git-");
@@ -106,11 +110,14 @@ test("a conflicting task leaves the lane unchanged and names the files", async (
 });
 
 test("lines are counted as source, tests or docs, and files outside owned paths are named", () => {
-  assert.equal(kindOf("src/pricing.js"), "src");
-  assert.equal(kindOf("test/pricing.test.js"), "test");
-  assert.equal(kindOf("src/main/java/OrderServiceTest.java"), "test");
-  assert.equal(kindOf("docs/design.md"), "docs");
-  const counts = countNumstat(["10\t2\tsrc/a.js", "5\t0\ttest/a.test.js", "3\t3\tREADME.md", ""].join("\0"));
+  assert.equal(kindOf("src/pricing.js", kinds), "src");
+  assert.equal(kindOf("test/pricing.test.js", kinds), "test");
+  assert.equal(kindOf("src/main/java/OrderServiceTest.java", kinds), "test");
+  assert.equal(kindOf("docs/design.md", kinds), "docs");
+  assert.equal(kindOf("pkg/cart_test.go", kinds), "test");
+  assert.equal(kindOf("pkg/cart_TEST.go", kinds), "src", "a Go or Python test file's name is matched as its tools match it, case and all");
+  assert.equal(kindOf("src/main/java/OrderServicetest.java", kinds), "src");
+  const counts = countNumstat(["10\t2\tsrc/a.js", "5\t0\ttest/a.test.js", "3\t3\tREADME.md", ""].join("\0"), kinds);
   assert.deepEqual({ src: counts.src, test: counts.test, docs: counts.docs }, { src: 12, test: 5, docs: 6 });
   assert.deepEqual(outsideOwned(["src/a.js", "src/b/c.js", "lib/x.js"], ["src/a.js", "src/b/"]), ["lib/x.js"]);
   assert.deepEqual(outsideOwned(["src/apparel/secret.ts"], ["src/app"]), ["src/apparel/secret.ts"], "an owned src/app is not ownership of src/apparel");
@@ -126,7 +133,7 @@ test("a rename is counted as the two real paths it moved between, not as git's d
   run("mv", "src/pricing.ts", "src/price.ts");
   run("commit", "-qm", "rename it");
 
-  const counts = (await diffCounts(root, before, "HEAD"))!;
+  const counts = (await diffCounts(root, before, "HEAD", kinds))!;
   assert.deepEqual(counts.files.sort(), ["src/price.ts", "src/pricing.ts"], "both sides are real paths a seat can open");
   // The task was asked to do exactly this rename, so its Lead must not be told it wrote elsewhere.
   assert.deepEqual(outsideOwned(counts.files, ["src/pricing.ts", "src/price.ts"]), []);
@@ -142,7 +149,7 @@ test("a path with a character outside ASCII is read back as itself, not as git's
   run("add", "-A");
   run("commit", "-qm", "add");
 
-  const counts = (await diffCounts(root, "HEAD~1", "HEAD"))!;
+  const counts = (await diffCounts(root, "HEAD~1", "HEAD", kinds))!;
   assert.deepEqual(counts.files, ["src/giá-trị.ts"], "the Lead is shown the file that changed, not an octal escape of it");
   assert.equal(counts.src, 1);
   // And it is inside the paths the task owned, which the escaped form would not have been.

@@ -83,7 +83,7 @@ test("a seat whose stream failed is followed again the next round", async () => 
 test("what a seat is watched against is read again until the ledger has placed it", () => {
   // A Peer's first turn starts before start_task places it, so an empty first read must not be kept.
   let placed = false;
-  const rules = { destructive: /x^/, testPath: /x^/, suppressed: /x^/, gates: [], cwd: "/work", repeatsAt: 3, recoverWithin: 10 };
+  const rules = { destructive: /x^/, testPath: /x^/, suppressed: /x^/, skipped: /x^/g, assertion: /x^/g, runners: new Set<string>(), gates: [], cwd: "/work", repeatsAt: 3, recoverWithin: 10 };
   const watch = new SeatWatch({ id: "p1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: { ...rules, owned: placed ? ["src/a.ts"] : undefined }, handedBack: () => undefined, placed }));
   assert.equal(watch.placed()?.rules.owned, undefined);
   placed = true;

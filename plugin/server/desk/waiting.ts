@@ -79,7 +79,7 @@ export async function startWaiting(desk: DeskServices, project: Project, retryHe
 
 /** As `release`, for a task: checked with nothing taken, claimed under the ledger lock, and back to waiting if its Peer cannot start. */
 async function releaseTask(desk: DeskServices, project: Project, lane: Lane, task: Task): Promise<Task["held"]> {
-  const problem = await taskPlacement(project, loadLedger(project.state), lane, task.owned, task.mode === "parallel");
+  const problem = await taskPlacement(desk.ctx.kit, project, loadLedger(project.state), lane, task.owned, task.mode === "parallel");
   if (problem) return { why: `${problem.why} It starts by itself once that clears; amend it, or cut it to drop it.` };
   const startSha = task.mode === "parallel" ? undefined : await headSha(lane.worktree!);
   const claimed = await desk.ctx.ledger(project, (ledger) => {
@@ -106,7 +106,7 @@ async function release(desk: DeskServices, project: Project, lane: Lane): Promis
     ? `it carries on ${lane.branch}, and the project's own copy is on ${here ?? "no branch"} now.`
     : !lane.onBranch && !(await branchExists(project.root, lane.base))
       ? `its base branch ${lane.base} no longer exists.`
-      : await placement(project, lane, lane.opening?.isolate === true, lane.id);
+      : await placement(desk.ctx.kit, project, lane, lane.opening?.isolate === true, lane.id);
   if (typeof placed === "string" || "why" in placed) return { why: `${typeof placed === "string" ? placed : placed.why} It opens by itself once that clears; amend it, or close it to drop it.` };
   const claimed = await desk.ctx.ledger(project, (ledger) => {
     const entry = ledger.lanes[lane.id];

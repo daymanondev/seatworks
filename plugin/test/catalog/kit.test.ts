@@ -1,11 +1,19 @@
 import assert from "node:assert/strict";
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { can, loadKit, roleNamed, roleThatCan, rolesThatCan, toolsOf } from "../../server/catalog/kit.ts";
 import { renderPrompt } from "../../server/catalog/content.ts";
 import { HarnessFile } from "../../server/catalog/schema.ts";
 import { tempDir } from "../tempdir.ts";
+
+/** A kit of the test's own, holding the shipped ecosystem: gates and lockfiles are no fixture's to make up. */
+function kitDir(prefix: string): string {
+  const dir = tempDir(prefix);
+  mkdirSync(join(dir, "catalog"), { recursive: true });
+  copyFileSync(new URL("../../catalog/ecosystem.json", import.meta.url), join(dir, "catalog", "ecosystem.json"));
+  return dir;
+}
 
 const good = () => ({
   id: "acme",
@@ -46,7 +54,7 @@ test("the way a harness takes its prompt and its servers is checked, not assumed
 });
 
 test("a role follows one other role that chooses for itself, and takes its defaults", () => {
-  const dir = tempDir("sw2-kit-");
+  const dir = kitDir("sw2-kit-");
   mkdirSync(join(dir, "harness", "acme"), { recursive: true });
   writeFileSync(join(dir, "harness", "acme", "harness.json"), JSON.stringify(good()));
   const peer = { role: "peer", label: "Peer", defaults: { harness: "acme", model: "m" }, prompt: "prompts/PEER.md", skills: null };
@@ -68,7 +76,7 @@ test("a role follows one other role that chooses for itself, and takes its defau
 });
 
 test("loading a kit refuses a harness that breaks the contract, naming the field", () => {
-  const dir = tempDir("sw2-kit-");
+  const dir = kitDir("sw2-kit-");
   mkdirSync(join(dir, "harness", "acme"), { recursive: true });
   writeFileSync(join(dir, "roles.json"), JSON.stringify({ roles: [{ role: "peer", label: "Peer", defaults: { harness: "acme" }, prompt: "prompts/PEER.md", skills: null }] }));
   const write = (harness: Record<string, unknown>) => writeFileSync(join(dir, "harness", "acme", "harness.json"), JSON.stringify(harness));
@@ -88,7 +96,7 @@ test("the shipped harnesses satisfy their own contract", () => {
 });
 
 test("several seats can supervise one project, each for its own concern, declared as data", () => {
-  const dir = tempDir("sw2-concerns-");
+  const dir = kitDir("sw2-concerns-");
   mkdirSync(join(dir, "harness", "acme", "settings"), { recursive: true });
   writeFileSync(join(dir, "harness", "acme", "harness.json"), JSON.stringify(good()));
   writeFileSync(join(dir, "harness", "acme", "settings.json"), "{}");
@@ -128,7 +136,7 @@ test("several seats can supervise one project, each for its own concern, declare
 });
 
 test("a roles file of one's own replaces the kit's preset, and may name its files anywhere", () => {
-  const dir = tempDir("sw2-preset-kit-");
+  const dir = kitDir("sw2-preset-kit-");
   mkdirSync(join(dir, "harness", "acme", "settings"), { recursive: true });
   writeFileSync(join(dir, "harness", "acme", "harness.json"), JSON.stringify(good()));
   writeFileSync(join(dir, "harness", "acme", "settings", "lead.settings.json"), "{}");
@@ -153,7 +161,7 @@ test("a roles file of one's own replaces the kit's preset, and may name its file
 });
 
 test("a capability several roles hold can name which of them, and a stored name is asked what it can do", () => {
-  const dir = tempDir("sw2-several-");
+  const dir = kitDir("sw2-several-");
   mkdirSync(join(dir, "harness", "acme", "settings"), { recursive: true });
   writeFileSync(join(dir, "harness", "acme", "harness.json"), JSON.stringify(good()));
   writeFileSync(join(dir, "harness", "acme", "settings.json"), "{}");

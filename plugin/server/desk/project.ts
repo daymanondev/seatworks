@@ -3,14 +3,15 @@ import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { LAND_AS, type LandAs, gitCommonDir } from "../core/git.ts";
 import { stateRoot } from "../core/paths.ts";
-import { SERIAL_ONLY } from "../core/scope.ts";
 import { readJson, writeJson } from "../core/store.ts";
+import type { Ecosystem, Kit } from "../catalog/kit.ts";
 
 export type Project = { root: string; slug: string; state: string };
 
 type GateOn = "lane" | "task";
 
-export type ProjectConfig = { base?: string; gate?: string; gateTimeoutMinutes: number; gateOn: GateOn; serialOnly: string[]; landAs: LandAs };
+/** `serialOnly` is the project's own list when it set one; without one the kit's holds, so a change to the kit reaches it. */
+export type ProjectConfig = { base?: string; gate?: string; gateTimeoutMinutes: number; gateOn: GateOn; serialOnly?: string[]; landAs: LandAs };
 
 const cache = new Map<string, Project>();
 
@@ -44,32 +45,31 @@ export function clearProjects(): void {
   cache.clear();
 }
 
-export function detectGate(root: string): string | undefined {
-  const has = (name: string) => existsSync(join(root, name));
-  if (has("package.json")) {
-    try {
-      const scripts = JSON.parse(readFileSync(join(root, "package.json"), "utf-8"))?.scripts ?? {};
-      if (typeof scripts.test === "string" && !/no test specified/.test(scripts.test)) {
-        if (has("pnpm-lock.yaml")) return "pnpm test";
-        if (has("yarn.lock")) return "yarn test";
-        if (has("bun.lock") || has("bun.lockb")) return "bun run test";
-        return "npm test";
-      }
-    } catch {}
+/** A script a package file names, unless it is the placeholder its tool writes when there is none. */
+function scriptIn(file: string, name: string, unset: string): boolean {
+  try {
+    const body = JSON.parse(readFileSync(file, "utf-8"))?.scripts?.[name];
+    return typeof body === "string" && !body.includes(unset);
+  } catch {
+    return false;
   }
-  if (has("mvnw")) return "./mvnw -q test";
-  if (has("pom.xml")) return "mvn -q test";
-  if (has("gradlew")) return "./gradlew test";
-  if (has("Cargo.toml")) return "cargo test";
-  if (has("go.mod")) return "go test ./...";
-  if (has("pyproject.toml") || has("pytest.ini")) return "pytest -q";
+}
+
+/** The first of the ecosystem's gates whose files the project holds; one that runs a package script needs that script. */
+export function detectGate(root: string, ecosystem: Ecosystem): string | undefined {
+  const has = (name: string) => existsSync(join(root, name));
+  for (const gate of ecosystem.gates) {
+    const file = gate.files.find(has);
+    if (!file || (gate.script && !scriptIn(join(root, file), gate.script, ecosystem.unsetScript))) continue;
+    return Object.entries(gate.lockfiles ?? {}).find(([lockfile]) => has(lockfile))?.[1] ?? gate.run;
+  }
   return undefined;
 }
 
 /** The commands that run `gate`: the gate first, then the test runner its script starts, which is how a seat runs its own module's tests. */
-export function gateCommands(root: string, gate: string | undefined): string[] {
+export function gateCommands(root: string, gate: string | undefined, ecosystem: Ecosystem): string[] {
   if (!gate?.trim()) return [];
-  const script = /^(?:npm|pnpm|yarn|bun)(?: run)? ([\w:.-]+)$/.exec(gate.trim())?.[1];
+  const script = new RegExp(`^(?:${ecosystem.scriptRunners.join("|")})(?: run)? ([\\w:.-]+)$`).exec(gate.trim())?.[1];
   let body: unknown;
   try {
     body = script ? JSON.parse(readFileSync(join(root, "package.json"), "utf-8"))?.scripts?.[script] : undefined;
@@ -100,9 +100,14 @@ export function loadConfig(state: string): ProjectConfig {
     gate: typeof stored.gate === "string" ? stored.gate : undefined,
     gateTimeoutMinutes: Number.isFinite(minutes) && minutes > 0 ? minutes : 30,
     gateOn: stored.gateOn === "task" ? "task" : "lane",
-    serialOnly: Array.isArray(stored.serialOnly) ? stored.serialOnly.map(String) : SERIAL_ONLY,
+    serialOnly: Array.isArray(stored.serialOnly) ? stored.serialOnly.map(String) : undefined,
     landAs: LAND_AS.find((as) => as === stored.landAs) ?? "squash",
   };
+}
+
+/** The paths only one writer at a time may write in this project. */
+export function serialOnlyOf(project: Project, kit: Kit): string[] {
+  return loadConfig(project.state).serialOnly ?? kit.ecosystem.serialOnly;
 }
 
 export function saveConfig(state: string, config: ProjectConfig): void {

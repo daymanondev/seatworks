@@ -78,7 +78,7 @@ These are mostly absences, so the code won't show them to you.
 | `bin/` | `seat-room` (the launcher) and `acp-catalog.mjs` (a model listing that never starts an agent) |
 | `roles.json` | The SLP preset: roles, capabilities, tool sets, prompts, skills, defaults, attention values |
 | `harness/<agent>/` | How each agent is set up: `harness.json`, plus base and per-role settings |
-| `catalog/` | Optional MCP servers |
+| `catalog/` | Optional MCP servers, and `ecosystem.json`: gates, one-writer paths, test and docs names, the watch's patterns |
 | `content/` | Runtime content that seats read: prompts, skills, guides, the team block. Not documentation |
 
 All paths are under `plugin/`.

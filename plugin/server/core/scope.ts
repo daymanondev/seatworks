@@ -1,24 +1,3 @@
-export const SERIAL_ONLY = [
-  "package-lock.json",
-  "pnpm-lock.yaml",
-  "yarn.lock",
-  "bun.lock",
-  "Cargo.lock",
-  "go.sum",
-  "**/migrations/**",
-  "**/db/migrate/**",
-  "ProjectSettings/**",
-  "Packages/manifest.json",
-  "**/*.unity",
-  "**/*.prefab",
-  "**/*.asset",
-  "**/*.uasset",
-  "**/*.umap",
-  "**/*.pbxproj",
-  "**/*.csproj",
-  "**/*.sln",
-];
-
 export function normalize(pattern: string): string {
   return pattern.trim().replace(/^\.\//, "").replace(/\/+$/, "/");
 }

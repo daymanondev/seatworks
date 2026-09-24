@@ -74,7 +74,7 @@ const KEEP: Keep[] = [
   },
   { id: "keep-15a", title: "the outbox sends into a running turn only when it can steer", file: "server/runtime/outbox.ts", check: "contains", anchor: "if (!steer && (busy(seat.status) || waiting)) return new Set<string>();" },
   { id: "keep-15b", title: "the outbox holds mail for a seat awaiting permission", file: "server/runtime/outbox.ts", check: "contains", anchor: "if ((seat.pendingPermissions?.length ?? 0) > 0) return new Set<string>();" },
-  { id: "keep-16", title: "SERIAL_ONLY is a default, not a law", file: "server/core/scope.ts", check: "contains", anchor: "export const SERIAL_ONLY = [" },
+  { id: "keep-16", title: "the one-writer paths are a default, not a law", file: "catalog/ecosystem.json", check: "contains", anchor: '"serialOnly": [' },
   { id: "keep-17", title: "seat settings layer the role file over the harness base", file: "server/catalog/seats.ts", check: "contains", anchor: 'layerSettings(readConfig<Json>(join(kit.dir, "harness", harness.id, source), {}), readConfig<Json>(roleFile, {}))' },
   { id: "keep-18", title: "each seat is built in its own directory", file: "server/catalog/seats.ts", check: "contains", anchor: "const dir = seatDir(kit, seat.role, seat.harness, homeDir, project);" },
   {

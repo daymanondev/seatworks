@@ -144,6 +144,8 @@ export function makeKit(): Kit {
   });
   put(dir, "catalog/mcp/docs/rule.md", "Look library APIs up in the docs.\n");
   // The fixture carries tool sets like the real kit, because a role names one and the kit is asked for it.
+  // The shipped ecosystem: gates, lockfiles and test markers are the world's, not this fixture's to make up.
+  put(dir, "catalog/ecosystem.json", readFileSync(new URL("../catalog/ecosystem.json", import.meta.url), "utf-8"));
   put(dir, "mcp/tools.json", {
     supervisor: [{ name: "open_lane" }, { name: "answer" }, { name: "status" }],
     lead: [{ name: "start_task" }, { name: "report" }, { name: "ask" }, { name: "status" }],
