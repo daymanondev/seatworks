@@ -121,8 +121,18 @@ export function loadKit(dir: string, stateDir?: string): Kit {
 }
 
 /** What a test file's change is read for: a skip marker it adds, or assertions it loses; global, since they are counted. */
-export function testMarkers(kit: Kit): { skipped: RegExp; assertion: RegExp } {
+type TestMarkers = { skipped: RegExp; assertion: RegExp };
+
+export function testMarkers(kit: Kit): TestMarkers {
   return { skipped: new RegExp(kit.ecosystem.watch.skipped, "gi"), assertion: new RegExp(kit.ecosystem.watch.assertion, "gi") };
+}
+
+/** How a change to a test file weakened it, if it did: a new skip marker, or fewer assertions. */
+export function weakened(before: string, after: string, markers: TestMarkers): string | undefined {
+  const count = (text: string, pattern: RegExp): number => (text.match(pattern) ?? []).length;
+  if (count(after, markers.skipped) > count(before, markers.skipped)) return "adds a skip marker";
+  const [was, now] = [count(before, markers.assertion), count(after, markers.assertion)];
+  return now < was ? `${was} assertions become ${now}` : undefined;
 }
 
 /** The patterns the watch reads calls with: the ecosystem's, and attention's where a settings layer set its own. */

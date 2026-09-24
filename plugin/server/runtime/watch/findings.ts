@@ -1,6 +1,5 @@
+import type { Finding } from "../../domain/incident.ts";
 import type { Fact } from "./facts.ts";
-
-export type Finding = { kind: string; level: "page" | "attend"; quote: string; facts: string[] };
 
 const FIRST = ["destructive", "stuck", "no-recovery", "long-turn"];
 

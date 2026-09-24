@@ -33,9 +33,6 @@ const UPWARD = [
   "server/desk/desk.ts > server/desk/tools/shared.ts",
   "server/desk/desk.ts > server/desk/tools/supervisor.ts",
   "server/desk/desk.ts > server/desk/tools/worker.ts",
-  "server/desk/desk.ts > server/runtime/watch/findings.ts",
-  "server/desk/landing.ts > server/runtime/watch/facts.ts",
-  "server/desk/notice.ts > server/runtime/watch/findings.ts",
 ];
 
 const NAMED = [

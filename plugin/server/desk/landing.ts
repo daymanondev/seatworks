@@ -1,10 +1,9 @@
 import type { Checkpoints } from "../catalog/team.ts";
 import { commitsAhead, diffCounts, git, kindOf, outsideOwned } from "../core/git.ts";
 import { globToRegex } from "../core/scope.ts";
-import { weakened } from "../runtime/watch/facts.ts";
 import { loadIncidents } from "./incidents.ts";
 import { type Lane, type Ledger, tasksOf } from "./ledger.ts";
-import { type Kit, fileKinds, testMarkers } from "../catalog/kit.ts";
+import { type Kit, fileKinds, testMarkers, weakened } from "../catalog/kit.ts";
 import { type Project, serialOnlyOf } from "./project.ts";
 
 type LandGate = { set: boolean; ok: boolean };

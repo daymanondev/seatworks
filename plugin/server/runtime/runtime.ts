@@ -26,7 +26,7 @@ import { replyFile, spoolDirs, takeRequests, writeReply } from "./spool.ts";
 import { TeamSource } from "./team-source.ts";
 import { TurnRules } from "./turns.ts";
 import { type Fact, callsTo, factTitle } from "./watch/facts.ts";
-import { type Finding, decide } from "./watch/findings.ts";
+import { decide } from "./watch/findings.ts";
 import { type SeatContext, type SeatWatch, type WatchedSeat, Watches } from "./watch/watches.ts";
 import { malformed } from "./timeline.ts";
 import { loadIncidents } from "../desk/incidents.ts";
@@ -151,10 +151,10 @@ export class Runtime implements HostHooks {
     };
   }
 
-  private noticed(watch: SeatWatch, findings: Finding[]): void {
+  private noticed(watch: SeatWatch, facts: Fact[]): void {
+    const findings = decide(facts);
     if (findings.length === 0 || this.watches.get(watch.seat.id) !== watch) return;
-    const project = projectOf(watch.seat.cwd);
-    this.desk.notice(project, watch.seat, findings).catch((error) => console.error("seatworks-v2: what the watch noticed could not be recorded:", error));
+    this.desk.notice(projectOf(watch.seat.cwd), watch.seat, findings).catch((error) => console.error("seatworks-v2: what the watch noticed could not be recorded:", error));
   }
 
   /** Trouble nobody is mailed about, kept where a screen can show it rather than only in the log. */
@@ -211,7 +211,7 @@ export class Runtime implements HostHooks {
   private watchFound(watch: SeatWatch, facts: Fact[]): void {
     const project = projectOf(watch.seat.cwd);
     for (const fact of facts) this.desk.event(project, { kind: "watch.fact", agent: watch.seat.id, fact: fact.kind, level: fact.level, quote: fact.quote });
-    this.noticed(watch, decide(facts));
+    this.noticed(watch, facts);
   }
 
   prepare(): void {

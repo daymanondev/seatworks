@@ -1,5 +1,6 @@
 import type { Team } from "../catalog/team.ts";
 import { type Kit, type RoleSpec, can, schemaOf, seatOf, worksTasks } from "../catalog/kit.ts";
+import type { Finding } from "../domain/incident.ts";
 import type { TaskMove, TaskStatus } from "../domain/task.ts";
 import type { Seats, Workspaces } from "../core/ports.ts";
 import { Agents } from "./agents.ts";
@@ -16,7 +17,6 @@ import { type Project, projectOf } from "./project.ts";
 import { Roster } from "./roster.ts";
 import type { DeskServices, Tool } from "./services.ts";
 import { Slots } from "./slots.ts";
-import type { Finding } from "../runtime/watch/findings.ts";
 import { type Noticed, closeIncidentsOf, notice, retell } from "./notice.ts";
 import * as incidents from "./tools/incidents.ts";
 import * as lead from "./tools/lead.ts";

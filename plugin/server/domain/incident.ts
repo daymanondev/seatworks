@@ -2,6 +2,9 @@ import { Lifecycle } from "./lifecycle.ts";
 
 export type Held = "shadow" | "budget" | "nobody";
 
+/** What a watch saw that the desk books as an incident. */
+export type Finding = { kind: string; level: "page" | "attend"; quote: string; facts: string[] };
+
 type Delivery = "unsent" | "held" | "told";
 
 type Delivered = { told?: number; held?: Held };

@@ -1,4 +1,5 @@
 import { isAbsolute, relative } from "node:path";
+import { weakened } from "../../catalog/kit.ts";
 import { globToRegex, normalize } from "../../core/scope.ts";
 import { mask } from "../../core/mask.ts";
 import type { Call, Change, Unit, Window } from "./window.ts";
@@ -55,16 +56,8 @@ export type Rules = {
   recoverWithin: number;
 };
 
-const count = (text: string, pattern: RegExp): number => (text.match(pattern) ?? []).length;
 const flat = (text: string, limit = 200): string => within(mask(text).replace(/\s+/g, " ").trim(), limit);
 const str = (value: unknown): string => (typeof value === "string" ? value : "");
-
-/** How a change to a test file weakened it, if it did: a new skip marker, or fewer assertions. */
-export function weakened(before: string, after: string, markers: Pick<Rules, "skipped" | "assertion">): string | undefined {
-  if (count(after, markers.skipped) > count(before, markers.skipped)) return "adds a skip marker";
-  const [was, now] = [count(before, markers.assertion), count(after, markers.assertion)];
-  return now < was ? `${was} assertions become ${now}` : undefined;
-}
 
 /** Calls to `server`: read from the field the harness records it in, or else from the name, `pattern` holding `{server}` where it goes. */
 export function callsTo(pattern: string | undefined, field: string | undefined, server: string): ((call: Call) => boolean) | undefined {
