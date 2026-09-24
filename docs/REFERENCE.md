@@ -14,21 +14,28 @@ A call runs only when three things hold: the seat's provider maps to a role whos
 `mcp/tools.json`) holds the verb, the seat's bridge names that same role, and the arguments fit the
 schema. A call that doesn't fit is refused, with what is wrong.
 
+<!-- drawn from the code: verbs -->
 | Role | Tools |
 |---|---|
-| Supervisor | `open_lane` `close_lane` `set_project` `message` `answer` `status` `incidents` `ack` |
-| Lead | `start_task` `start_review` `accept` `rework` `cut` `report` `message` `answer` `ask` `status` `incidents` `ack` |
+| Supervisor | `open_lane` `message` `answer` `close_lane` `amend_lane` `replace_lead` `set_project` `status` `incidents` `ack` |
+| Lead | `plan_tasks` `start_task` `start_review` `message` `answer` `accept` `rework` `amend_task` `cut` `ask` `report` `status` `incidents` `ack` |
 | Peer, Reviewer | `done` `ask` |
+| Critic | `findings` |
+<!-- end -->
 
 | Verb | Effect |
 |---|---|
 | `open_lane` | Records the lane, takes a working copy and seats a Lead, with a directive that names `CONTEXT.md` once it exists. It can read a GitHub issue. It refuses a lane whose declared write set or `contracts` overlap an open lane's write set, or that reaches a path the project keeps to one writer. The project's own checkout must be clean |
 | `close_lane` | Waits for queued merges. With `land`, it [lands the lane](ARCHITECTURE.md#a-lane). Then it cuts leftover tasks, archives their seats and the Lead, and puts the copy away |
+| `amend_lane` | Changes what an open or waiting lane is asked, keeping what it was asked before and why. Its Lead is told, and a READY it reported no longer stands. A write set or `contracts` that would overlap an open lane's is refused |
+| `replace_lead` | Seats a new Lead on an open lane whose Lead is gone, where the lane stands. A Lead Paseo already started for it is taken on instead, and the asks waiting on the old Lead move to the new one |
 | `set_project` | Sets the base branch, the gate command and its timeout (30 min by default), whether the gate runs per lane or per task, and the serial-only paths. An empty gate is an answer, and the desk never detects one over it |
+| `plan_tasks` | Records the lane's tasks at once, each waiting for what it names, and starts what can start. What would collide is told as evidence, not refused |
 | `start_task` | Seats a writing role on a task. In lane mode it shares the lane's copy. In parallel mode it gets its own slot and `task/…` branch. `skills` must be ones the role has |
 | `start_review` | Seats a read-only reviewing role. It runs where the change is now: the task's copy, the lane's copy, or the task branch |
 | `accept` | Lane mode: marks the task merged in place and retires the Peer. It is refused if the lane copy is off its branch or dirty. Parallel mode: queues the task for merging |
 | `rework` | Sends the task back with a letter. It is refused while another task holds the lane copy |
+| `amend_task` | Changes what a task asks while its Peer works, keeping what it asked before and why. The Peer reads it at its next turn. A parallel task's new owned paths are checked as a start would check them |
 | `cut` | Stops the task and archives its Peer. It resets the lane copy to where the task started, when nothing merged there since. It is refused while the task's merge runs |
 | `report` | Reports to the Supervisor. With `ready`, it runs the lane gate first |
 | `ask` | A Lead asks the Supervisor. A Peer or Reviewer asks its Lead, or the Supervisor when the Lead is gone |
@@ -38,19 +45,22 @@ schema. A call that doesn't fit is refused, with what is wrong.
 | `incidents` | Lists the 50 most recent open or unmarked incidents, with each one's brief. With `closed`, it adds the 20 most recently marked. A Lead sees only its own lane's |
 | `ack` | Marks an incident `useful`, `noise` or `unknown`, with an optional note, and closes it |
 | `status` | Lanes, tasks, working copies and open asks. A Lead sees its own lane |
+| `findings` | The Critic hands in where the Human's words and the lane may not agree, each quote checked against what it read. The Supervisor gets them, and the Critic is archived |
 
 Behaviour depends on a role's capabilities (`supervise`, `lead`, `work`, `write`, `review`,
 `critique`, `watched`), never its name.
 
 ## Records
 
+<!-- drawn from the code: records -->
 | Record | States | Ids |
 |---|---|---|
-| Lane | `open`, `closed` | `L<n>` |
-| Task | `running`, `done`, `rework`, `queued`, `merging`, `merged`, `failed`, `cut`, `stalled` | `<lane>-T<n>` for code, `<lane>-R<n>` for review, from one counter per lane |
+| Lane | `waiting`, `open`, `closed` | `L<n>` |
+| Task | `waiting`, `running`, `rework`, `done`, `failed`, `stalled`, `merged`, `queued`, `merging`, `cut` | `<lane>-T<n>` for code, `<lane>-R<n>` for review, from one counter per lane |
 | Ask | `open`, `answered` | `A<n>` |
 | Incident | open until marked | `I<n>` |
 | Slot | a git worktree held by a lane or task | `S<n>`, never reused once released |
+<!-- end -->
 
 A lane opened with `detourOf` serves another open lane. When it closes, that lane's Lead gets a
 CLEARED letter.
@@ -82,8 +92,10 @@ letter, never written by hand where it is posted.
 | Kind | Letters |
 |---|---|
 | Opening a seat | OWNER DIRECTIVE, TASK, REVIEW |
-| Between seats | MESSAGE, RECONCILE, ASK, ANSWER to your ask, ANSWERED FOR YOU, STILL OPEN, UNANSWERED |
-| Work moving | HANDBACK, REWORK, MERGED, MERGE FAILED, MERGE CONFLICT, REPORT, CAN LAND, CLEARED |
+| Between seats | MESSAGE, RECONCILE, ASK, ANSWER to your ask, ANSWERED FOR YOU, STILL OPEN, UNANSWERED, CRITIQUE |
+| Work moving | HANDBACK, REWORK, AMENDED, MERGED, MERGE FAILED, MERGE CONFLICT, REPORT, CAN LAND, CLEARED |
+| Landing held for the Human | LAND HELD, LANDED, HELD AGAIN, CHANGED, APPROVED, SENT BACK, LAND SENT BACK |
+| Waiting and starting again | WAITING, OPENED, NOT OPENED, NOT STARTED, LEAD GONE |
 | The desk noticing | SILENT, FAILED, WAITING FOR PERMISSION, LANE IDLE, INCIDENT, the bare nudge |
 | Answering late | ANSWER to your `<tool>` call, NO ANSWER to your `<tool>` call |
 
@@ -252,16 +264,25 @@ There are two layers: `~/.local/share/seatworks-v3/settings.json` for the machin
 | Rules per role, or for every seat | by hand |
 | The Flow interval, and the other attention values | by hand |
 
+`tickSeconds` is read from the machine layer only.
+
+<!-- drawn from the code: attention -->
 | Attention value | Default |
 |---|---|
-| `tickSeconds` (machine layer only) | 30 |
+| `tickSeconds` | 30 |
 | `leadIdleMinutes` | 12 |
-| `askRemindMinutes` / `maxReminders` | 15 / 2 |
+| `askRemindMinutes` | 15 |
+| `maxReminders` | 2 |
 | `watch` | false |
-| `incidentsPerDay` | 5 |
+| `repeatsAt` | 3 |
+| `reworksAt` | 3 |
+| `reviewsAt` | 3 |
 | `longTurnMinutes` | 30 |
-| `reworksAt` / `reviewsAt` | 3 / 3 |
-| `destructive` / `testPath` / `suppressed` / `repeatsAt` | patterns, and 3 |
+| `incidentsPerDay` | 5 |
+| `destructive` | a pattern in `catalog/ecosystem.json` |
+| `testPath` | a pattern in `catalog/ecosystem.json` |
+| `suppressed` | a pattern in `catalog/ecosystem.json` |
+<!-- end -->
 
 A `roles.json` in `~/.local/share/seatworks-v3/` replaces the preset whole. A role names `defaults`
 or `follows`, never both. A follower takes the agent, model and thinking of the role it follows until
