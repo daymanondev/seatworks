@@ -1,5 +1,4 @@
 import type { HarnessSpec } from "../../catalog/kit.ts";
-import { sentBy } from "../../core/sent-by.ts";
 import type { StreamRow } from "../../core/ports.ts";
 
 type Detail = {
@@ -60,7 +59,6 @@ export class Window {
   private readonly calls = new Map<string, Call>();
   private readonly limit: number;
   private readonly quirks: Quirks;
-  private instruction: { text: string; from: string[] } = { text: "", from: [] };
   private instructionAt = -1;
   private pushed = 0;
   private seq = 0;
@@ -77,8 +75,7 @@ export class Window {
     this.seq = Math.max(this.seq, row.seq);
     if (type === "tool_call") return this.called(row);
     if (type === "user_message") {
-      this.instruction = { text: text(item.text), from: sentBy(item) };
-      this.push({ kind: "user", text: this.instruction.text });
+      this.push({ kind: "user", text: text(item.text) });
       this.instructionAt = this.pushed - 1;
     }
     else if (type === "assistant_message") this.join("said", text(item.text), restated, text(item.messageId) || undefined);
@@ -99,7 +96,6 @@ export class Window {
   clear(): void {
     this.units.length = 0;
     this.calls.clear();
-    this.instruction = { text: "", from: [] };
     this.instructionAt = -1;
     this.pushed = 0;
     this.seq = 0;
@@ -107,14 +103,6 @@ export class Window {
 
   sinceInstruction(): Unit[] {
     return this.units.slice(Math.max(0, this.instructionAt + 1 - (this.pushed - this.units.length)));
-  }
-
-  lastInstruction(): { text: string; from: string[] } {
-    return this.instruction;
-  }
-
-  lostSinceInstruction(): number {
-    return Math.max(0, this.pushed - this.units.length - (this.instructionAt + 1));
   }
 
   private called(row: StreamRow): Change {
