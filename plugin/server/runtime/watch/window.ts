@@ -1,4 +1,4 @@
-import { sentBy } from "../../core/paseo-adapter.ts";
+import { sentBy } from "../../core/sent-by.ts";
 import type { StreamRow } from "../../core/ports.ts";
 
 type Detail = {

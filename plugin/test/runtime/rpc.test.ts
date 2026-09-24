@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { chmodSync, mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
+import { PaseoHost } from "../../server/adapters/paseo/host.ts";
 import { paseoConfigPath, stateRoot } from "../../server/core/paths.ts";
 import { registerRpc } from "../../server/runtime/rpc.ts";
 import { Runtime } from "../../server/runtime/runtime.ts";
@@ -14,24 +15,21 @@ function served(paseo?: unknown) {
   mkdirSync(dirname(paseoConfigPath()), { recursive: true });
   writeFileSync(paseoConfigPath(), "{}\n");
   const kit = makeKit();
-  const runtime = new Runtime(kit, { reloadDaemon: async () => true });
+  const host = new PaseoHost();
+  const runtime = new Runtime(kit, host, { reloadDaemon: async () => true });
   const handlers = new Map<string, (input: any) => any>();
-  const bound: unknown[] = [];
-  // The host hands every handler the live daemon handle beside the input.
-  const names = registerRpc(
-    {
-      handle: (contract: { name: string; input: { parse(value: unknown): unknown } }, handler: (input: unknown, context: { paseo: unknown }) => unknown) =>
-        handlers.set(contract.name, (input) => handler(contract.input.parse(input), { paseo })),
-    },
-    runtime.control,
-    (api) => bound.push(api),
-  );
+  // Paseo hands every handler the live daemon handle beside the input.
+  const server = {
+    handle: (contract: { name: string; input: { parse(value: unknown): unknown } }, handler: (input: unknown, context: { paseo: unknown }) => unknown) =>
+      handlers.set(contract.name, (input) => handler(contract.input.parse(input), { paseo })),
+  };
+  const names = registerRpc(host.answering(server as never), runtime.control, () => {});
   const call = async (name: string, input: unknown = {}) => {
     const handler = handlers.get(name);
     assert.ok(handler, `no handler for ${name}`);
     return JSON.parse(JSON.stringify(await handler(input)));
   };
-  return { names, call, bound };
+  return { names, call, host };
 }
 
 test("the plugin serves the catalog, settings, projects, team and status over RPC", async () => {
@@ -66,12 +64,12 @@ test("the plugin serves the catalog, settings, projects, team and status over RP
 test("the daemon handle a panel call arrives with is kept, not thrown away", async () => {
   // Only its identity is read, so it is a marker, not a shaped daemon.
   const paseo = { handle: "the daemon" };
-  const { call, bound } = served(paseo);
-  assert.deepEqual(bound, [], "nothing has called in yet");
+  const { call, host } = served(paseo);
+  assert.equal(host.connected(), false, "nothing has called in yet");
 
   // A settings save reloads the daemon; bound only from lifecycle hooks, the desk had no handle until the next seat.
   await call("seatworks.catalog.read");
-  assert.deepEqual(bound, [paseo], "the one handle the runtime was missing came in with the call");
+  assert.equal(host.connected(), true, "the one handle the runtime was missing came in with the call");
 });
 
 test("a web app turns a server on for the machine and switches a role's harness for one project", async () => {

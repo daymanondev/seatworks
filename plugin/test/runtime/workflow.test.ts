@@ -5,7 +5,7 @@ import { mock, test } from "node:test";
 import { gunzipSync } from "node:zlib";
 import type { WatchView } from "../../shared/views.ts";
 import { placeProjectFiles } from "../../server/catalog/project-files.ts";
-import { sentBy } from "../../server/core/paseo-adapter.ts";
+import { sentBy } from "../../server/core/sent-by.ts";
 import { SERIAL_ONLY, firstOverlap, serialHits, serialPaths } from "../../server/core/scope.ts";
 import { KEEP_CLOSED_LANES } from "../../server/desk/archive.ts";
 import { saveLedger } from "../../server/desk/ledger.ts";
@@ -1300,7 +1300,7 @@ test("an ask answered by the owner over a Lead's head is told to that Lead, not 
 
 test("a seat opening in a project writes the team's block there, and the first lane still takes the copy the Human left clean", async () => {
   const h = harness();
-  const open = (h.runtime as unknown as { openSession(request: { provider: string; cwd: string; env: Record<string, string> }): unknown }).openSession.bind(h.runtime);
+  const open = h.runtime.sessionOpen.bind(h.runtime);
   open({ provider: "sw2-supervisor-claude", cwd: h.root, env: {} });
   assert.match(readFileSync(join(h.root, "AGENTS.md"), "utf-8"), /seatworks:begin[\s\S]*## Working here as a team/);
   assert.match(readFileSync(join(h.root, "CLAUDE.md"), "utf-8"), /^@AGENTS\.md$/m);
@@ -1329,7 +1329,7 @@ test("a seat opening in a project writes the team's block there, and the first l
 
 test("the team's block left uncommitted in the project's own copy does not hold up accepting or reporting the lane there", async () => {
   const h = harness();
-  const open = (h.runtime as unknown as { openSession(request: { provider: string; cwd: string; env: Record<string, string> }): unknown }).openSession.bind(h.runtime);
+  const open = h.runtime.sessionOpen.bind(h.runtime);
   open({ provider: "sw2-supervisor-claude", cwd: h.root, env: {} });
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "set_project", { gate: "true" });

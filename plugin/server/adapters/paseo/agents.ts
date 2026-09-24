@@ -1,18 +1,10 @@
-import type { PaseoApi, PendingPermission, PermissionResponse, SeatView } from "./paseo.ts";
-import type { SeatLook, SeatSpec, Seats, Workspace, Workspaces } from "./ports.ts";
-import { randomUUID } from "node:crypto";
-import { type TimelineHandle, follow } from "./stream.ts";
+import type { PluginHookContext } from "@getpaseo/plugin/server";
+import type { PendingPermission, PermissionResponse, SeatView } from "../../core/paseo.ts";
+import type { SeatLook, SeatSpec, Seats, Workspace, Workspaces } from "../../core/ports.ts";
+import { deskId, sentBy } from "../../core/sent-by.ts";
+import { type TimelineHandle, follow } from "../../core/stream.ts";
 
-/** The start of every message id the desk sends, which no person's client uses. */
-const DESK_MARK = "sw2-";
-
-const deskId = (kinds: string[]) => `${DESK_MARK}${kinds.join(".")}-${randomUUID()}`;
-
-/** Who a user message came from, by the id the desk gives every letter and every prompt it starts a seat with: the kinds of letter it carries, or a person. */
-export function sentBy(item: Record<string, unknown>): string[] {
-  const id = item.clientMessageId;
-  return typeof id === "string" && id.startsWith(DESK_MARK) ? id.slice(DESK_MARK.length).split("-")[0]!.split(".") : ["person"];
-}
+export type PaseoApi = PluginHookContext["paseo"];
 
 type Bound = () => PaseoApi | undefined;
 

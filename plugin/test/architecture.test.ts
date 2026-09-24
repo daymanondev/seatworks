@@ -8,7 +8,7 @@ import ts from "typescript";
 const PLUGIN = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 const MAY_IMPORT: Record<string, string[]> = {
-  "index.server.ts": ["server/core", "server/catalog", "server/runtime", "@getpaseo/plugin/server"],
+  "index.server.ts": ["server/core", "server/catalog", "server/runtime", "server/adapters", "@getpaseo/plugin/server"],
   "index.client.tsx": ["client", "@getpaseo/plugin/client"],
   shared: ["@getpaseo/plugin"],
   client: ["shared", "@getpaseo/plugin", "@getpaseo/plugin/client"],
@@ -19,6 +19,7 @@ const MAY_IMPORT: Record<string, string[]> = {
   "server/runtime/watch": ["server/core", "server/catalog", "server/desk"],
   "server/upkeep": ["server/core", "server/catalog", "server/desk", "shared"],
   "server/runtime": ["server/core", "server/catalog", "server/desk", "server/runtime/watch", "server/upkeep", "shared"],
+  "server/adapters": ["server/core", "@getpaseo/plugin/server"],
   mcp: [],
   bin: [],
 };
@@ -26,8 +27,6 @@ const MAY_IMPORT: Record<string, string[]> = {
 const PACKAGES = ["@getpaseo/plugin/server", "@getpaseo/plugin/client", "@getpaseo/plugin"];
 
 const UPWARD = [
-  "server/catalog/launch.ts > @getpaseo/plugin/server",
-  "server/core/paseo.ts > @getpaseo/plugin/server",
   "server/desk/desk.ts > server/desk/tools/incidents.ts",
   "server/desk/desk.ts > server/desk/tools/lead.ts",
   "server/desk/desk.ts > server/desk/tools/shared.ts",
@@ -36,9 +35,6 @@ const UPWARD = [
   "server/desk/desk.ts > server/runtime/watch/findings.ts",
   "server/desk/landing.ts > server/runtime/watch/facts.ts",
   "server/desk/notice.ts > server/runtime/watch/findings.ts",
-  "server/runtime/runtime.ts > @getpaseo/plugin/server",
-  "server/runtime/timeline.ts > @getpaseo/plugin/server",
-  "server/runtime/turns.ts > @getpaseo/plugin/server",
 ];
 
 const LIMITS = { file: 300, testFile: 400, function: 50 };
@@ -75,10 +71,11 @@ const LONG_FUNCTIONS: Record<string, number> = {
   "client/team.tsx roleRows": 56,
   "client/upkeep.tsx UpkeepSection": 163,
   "mcp/code.mjs stdioBackend": 70,
+  "server/adapters/paseo/agents.ts seatsOn": 61,
+  "server/adapters/paseo/agents.ts workspacesOn": 57,
   "server/catalog/kit.ts harnessProblems": 57,
   "server/catalog/team.ts resolveRole": 60,
-  "server/core/paseo-adapter.ts seatsOn": 61,
-  "server/core/paseo-adapter.ts workspacesOn": 57,
+
   "server/desk/flow.ts flowView": 100,
   "server/desk/status.ts statusText": 104,
   "server/desk/tools/lead.ts startReview": 71,

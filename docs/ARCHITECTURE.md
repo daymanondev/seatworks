@@ -42,13 +42,16 @@ These are mostly absences, so the code won't show them to you.
 - **The plugin never judges the work.** A gate result is evidence the Lead weighs. The only verdict
   the desk acts on is a red gate when a lane lands, and the Supervisor can override it.
 - **Capabilities, not names.** No code under `server/` compares a role to a name. What a role can do
-  (`supervise`, `lead`, `work`, `write`, `review`, `watched`, `watch`) decides routing, acceptance
-  and watching.
-- **One door to Paseo.** Only `server/core/paseo-adapter.ts` calls the daemon's agent and workspace
-  API. Everything else depends on the `Seats` and `Workspaces` ports, so the tests use fakes.
+  (`supervise`, `lead`, `work`, `write`, `review`, `critique`, `watched`) decides routing,
+  acceptance and watching.
+- **One door to Paseo.** Only `server/adapters/paseo/` imports Paseo's SDK: it registers the hooks,
+  binds the daemon's API from each hook and panel call, and calls the agent, workspace and model API.
+  Everything else depends on the ports in `core/ports.ts`, in the plugin's own types, so the tests
+  use fakes.
 - **One place checks arguments.** `desk/args.ts` checks every call against the schema its seat was
   shown, before any verb runs.
-- **One file writes letters.** Everything the desk says to a seat is in `desk/letters.ts`.
+- **One file writes letters.** Everything the desk says to a seat is in `desk/letters.ts`; a Lead's
+  directive, what it starts from, is in `desk/directive.ts`.
 - **One writer per working copy.** A lane-mode task holds the lane's copy from start until it is
   accepted or cut.
 - **No hidden command chain.** When the Supervisor messages a Peer, the Peer's Lead is told first.
@@ -63,7 +66,8 @@ These are mostly absences, so the code won't show them to you.
 
 | Path | What it does |
 |---|---|
-| `server/core/` | The ports, the Paseo adapter, the timeline stream reader, atomic stores, `git`, the gate runner |
+| `server/core/` | The ports, the timeline stream reader, atomic stores, `git`, the gate runner |
+| `server/adapters/paseo/` | Paseo itself: its hooks and panel calls in the plugin's own types, and its agent, workspace and model API behind the ports |
 | `server/catalog/` | Data to seats: the kit loader, team resolution, providers, seat directories, launch config, content, the project files |
 | `server/desk/` | The ledger and the verbs seats call: lanes, tasks, asks, working copies, merges, gates, incidents, letters |
 | `server/runtime/` | The composition root and the loops: hooks, spool, outbox, patrol, turn reading, RPC, health |

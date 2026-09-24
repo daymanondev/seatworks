@@ -1,19 +1,16 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import type { PluginHookContext, PluginLifecycleEvents, PluginServerContext } from "@getpaseo/plugin/server";
 import { renderPrompt } from "../catalog/content.ts";
 import { type Kit, type RoleSpec, TEAM_SERVER, can, seatOf } from "../catalog/kit.ts";
-import { type Listed, type ModelCache, applyModels, fetchModels, listingProviders } from "../catalog/models.ts";
-import { type AgentConfig, type SessionOpen, applyRole, seatEnv } from "../catalog/launch.ts";
+import { type ModelCache, applyModels, fetchModels, listingProviders } from "../catalog/models.ts";
+import { applyRole, seatEnv } from "../catalog/launch.ts";
 import { applyReconcile, reloadDaemon } from "../catalog/providers.ts";
 import { placeProjectFiles } from "../catalog/project-files.ts";
 import { placeGuides, seatDir, seedRecords, sweepSnapshots } from "../catalog/seats.ts";
 import { stampKit } from "../upkeep/migrate.ts";
 import { type IndexedProxy, type Team, indexedProxies } from "../catalog/team.ts";
 import { guidesDir, home, nodeBin, outboxPath, spoolDir, stateRoot } from "../core/paths.ts";
-import { seatsOn, workspacesOn } from "../core/paseo-adapter.ts";
-import type { PaseoApi } from "../core/paseo.ts";
-import type { Seats, Workspaces } from "../core/ports.ts";
+import type { AgentConfig, HookAgent, Host, HostHooks, PermissionRequested, Seats, SessionOpen, TurnEnded, Workspaces } from "../core/ports.ts";
 import type { CodeIndex } from "../desk/context.ts";
 import { Desk } from "../desk/desk.ts";
 import { type Ledger, laneOfLead, loadLedger, openAsksTo, taskOfPeer } from "../desk/ledger.ts";
@@ -24,7 +21,6 @@ import { SettingsControl } from "./control.ts";
 import { codeIndex } from "./code-index.ts";
 import { type Letter, Outbox } from "./outbox.ts";
 import { Patrol } from "./patrol.ts";
-import { registerRpc } from "./rpc.ts";
 import { Seating } from "./seating.ts";
 import { replyFile, spoolDirs, takeRequests, writeReply } from "./spool.ts";
 import { TeamSource } from "./team-source.ts";
@@ -37,15 +33,13 @@ import { loadIncidents } from "../desk/incidents.ts";
 import type { WatchView } from "../../shared/views.ts";
 import { errorText } from "../core/errors.ts";
 
-type EventName = keyof PluginLifecycleEvents;
-
 const TROUBLES = 10;
 
 const INCIDENTS_SHOWN = 200;
 
-type RuntimeOptions = { outboxFile?: string; paseo?: PaseoApi; codeIndex?: (proxy: IndexedProxy) => CodeIndex; reloadDaemon?: () => Promise<boolean> };
+type RuntimeOptions = { outboxFile?: string; codeIndex?: (proxy: IndexedProxy) => CodeIndex; reloadDaemon?: () => Promise<boolean> };
 
-export class Runtime {
+export class Runtime implements HostHooks {
   readonly kit: Kit;
   readonly outbox: Outbox;
   readonly desk: Desk;
@@ -63,18 +57,18 @@ export class Runtime {
   private readonly offline = new Set<string>();
   private readonly makeIndex: (proxy: IndexedProxy) => CodeIndex;
   private readonly reload: () => Promise<boolean>;
-  private api: PaseoApi | undefined;
+  private readonly host: Host;
   private modelsAsked = false;
   private timers: ReturnType<typeof setInterval>[] = [];
   private tick: ReturnType<typeof setTimeout> | undefined;
 
-  constructor(kit: Kit, options: RuntimeOptions = {}) {
+  constructor(kit: Kit, host: Host, options: RuntimeOptions = {}) {
     this.kit = kit;
-    this.api = options.paseo;
+    this.host = host;
     this.makeIndex = options.codeIndex ?? codeIndex;
     this.reload = options.reloadDaemon ?? reloadDaemon;
-    this.seats = seatsOn(() => this.api);
-    this.workspaces = workspacesOn(() => this.api);
+    this.seats = host.seats;
+    this.workspaces = host.workspaces;
     this.source = new TeamSource(kit);
     this.seating = new Seating(kit, this.source, { node: nodeBin(), spool: this.spool });
     this.outbox = new Outbox(
@@ -174,7 +168,7 @@ export class Runtime {
   }
 
   /** A call the harness refused because its input was not JSON; it never reaches the desk, so only this reports it. */
-  private malformedCalls(event: PluginLifecycleEvents["agent.turn_ended"]): void {
+  private malformedCalls(event: TurnEnded): void {
     const role = seatOf(this.kit, event.agent.provider)?.role;
     if (!role?.tools) return;
     const project = projectOf(event.agent.cwd);
@@ -237,36 +231,39 @@ export class Runtime {
     this.reconcileProviders(team);
   }
 
-  register(server: PluginServerContext): void {
-    registerRpc(server, this.control, (paseo) => {
-      this.api = paseo;
-      if (!this.modelsAsked) {
-        this.modelsAsked = true;
-        this.refreshModels().catch((error) => console.error("seatworks-v2: could not list the agents' models:", error));
-      }
-    });
-    server.before("agent.create", ({ request }, context) => {
-      this.api = context.paseo;
-      return { ...request, config: this.launchConfig(request.config) };
-    });
-    server.before("agent.session_open", ({ request }, context) => {
-      this.api = context.paseo;
-      return this.openSession(request);
-    });
-    this.on(server, "agent.turn_started", async ({ agent }) => this.turnStarted(agent.id));
-    this.on(server, "agent.turn_ended", (event) => this.turnEnded(event));
-    this.on(server, "agent.permission_requested", (event) => this.permissionRequested(event));
-    this.on(server, "agent.created", async ({ agent }) => this.watches.follow(agent));
-    this.on(server, "agent.archived", async ({ agent }) => {
-      this.outbox.archived(agent.id);
-      this.turns.forget(agent.id);
-      this.watches.drop(agent.id);
-      if (this.watches.watched(agent.provider)) await this.desk.closeIncidents(projectOf(agent.cwd), agent.id);
-    });
+  /** A panel call is the first sign someone looks at the models, so the first one of a load asks the agents for them. */
+  panelCalled(): void {
+    if (this.modelsAsked) return;
+    this.modelsAsked = true;
+    this.refreshModels().catch((error) => console.error("seatworks-v2: could not list the agents' models:", error));
+  }
+
+  create(config: AgentConfig): AgentConfig {
+    const seat = seatOf(this.kit, config.provider);
+    if (!seat) return config;
+    const project = projectOf(config.cwd);
+    this.remember(project);
+    const team = this.seating.ensure(seat.role.role, seat.harness, project);
+    const render = (role: Parameters<typeof renderPrompt>[1]) => renderPrompt(this.kit, role, { guides: guidesDir(), state: project.state });
+    return applyRole(this.kit, team, config, render, project.state, this.seating.servers(team, seat.role.role));
+  }
+
+  async created(agent: HookAgent): Promise<void> {
+    this.watches.follow(agent);
+  }
+
+  async archived(agent: HookAgent): Promise<void> {
+    this.outbox.archived(agent.id);
+    this.turns.forget(agent.id);
+    this.watches.drop(agent.id);
+    if (this.watches.watched(agent.provider)) await this.desk.closeIncidents(projectOf(agent.cwd), agent.id);
+  }
+
+  start(): void {
     this.timers.push(setInterval(() => this.serveSpool(), 500));
     // The cadence is read every time round, so changing it in settings takes hold without a reload.
     const patrol = () => {
-      if (this.api) this.patrol.tick().then(() => this.offline.clear(), (error) => this.tickFailed(error));
+      if (this.host.connected()) this.patrol.tick().then(() => this.offline.clear(), (error) => this.tickFailed(error));
       this.tick = setTimeout(patrol, Math.max(5, this.source.teamFor().attention.tickSeconds) * 1000);
     };
     this.tick = setTimeout(patrol, this.source.teamFor().attention.tickSeconds * 1000);
@@ -290,17 +287,7 @@ export class Runtime {
     this.tick = undefined;
   }
 
-  private launchConfig(config: AgentConfig): AgentConfig {
-    const seat = seatOf(this.kit, config.provider);
-    if (!seat) return config;
-    const project = projectOf(config.cwd);
-    this.remember(project);
-    const team = this.seating.ensure(seat.role.role, seat.harness, project);
-    const render = (role: Parameters<typeof renderPrompt>[1]) => renderPrompt(this.kit, role, { guides: guidesDir(), state: project.state });
-    return applyRole(this.kit, team, config, render, project.state, this.seating.servers(team, seat.role.role));
-  }
-
-  private openSession(request: SessionOpen): SessionOpen {
+  sessionOpen(request: SessionOpen): SessionOpen {
     const seat = seatOf(this.kit, request.provider);
     if (!seat) return request;
     const project = projectOf(request.cwd);
@@ -319,12 +306,12 @@ export class Runtime {
     return seatEnv(this.kit, request, seatDir(this.kit, seat.role, seat.harness, home(), project), project);
   }
 
-  private turnStarted(agentId: string): void {
-    this.turns.started(agentId);
-    this.outbox.turnStarted(agentId);
+  async turnStarted(agent: HookAgent): Promise<void> {
+    this.turns.started(agent.id);
+    this.outbox.turnStarted(agent.id);
   }
 
-  private async turnEnded(event: PluginLifecycleEvents["agent.turn_ended"]): Promise<void> {
+  async turnEnded(event: TurnEnded): Promise<void> {
     this.outbox.turnEnded(event.agent.id);
     this.malformedCalls(event);
     // Wrapped: a throw here left the seat's mail waiting until some unrelated event pumped it.
@@ -340,7 +327,7 @@ export class Runtime {
     }
   }
 
-  private async permissionRequested({ agent, request }: PluginLifecycleEvents["agent.permission_requested"]): Promise<void> {
+  async permissionRequested({ agent, request }: PermissionRequested): Promise<void> {
     const role = seatOf(this.kit, agent.provider)?.role;
     if (!role?.tools) return;
     const project = projectOf(agent.cwd);
@@ -373,12 +360,11 @@ export class Runtime {
 
   /** Asked once per load and on demand: Paseo keeps a catalog until told to refresh it. */
   async refreshModels(): Promise<ModelCache> {
-    const paseo = this.api;
-    if (!paseo) throw new Error("Paseo is not connected, so it cannot list the agents' models");
+    const { models } = this.host;
     // Scoped to one directory: unscoped, Paseo probes the agent for every workspace it has ever opened.
     const cwd = stateRoot();
-    await Promise.all([...listingProviders(this.kit).values()].map((provider) => paseo.providers.refresh({ cwd, providers: [provider] })));
-    const { cache, changed } = await fetchModels(this.kit, (provider) => paseo.providers.listModels(provider, { cwd }) as Promise<Listed>, stateRoot());
+    await Promise.all([...listingProviders(this.kit).values()].map((provider) => models.refresh(provider, cwd)));
+    const { cache, changed } = await fetchModels(this.kit, (provider) => models.list(provider, cwd), stateRoot());
     applyModels(this.kit, cache);
     if (changed) {
       this.seating.forget();
@@ -417,17 +403,6 @@ export class Runtime {
     }
   }
 
-  private on<N extends EventName>(server: PluginServerContext, name: N, handler: (event: PluginLifecycleEvents[N], context: PluginHookContext) => Promise<void>): void {
-    server.on(name, async (event, context) => {
-      this.api = context.paseo;
-      try {
-        await handler(event, context);
-      } catch (error) {
-        console.error(`seatworks-v2: ${name} handler failed:`, error);
-      }
-    });
-  }
-
   /** A call is waited on until the seat's bridge has taken its answer, which it deletes as it reads it. */
   private waitedOn(agentId: string): { id: string; replied: boolean }[] {
     const live = (this.calls.get(agentId) ?? []).filter((call) => !call.replied || existsSync(replyFile(this.spool, call.id)));
@@ -437,7 +412,7 @@ export class Runtime {
   }
 
   private serveSpool(): void {
-    if (!this.api) return;
+    if (!this.host.connected()) return;
     let requests;
     try {
       requests = takeRequests(this.spool);

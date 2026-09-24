@@ -1,12 +1,10 @@
-import type { PluginLifecycleEvents } from "@getpaseo/plugin/server";
 import { type Kit, type RoleSpec, can, seatOf, worksTasks } from "../catalog/kit.ts";
+import type { TurnEnded } from "../core/ports.ts";
 import type { Desk } from "../desk/desk.ts";
 import { type Ledger, laneOfLead, loadLedger, taskOfPeer } from "../desk/ledger.ts";
 import { letters } from "../desk/letters.ts";
 import { type Project, projectOf } from "../desk/project.ts";
 import { deniedCall, lastToolCall, outputText } from "./timeline.ts";
-
-type TurnEnded = PluginLifecycleEvents["agent.turn_ended"];
 
 type TurnDeps = {
   kit: Kit;

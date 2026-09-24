@@ -1,11 +1,9 @@
 import { join } from "node:path";
-import type { PluginBeforeRequests } from "@getpaseo/plugin/server";
+import type { AgentConfig, SessionOpen } from "../core/ports.ts";
 import { type Kit, type McpServers, type RoleSpec, agentDefault, seatOf } from "./kit.ts";
 import { stateTargets } from "./content.ts";
 import { type Team, preapprovedFor, rulesFor, skillDirsFor } from "./team.ts";
 
-export type AgentConfig = PluginBeforeRequests["agent.create"]["config"];
-export type SessionOpen = PluginBeforeRequests["agent.session_open"];
 type RenderPrompt = (role: RoleSpec) => string;
 
 type Json = Record<string, unknown>;
@@ -61,15 +59,15 @@ export function applyRole(kit: Kit, team: Team, config: AgentConfig, render: Ren
     next.systemPrompt = config.systemPrompt ? `${prompt}\n\n${config.systemPrompt}` : prompt;
   }
   if (harness.mcp.delivery === "launch" && Object.keys(servers).length > 0) {
-    next.mcpServers = { ...(config.mcpServers ?? {}), ...servers } as AgentConfig["mcpServers"];
+    next.mcpServers = { ...(config.mcpServers ?? {}), ...servers };
     if (harness.mcp.preapprove) next.toolPolicy = { preapproved: preapprovedFor(kit, team, role.role).filter((ref) => ref.server in servers || ref.server === "paseo") };
   }
-  let providerOptions: unknown = config.providerOptions;
+  let providerOptions = config.providerOptions;
   if (harness.stateWrites?.delivery === "launch" && state) {
     for (const path of stateWrites(kit, team, role, state)) providerOptions = appendAt(providerOptions, harness.stateWrites.path, path);
   }
   if (harness.projectContextOption && config.cwd) providerOptions = appendAt(providerOptions, harness.projectContextOption, config.cwd);
-  if (providerOptions !== config.providerOptions) next.providerOptions = providerOptions as AgentConfig["providerOptions"];
+  if (providerOptions !== config.providerOptions) next.providerOptions = providerOptions;
   return next;
 }
 

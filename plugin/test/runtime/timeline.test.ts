@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { type Timeline, deniedCall, malformed, outputText } from "../../server/runtime/timeline.ts";
+import type { TimelineItem } from "../../server/core/ports.ts";
+import { deniedCall, malformed, outputText } from "../../server/runtime/timeline.ts";
 
-const t = (...items: object[]) => items as unknown as Timeline;
+const t = (...items: TimelineItem[]) => items;
 
 test("output text joins the assistant's words after the last user message", () => {
   const timeline = t(

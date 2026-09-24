@@ -1,7 +1,6 @@
 import type { z } from "zod";
 import { contracts } from "../../shared/rpc.ts";
 import type { Check } from "./doctor.ts";
-import type { PaseoApi } from "../core/paseo.ts";
 import type { SettingsView, WriteResult } from "../catalog/settings.ts";
 
 
@@ -29,14 +28,12 @@ export interface Control {
 
 type Contract = { name: string; input: z.ZodType; output: z.ZodType };
 type Answer = (input: any) => unknown;
-type Handle = (contract: Contract, handler: (input: any, context: { paseo: PaseoApi }) => unknown) => void;
 
-/** Panel calls carry the live daemon handle: after a reload with no seat hooks yet, it is the desk's only way to get one. */
-export function registerRpc(server: { handle: unknown }, control: Control, bind: (paseo: PaseoApi) => void): string[] {
-  const register = (server.handle as Handle).bind(server);
+/** `called` runs before every answer, since a panel call is how the runtime learns someone is looking. */
+export function registerRpc(serve: (contract: Contract, answer: Answer) => void, control: Control, called: () => void): string[] {
   const handle = (contract: Contract, answer: Answer) =>
-    register(contract, (input, context) => {
-      if (context?.paseo) bind(context.paseo);
+    serve(contract, (input) => {
+      called();
       return answer(input);
     });
   handle(contracts.catalog, () => control.catalog());

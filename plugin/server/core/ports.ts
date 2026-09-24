@@ -53,3 +53,58 @@ export type Workspaces = {
   seat(workspace: string, spec: SeatSpec): Promise<SeatLook>;
   archive(workspace: string): Promise<void>;
 };
+
+/** An agent as a Paseo hook names it, so far as the plugin reads it. */
+export type HookAgent = { id: string; provider: string; cwd: string; title?: string | null };
+
+/** A timeline item as the plugin reads it: its kind, and fields that are checked before they are trusted. */
+export type TimelineItem = { readonly type: string; readonly text?: unknown; readonly status?: unknown; readonly error?: unknown; readonly name?: unknown; readonly detail?: unknown; readonly callId?: unknown };
+
+export type TurnEnded = {
+  agent: HookAgent;
+  turnId: string | null;
+  outcome: { kind: "completed" } | { kind: "failed"; error: { message: string } } | { kind: "canceled" };
+  timeline: readonly TimelineItem[];
+};
+
+export type PermissionRequested = { agent: HookAgent; request: PendingPermission };
+
+/** Creating an agent, so far as a seat's launch sets it; Paseo's request holds more, and the rest passes through unchanged. */
+export type AgentConfig = {
+  provider: string;
+  cwd: string;
+  model?: string;
+  modeId?: string;
+  thinkingOptionId?: string;
+  systemPrompt?: string;
+  mcpServers?: Record<string, unknown>;
+  toolPolicy?: { preapproved: { kind: string; server: string; tool: string }[] };
+  providerOptions?: Record<string, unknown>;
+};
+
+export type SessionOpen = { provider: string; cwd: string; env: Record<string, string> };
+
+/** What the plugin does on each Paseo hook. */
+export type HostHooks = {
+  create(config: AgentConfig): AgentConfig;
+  sessionOpen(request: SessionOpen): SessionOpen;
+  turnStarted(agent: HookAgent): Promise<void>;
+  turnEnded(event: TurnEnded): Promise<void>;
+  permissionRequested(event: PermissionRequested): Promise<void>;
+  created(agent: HookAgent): Promise<void>;
+  archived(agent: HookAgent): Promise<void>;
+};
+
+/** An agent's models as Paseo lists them. */
+export type ModelList = {
+  models?: { id: string; label: string; isSelectable?: boolean; thinkingOptions?: { id: string; label: string }[]; defaultThinkingOptionId?: string }[];
+  error?: string | null;
+};
+
+export type Models = {
+  refresh(provider: string, cwd: string): Promise<void>;
+  list(provider: string, cwd: string): Promise<ModelList>;
+};
+
+/** Paseo as the plugin reaches it; `connected` is false until a hook or a panel call has handed over its API. */
+export type Host = { connected(): boolean; seats: Seats; workspaces: Workspaces; models: Models };

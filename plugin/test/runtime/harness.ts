@@ -3,9 +3,11 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { afterEach } from "node:test";
 import { fileURLToPath } from "node:url";
+import { PaseoHost } from "../../server/adapters/paseo/host.ts";
 import { loadKit } from "../../server/catalog/kit.ts";
 import { applyModels } from "../../server/catalog/models.ts";
 import { stateRoot } from "../../server/core/paths.ts";
+import type { HookAgent, TimelineItem } from "../../server/core/ports.ts";
 import { loadLedger } from "../../server/desk/ledger.ts";
 import { type Project, projectOf } from "../../server/desk/project.ts";
 import { Runtime } from "../../server/runtime/runtime.ts";
@@ -179,7 +181,7 @@ export function harness() {
   mkdirSync(state, { recursive: true });
   writeFileSync(join(state, "settings.json"), JSON.stringify({ mcp: { "intellij-index": { enabled: true }, "code-search": { enabled: true }, context7: { enabled: true } } }));
   const { paseo, agents, add, workspaces, workspaceNames, workspaceProjects, archivedWorkspaces, timelineOf } = fakePaseo();
-  const runtime = new Runtime(kit, { paseo, codeIndex: (proxy: { id: string; gitExclude?: string[] }) => ({ ...ide, id: proxy.id, gitExclude: proxy.gitExclude ?? [] }), reloadDaemon: async () => true });
+  const runtime = new Runtime(kit, new PaseoHost(paseo), { codeIndex: (proxy: { id: string; gitExclude?: string[] }) => ({ ...ide, id: proxy.id, gitExclude: proxy.gitExclude ?? [] }), reloadDaemon: async () => true });
   made.push(runtime);
   const project = projectOf(root);
   // Paseo seats a project's agents through the create hook, which records the project; the seats added here skip it.
@@ -200,26 +202,18 @@ export function harness() {
   };
   const ledger = (of: Project = project) => loadLedger(of.state);
   const tick = (now?: number) => (runtime as unknown as { patrol: { tick(now?: number): Promise<void> } }).patrol.tick(now);
+  const agentOf = (id: string): HookAgent => ({ id, provider: agents.get(id)!.provider, cwd: agents.get(id)!.cwd, title: agents.get(id)!.title });
   // Paseo fires a turn start before a turn end; without one, a turn is measured from half an hour ago.
-  const beginTurn = (id: string) => (runtime as unknown as { turnStarted(agentId: string): void }).turnStarted(id);
+  const beginTurn = (id: string) => runtime.turnStarted(agentOf(id));
   // Paseo hands this hook the seat's whole append-only timeline, not the turn that ended.
-  const told = new Map<string, unknown[]>();
-  const endTurn = (id: string, text: string, ...calls: unknown[]) => {
+  const told = new Map<string, TimelineItem[]>();
+  const endTurn = (id: string, text: string, ...calls: TimelineItem[]) => {
     const timeline = told.get(id) ?? [];
     timeline.push({ type: "user_message", text: "go" }, ...calls, { type: "assistant_message", text });
     told.set(id, timeline);
-    return (runtime as unknown as { turnEnded: (event: unknown) => Promise<void> }).turnEnded({
-      agent: { id, provider: agents.get(id)!.provider, cwd: agents.get(id)!.cwd, title: agents.get(id)!.title, parentAgentId: null, workspaceId: null },
-      turnId: `t-${id}-${Date.now()}`,
-      outcome: { kind: "completed" },
-      timeline: [...timeline],
-    });
+    return runtime.turnEnded({ agent: agentOf(id), turnId: `t-${id}-${Date.now()}`, outcome: { kind: "completed" }, timeline: [...timeline] });
   };
-  const permission = (id: string, request: Pending) =>
-    (runtime as unknown as { permissionRequested: (event: unknown) => Promise<void> }).permissionRequested({
-      agent: { id, provider: agents.get(id)!.provider, cwd: agents.get(id)!.cwd, title: agents.get(id)!.title, parentAgentId: null, workspaceId: null },
-      request,
-    });
+  const permission = (id: string, request: Pending) => runtime.permissionRequested({ agent: agentOf(id), request });
   return { root, git, paseo, agents, add, workspaces, workspaceNames, workspaceProjects, archivedWorkspaces, runtime, project, call, idle, commit, ledger, endTurn, tick, beginTurn, permission, timelineOf };
 }
 

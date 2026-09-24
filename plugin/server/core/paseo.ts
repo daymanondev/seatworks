@@ -1,7 +1,3 @@
-import type { PluginHookContext } from "@getpaseo/plugin/server";
-
-export type PaseoApi = PluginHookContext["paseo"];
-
 export type SeatView = {
   id: string;
   title?: string | null;

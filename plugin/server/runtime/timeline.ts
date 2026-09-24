@@ -1,22 +1,15 @@
-import type { PluginLifecycleEvents } from "@getpaseo/plugin/server";
+import type { TimelineItem } from "../core/ports.ts";
 
-export type Timeline = PluginLifecycleEvents["agent.turn_ended"]["timeline"];
+type Timeline = readonly TimelineItem[];
 
-type Item = { type: string; text?: unknown; status?: unknown; error?: unknown; name?: unknown; detail?: unknown; callId?: unknown };
-
-function items(timeline: Timeline): Item[] {
-  return timeline as unknown as Item[];
-}
-
-function lastUserIndex(list: Item[]): number {
+function lastUserIndex(list: Timeline): number {
   for (let index = list.length - 1; index >= 0; index--) if (list[index]?.type === "user_message") return index;
   return -1;
 }
 
 export function lastToolCall(timeline: Timeline): Record<string, unknown> | undefined {
-  const list = items(timeline);
-  for (let index = list.length - 1; index >= 0; index--) {
-    const item = list[index];
+  for (let index = timeline.length - 1; index >= 0; index--) {
+    const item = timeline[index];
     if (item?.type === "user_message") return undefined;
     if (item?.type === "tool_call") return { name: item.name, status: item.status, error: item.error, detail: item.detail };
   }
@@ -24,9 +17,8 @@ export function lastToolCall(timeline: Timeline): Record<string, unknown> | unde
 }
 
 export function outputText(timeline: Timeline): string {
-  const list = items(timeline);
-  return list
-    .slice(lastUserIndex(list) + 1)
+  return timeline
+    .slice(lastUserIndex(timeline) + 1)
     .filter((item) => item.type === "assistant_message" && typeof item.text === "string")
     .map((item) => item.text as string)
     .join("");
@@ -40,8 +32,7 @@ const REFUSED = "permission|denied|not allowed|refused|blocked by";
 type LastCall = { what: string; refused: boolean };
 
 export function deniedCall(timeline: Timeline, refused = REFUSED): LastCall | undefined {
-  const list = items(timeline);
-  const turn = list.slice(lastUserIndex(list) + 1);
+  const turn = timeline.slice(lastUserIndex(timeline) + 1);
   let lastTool = -1;
   for (let index = turn.length - 1; index >= 0; index--) {
     if (turn[index]?.type === "tool_call") {
@@ -74,9 +65,8 @@ type Malformed = { tool: string; quote: string };
 
 /** Tool calls whose input was not JSON: the harness refused them, so nothing else reports them. */
 export function malformed(timeline: Timeline): Malformed[] {
-  const list = items(timeline);
   // This turn only: Paseo hands the whole session, so one bad call would be found again every turn.
-  return list.slice(lastUserIndex(list) + 1).flatMap((item) => {
+  return timeline.slice(lastUserIndex(timeline) + 1).flatMap((item) => {
     if (item.type !== "tool_call" || item.status !== "failed") return [];
     // The input only, never `output`: a tool's own output may print these strings legitimately.
     const sent = JSON.stringify((item.detail as { input?: unknown } | undefined)?.input ?? null);
