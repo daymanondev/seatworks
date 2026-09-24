@@ -279,5 +279,5 @@ export function slugify(text: string, max = 32): string {
     .replace(/^-+|-+$/g, "");
   if (whole.length <= max) return whole || "work";
   const cut = whole.slice(0, max + 1);
-  return (cut.includes("-") ? cut.slice(0, cut.lastIndexOf("-")) : cut.slice(0, max)).replace(/-+$/g, "") || "work";
+  return cut.includes("-") ? cut.slice(0, cut.lastIndexOf("-")) : cut.slice(0, max);
 }

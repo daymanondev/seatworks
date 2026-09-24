@@ -84,7 +84,7 @@ export function weakened(before: string, after: string): string | undefined {
 
 /** Calls to `server` as the harness names them: `pattern` holds `{server}` where the name goes. */
 export function callsTo(pattern: string | undefined, server: string): RegExp | undefined {
-  return pattern ? new RegExp(pattern.replaceAll("{server}", server.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))) : undefined;
+  return pattern ? new RegExp(pattern.replaceAll("{server}", server)) : undefined;
 }
 
 export function failed(call: Call, exit?: RegExp): boolean {
