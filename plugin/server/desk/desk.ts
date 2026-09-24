@@ -11,6 +11,7 @@ import { errorText } from "../core/errors.ts";
 import { type Ledger, type Task, loadLedger } from "./ledger.ts";
 import { clip, letters } from "./letters.ts";
 import { tidyRecords } from "./records.ts";
+import { decideLand } from "./closing.ts";
 import { fileRecords, keepArchived, takeFinished } from "./archive.ts";
 import { MergeQueue } from "./merge.ts";
 import { type Project, projectOf } from "./project.ts";
@@ -133,7 +134,7 @@ export class Desk {
   }
 
   decideLand(project: Project, lane: string, approve: boolean, note: string): Promise<{ ok: boolean; text: string }> {
-    return supervisor.decideLand(this.services, project, lane, approve, note);
+    return decideLand(this.services, project, lane, approve, note);
   }
 
   archive(agentId: string | undefined, force = false): Promise<void> {
