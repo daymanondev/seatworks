@@ -5,11 +5,10 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { loadKit } from "../../server/catalog/kit.ts";
 import { tempDir } from "../tempdir.ts";
+import { calibrate, mark, sample } from "../../bin/calibrate.ts";
+import { stateRoot } from "../../server/core/paths.ts";
 import { type Kept, keepAssessment } from "../../server/runtime/watch/jev/assessments.ts";
 
-const HOME = tempDir("sw2-calibrate-home-");
-process.env.HOME = HOME;
-const { calibrate, mark, sample } = await import("../../bin/calibrate.ts");
 const shipped = Object.values(loadKit(join(dirname(fileURLToPath(import.meta.url)), "..", "..")).sensors)[0]!.questions;
 const wording = (names: string[]) => Object.fromEntries(names.map((name) => [name, { view: shipped[name]!.view, instructions: shipped[name]!.instructions, ...(shipped[name]!.criteria ? { criteria: shipped[name]!.criteria } : {}) }]));
 /** Views whose one step says which way a replay should answer. */
@@ -84,8 +83,8 @@ test("the report reads each question on its own incidents, each judging question
   assert.doesNotMatch(sample(state, 5, () => 0), new RegExp(id), "a turn read once is not offered again");
   assert.match(await calibrate({ state }), /3 turns the watch did not flag; 1 spot-checked, 1 of them missed something \(miss rate 1\.00\)/);
 
-  mkdirSync(join(HOME, ".local", "share", "seatworks-v2"), { recursive: true });
-  writeFileSync(join(HOME, ".local", "share", "seatworks-v2", "settings.json"), JSON.stringify({ sensor: { key: "k" } }));
+  mkdirSync(stateRoot(), { recursive: true });
+  writeFileSync(join(stateRoot(), "settings.json"), JSON.stringify({ sensor: { key: "k" } }));
   const fetcher = async (_url: string, init: { body: string }) => {
     const body = JSON.parse(init.body) as { state: { steps?: { text?: string; command?: string }[] }; questions: Record<string, unknown> };
     const first = body.state.steps?.[0];

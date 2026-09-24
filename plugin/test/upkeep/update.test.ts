@@ -7,7 +7,8 @@ import { type UpdateContext, applyUpdate, checkUpdate } from "../../server/upkee
 import { tempDir } from "../tempdir.ts";
 
 const env = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" };
-const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-C", cwd, ...args], { env, encoding: "utf-8" }).trim();
+// Piped: git warns on stderr when it clones the empty origin, and a failure still carries what it said.
+const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-C", cwd, ...args], { env, encoding: "utf-8", stdio: "pipe" }).trim();
 
 function commit(dir: string, files: Record<string, string>, subject: string): void {
   for (const [name, text] of Object.entries(files)) writeFileSync(join(dir, name), text);

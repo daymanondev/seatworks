@@ -1,22 +1,22 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { chmodSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
-
-const HOME = mkdtempSync(join(tmpdir(), "sw2-rpc-home-"));
-process.env.HOME = HOME;
-
-const { Runtime } = await import("../../server/runtime/runtime.ts");
-const { registerRpc } = await import("../../server/runtime/rpc.ts");
-const { makeKit } = await import("../kit.ts");
-const { KEPT } = await import("../../shared/rpc.ts");
-const { STATE_VERSION } = await import("../../server/core/state.ts");
+import { paseoConfigPath, stateRoot } from "../../server/core/paths.ts";
+import { STATE_VERSION } from "../../server/core/state.ts";
+import { registerRpc } from "../../server/runtime/rpc.ts";
+import { Runtime } from "../../server/runtime/runtime.ts";
+import { KEPT } from "../../shared/rpc.ts";
+import { makeKit } from "../kit.ts";
+import { tempDir } from "../tempdir.ts";
 
 function served(paseo?: unknown) {
+  // Paseo's config is always there where a plugin runs, and the plugin writes its seats' providers into it.
+  mkdirSync(dirname(paseoConfigPath()), { recursive: true });
+  writeFileSync(paseoConfigPath(), "{}\n");
   const kit = makeKit();
-  const runtime = new Runtime(kit, { outboxFile: join(HOME, "outbox.json"), reloadDaemon: async () => true });
+  const runtime = new Runtime(kit, { reloadDaemon: async () => true });
   const handlers = new Map<string, (input: any) => any>();
   const bound: unknown[] = [];
   // The host hands every handler the live daemon handle beside the input.
@@ -33,7 +33,7 @@ function served(paseo?: unknown) {
     assert.ok(handler, `no handler for ${name}`);
     return JSON.parse(JSON.stringify(await handler(input)));
   };
-  return { kit, runtime, names, call, bound };
+  return { names, call, bound };
 }
 
 test("the plugin serves the catalog, settings, projects, team and status over RPC", async () => {
@@ -88,7 +88,7 @@ test("a web app turns a server on for the machine and switches a role's harness 
   assert.match(team.roles.lead.rules, /Look library APIs up in the docs\./);
   assert.equal(team.roles.lead.provider, "sw2-lead-claude");
 
-  const state = join(HOME, ".local/share/seatworks-v2/projects/shop-abc123");
+  const state = join(stateRoot(), "projects/shop-abc123");
   mkdirSync(state, { recursive: true });
   writeFileSync(join(state, "meta.json"), JSON.stringify({ root: "/work/shop", slug: "shop-abc123" }));
   assert.deepEqual(await call("seatworks.projects.list"), [{ slug: "shop-abc123", root: "/work/shop" }]);
@@ -120,7 +120,7 @@ test("settings a team can't run on are refused with the reason, and stale writes
 
 test("a project can be registered by its path before any agent has run in it", async () => {
   const { call } = served();
-  const root = realpathSync(mkdtempSync(join(tmpdir(), "sw2-rpc-project-")));
+  const root = realpathSync(tempDir("sw2-rpc-project-"));
   execFileSync("git", ["init", "-q", root]);
   mkdirSync(join(root, "src"), { recursive: true });
   const added = await call("seatworks.projects.add", { root: join(root, "src") });
@@ -141,13 +141,13 @@ test("a project can be registered by its path before any agent has run in it", a
 
 test("attaching a project is undone by detaching it, unless work is still running in it", async () => {
   const { call } = served();
-  const root = realpathSync(mkdtempSync(join(tmpdir(), "sw2-rpc-attach-")));
+  const root = realpathSync(tempDir("sw2-rpc-attach-"));
   execFileSync("git", ["init", "-q", root]);
   const added = await call("seatworks.projects.add", { root });
   const read = await call("seatworks.settings.read", { project: added.slug });
   await call("seatworks.settings.write", { project: added.slug, revision: read.revision, values: { roles: { peer: { harness: "devin" } } } });
 
-  const state = join(HOME, ".local/share/seatworks-v2/projects", added.slug);
+  const state = join(stateRoot(), "projects", added.slug);
   writeFileSync(join(state, "ledger.json"), JSON.stringify({ version: STATE_VERSION, lanes: { L1: { id: "L1", status: "open" } }, tasks: {} }));
   const refused = await call("seatworks.projects.remove", { project: added.slug });
   assert.match(refused.error, /1 open or waiting lane\(s\)/);
@@ -167,15 +167,15 @@ test("attaching a project is undone by detaching it, unless work is still runnin
 
 test("the projects a setup screen may offer leave out worktrees, gone directories and the ones already set up", async () => {
   const { call } = served();
-  const repo = realpathSync(mkdtempSync(join(tmpdir(), "sw2-rpc-live-")));
+  const repo = realpathSync(tempDir("sw2-rpc-live-"));
   execFileSync("git", ["init", "-q", repo]);
   execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "init"], { cwd: repo });
-  const linked = join(realpathSync(mkdtempSync(join(tmpdir(), "sw2-rpc-linked-"))), "wt");
+  const linked = join(realpathSync(tempDir("sw2-rpc-linked-")), "wt");
   execFileSync("git", ["worktree", "add", "-q", "-b", "side", linked], { cwd: repo });
-  const plain = realpathSync(mkdtempSync(join(tmpdir(), "sw2-rpc-plain-")));
-  const ours = join(HOME, ".local/share/seatworks-v2/worktrees/shop-ef484b/S0");
+  const plain = realpathSync(tempDir("sw2-rpc-plain-"));
+  const ours = join(stateRoot(), "worktrees/shop-ef484b/S0");
   mkdirSync(ours, { recursive: true });
-  const taken = realpathSync(mkdtempSync(join(tmpdir(), "sw2-rpc-taken-")));
+  const taken = realpathSync(tempDir("sw2-rpc-taken-"));
   execFileSync("git", ["init", "-q", taken]);
   await call("seatworks.projects.add", { root: taken });
 
@@ -234,7 +234,7 @@ test("a server pasted into the settings reaches the seats, and a shipped one can
 
 test("a folder that is there and cannot be read is a refusal, not a rejected call", async () => {
   const { call } = served();
-  const root = mkdtempSync(join(tmpdir(), "sw2-noread-"));
+  const root = tempDir("sw2-noread-");
   mkdirSync(join(root, "locked"));
   chmodSync(join(root, "locked"), 0o000);
   try {
@@ -246,8 +246,8 @@ test("a folder that is there and cannot be read is a refusal, not a rejected cal
 });
 
 test("a project detached in this session can be attached again, and the desk's half of a second setup keeps the layer", async () => {
-  const { call, runtime } = served();
-  const root = realpathSync(mkdtempSync(join(tmpdir(), "sw2-again-")));
+  const { call } = served();
+  const root = realpathSync(tempDir("sw2-again-"));
   const added = await call("seatworks.projects.add", { root });
   assert.equal(typeof added.slug, "string");
 
@@ -276,12 +276,11 @@ test("a project detached in this session can be attached again, and the desk's h
     "an attach that reports a slug has to be an attach the rest of the plugin can find",
   );
   assert.equal((await call("seatworks.settings.read", { project: added.slug })).status, "ready");
-  runtime.dispose();
 });
 
 test("the setup screen can walk this machine's folders to find a repository", async () => {
   const { call } = served();
-  const root = realpathSync(mkdtempSync(join(tmpdir(), "sw2-rpc-browse-")));
+  const root = realpathSync(tempDir("sw2-rpc-browse-"));
   mkdirSync(join(root, "plain"), { recursive: true });
   execFileSync("git", ["init", "-q", join(root, "repo")]);
 
@@ -301,7 +300,7 @@ test("the setup screen can walk this machine's folders to find a repository", as
 
 test("the sensor's key is written from the panel, never read back into it, and forgotten only when asked", async () => {
   const { call } = served();
-  const file = join(HOME, ".local/share/seatworks-v2/settings.json");
+  const file = join(stateRoot(), "settings.json");
   const onDisk = () => JSON.parse(readFileSync(file, "utf8")) as { sensor?: { key?: string }; rules?: string };
 
   const read = await call("seatworks.settings.read");
@@ -320,7 +319,7 @@ test("the sensor's key is written from the panel, never read back into it, and f
   assert.equal(onDisk().sensor?.key, "sk-or-secret");
   assert.equal(onDisk().rules, "watch the watch");
 
-  const state = join(HOME, ".local/share/seatworks-v2/projects/sensor-abc123");
+  const state = join(stateRoot(), "projects/sensor-abc123");
   mkdirSync(state, { recursive: true });
   writeFileSync(join(state, "meta.json"), JSON.stringify({ root: "/work/sensor", slug: "sensor-abc123" }));
   const project = await call("seatworks.settings.read", { project: "sensor-abc123" });
@@ -338,7 +337,7 @@ test("the sensor's key is written from the panel, never read back into it, and f
 
 test("a settings file that will not parse is reported without quoting what it holds", async () => {
   const { call } = served();
-  const file = join(HOME, ".local/share/seatworks-v2/settings.json");
+  const file = join(stateRoot(), "settings.json");
   const read = await call("seatworks.settings.read");
   assert.equal((await call("seatworks.settings.write", { revision: read.revision, values: { ...read.values, sensor: { key: "sk-or-secret" } } })).status, "saved");
   // A common hand typo whose parse error quotes the key's line, short enough to fall inside V8's quoted window.
@@ -359,7 +358,7 @@ test("a settings file that will not parse is reported without quoting what it ho
 
 test("the word that stands for the key is never itself written, and a refused or stale save leaves it where it was", async () => {
   const { call } = served();
-  const file = join(HOME, ".local/share/seatworks-v2/settings.json");
+  const file = join(stateRoot(), "settings.json");
   const onDisk = () => JSON.parse(readFileSync(file, "utf8")) as { sensor?: { key?: string }; rules?: string };
 
   const empty = await call("seatworks.settings.read");

@@ -9,6 +9,7 @@ import { composeSettings, materialize, seatDir, sweepSnapshots } from "../../ser
 import { contentRoot } from "../../server/core/paths.ts";
 import { seatPairs } from "../../server/catalog/providers.ts";
 import { resolveTeam, serversFor, withHarness } from "../../server/catalog/team.ts";
+import { reported } from "../console.ts";
 import { makeKit } from "../kit.ts";
 import { tempDir } from "../tempdir.ts";
 
@@ -116,7 +117,8 @@ test("a skill carrying a word its role must not see, or a placeholder nothing fi
   assert.throws(() => materialize(kit, resolveTeam(kit), "peer", home, project), /skill test-first holds \{\{guides\}\}/);
 });
 
-test("a real directory where a skill link should go is left alone, not turned into a seat that cannot start", () => {
+test("a real directory where a skill link should go is left alone, not turned into a seat that cannot start", (t) => {
+  const said = reported(t);
   const kit = makeKit();
   const home = tempDir("sw2-home-");
   const team = resolveTeam(kit);
@@ -128,6 +130,7 @@ test("a real directory where a skill link should go is left alone, not turned in
   const changes = materialize(kit, team, "peer", home, project);
   assert.ok(changes.length > 0, "the rest of the seat is still built");
   assert.equal(readFileSync(join(dir, "devin", "skills", "test-first", "NOTES.md"), "utf-8").trim(), "something the harness made for itself");
+  assert.match(said(), /skill test-first for the peer: .* exists and is not a link, so it was left alone/, "and the owner is told why");
 });
 
 test("composeSettings deletes an owned key the kit no longer sets", () => {
@@ -175,7 +178,8 @@ test("a harness with TOML config files gets its layered settings and its MCP ser
   assert.deepEqual(materialize(kit, team, "peer", home, project, servers), []);
 });
 
-test("an unreadable MCP file the plugin owns is written again, because it carries the seat's only tools", () => {
+test("an unreadable MCP file the plugin owns is written again, because it carries the seat's only tools", (t) => {
+  const said = reported(t);
   const kit = makeKit();
   const home = tempDir("sw2-home-");
   const team = resolveTeam(kit);
@@ -191,9 +195,11 @@ test("an unreadable MCP file the plugin owns is written again, because it carrie
   writeFileSync(file, '{ "mcpServers": {');
   materialize(kit, team, "peer", home, project, servers);
   assert.ok(JSON.parse(readFileSync(file, "utf-8")).mcpServers.team, "and written again, because this document is the plugin's own");
+  assert.match(said(), /mcp_config\.json is there but could not be read: .*, and the plugin owns that file, so it was written again/);
 });
 
-test("an MCP file the harness owns and the plugin cannot read is left alone, not replaced by the seed", () => {
+test("an MCP file the harness owns and the plugin cannot read is left alone, not replaced by the seed", (t) => {
+  const said = reported(t);
   const kit = makeKit();
   const home = tempDir("sw2-home-");
   const team = resolveTeam(kit);
@@ -211,6 +217,7 @@ test("an MCP file the harness owns and the plugin cannot read is left alone, not
     false,
     "and not reported as a routine update",
   );
+  assert.match(said(), /\.claude\.json is there but could not be read: .*, so its MCP servers were left alone/, "but reported as trouble");
 });
 
 function withAgent(files: Record<string, string>): ReturnType<typeof loadKit> {

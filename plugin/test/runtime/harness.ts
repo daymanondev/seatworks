@@ -1,20 +1,25 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { afterEach } from "node:test";
 import { fileURLToPath } from "node:url";
+import { loadKit } from "../../server/catalog/kit.ts";
+import { applyModels } from "../../server/catalog/models.ts";
+import { stateRoot } from "../../server/core/paths.ts";
+import { loadLedger } from "../../server/desk/ledger.ts";
+import { type Project, projectOf } from "../../server/desk/project.ts";
+import { Runtime } from "../../server/runtime/runtime.ts";
+import { tempDir } from "../tempdir.ts";
+import { FakeTimeline } from "./fake-timeline.ts";
 
-export const HOME = mkdtempSync(join(tmpdir(), "sw2-flow-home-"));
-process.env.HOME = HOME;
 globalThis.fetch = (async () => new Response("{}", { status: 503 })) as typeof fetch;
 
-const { loadKit } = await import("../../server/catalog/kit.ts");
-const { applyModels } = await import("../../server/catalog/models.ts");
-const { loadLedger } = await import("../../server/desk/ledger.ts");
-const { projectOf } = await import("../../server/desk/project.ts");
-type Project = ReturnType<typeof projectOf>;
-const { Runtime } = await import("../../server/runtime/runtime.ts");
-const { FakeTimeline } = await import("./fake-timeline.ts");
+const made: Runtime[] = [];
+
+/** A runtime goes with the test that made it, so nothing it still follows reaches the next test. */
+afterEach(() => {
+  for (const runtime of made.splice(0)) runtime.dispose();
+});
 
 export type Pending = { id: string; kind: string; name: string; title?: string; input?: Record<string, unknown> };
 type Fake = {
@@ -130,7 +135,7 @@ function fakePaseo() {
 }
 
 export function repo(): { root: string; git: (cwd: string, ...args: string[]) => string } {
-  const root = mkdtempSync(join(tmpdir(), "sw2-flow-repo-"));
+  const root = tempDir("sw2-flow-repo-");
   const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-C", cwd, "-c", "user.name=t", "-c", "user.email=t@x", ...args], { encoding: "utf-8" });
   writeFileSync(join(root, "a.txt"), "one\ntwo\nthree\n");
   writeFileSync(join(root, "b.txt"), "bee\n");
@@ -168,21 +173,24 @@ const ide = {
   },
 };
 
-export function harness(outbox: string) {
+export function harness() {
+  // One harness is one machine: a test that builds two gets two, since a daemon never shares its state.
+  process.env.HOME = tempDir("sw2-home-");
   const { root, git } = repo();
-  const state = join(HOME, ".local", "share", "seatworks-v2");
+  const state = stateRoot();
   mkdirSync(state, { recursive: true });
   // By Jev with a key and an unreachable endpoint: the watch on, the sensor silent unless a test asks.
   writeFileSync(join(state, "settings.json"), JSON.stringify({ sensor: { key: "sk-or-harness" }, attention: { by: "jev" }, mcp: { "intellij-index": { enabled: true }, "code-search": { enabled: true }, context7: { enabled: true } } }));
   const { paseo, agents, add, workspaces, workspaceNames, workspaceProjects, archivedWorkspaces, timelineOf } = fakePaseo();
-  const runtime = new Runtime(kit, { outboxFile: join(HOME, outbox), paseo, codeIndex: (proxy: { id: string; gitExclude?: string[] }) => ({ ...ide, id: proxy.id, gitExclude: proxy.gitExclude ?? [] }), reloadDaemon: async () => true });
+  const runtime = new Runtime(kit, { paseo, codeIndex: (proxy: { id: string; gitExclude?: string[] }) => ({ ...ide, id: proxy.id, gitExclude: proxy.gitExclude ?? [] }), reloadDaemon: async () => true });
+  made.push(runtime);
   const project = projectOf(root);
   // Paseo seats a project's agents through the create hook, which records the project; the seats added here skip it.
   (runtime as unknown as { remember(project: Project): void }).remember(project);
   let n = 0;
   // `where` is the calling working copy, since several desk keys turned out shared between projects.
   const call = async (agent: string, role: string, tool: string, args: Record<string, unknown>, where = root) =>
-    runtime.desk.handle({ id: `${outbox}-${++n}`, agent, role, tool, args, cwd: where, at: Date.now() });
+    runtime.desk.handle({ id: `call-${++n}`, agent, role, tool, args, cwd: where, at: Date.now() });
   const idle = async (id: string) => {
     agents.get(id)!.status = "idle";
     runtime.outbox.turnEnded(id);
@@ -218,8 +226,8 @@ export function harness(outbox: string) {
   return { root, git, paseo, agents, add, workspaces, workspaceNames, workspaceProjects, archivedWorkspaces, runtime, project, call, idle, commit, ledger, endTurn, tick, beginTurn, permission, timelineOf };
 }
 
-export async function laneWithPeer(outbox: string, settings?: Record<string, unknown>) {
-  const h = harness(outbox);
+export async function laneWithPeer(settings?: Record<string, unknown>) {
+  const h = harness();
   if (settings) {
     mkdirSync(h.project.state, { recursive: true });
     writeFileSync(join(h.project.state, "settings.json"), JSON.stringify(settings));

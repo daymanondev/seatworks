@@ -6,7 +6,6 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { TeamSource } from "../../server/runtime/team-source.ts";
 import { home, stateRoot } from "../../server/core/paths.ts";
-import { tempDir } from "../tempdir.ts";
 import { makeKit } from "../kit.ts";
 
 const kit = makeKit();
@@ -74,24 +73,16 @@ test("a malformed answer from one server costs that server's check, not the whol
 });
 
 test("settings that could not be read are not a team the owner wrote, and the doctor says so", () => {
-  const home = tempDir("sw2-coldsettings-");
-  const state = stateRoot(home);
+  const state = stateRoot();
   mkdirSync(state, { recursive: true });
   // The commonest hand edit; read as {}, the doctor reported the kit's defaults as the owner's team.
   writeFileSync(join(state, "settings.json"), '{ "rules": "Keep diffs small.", }');
-  const previous = process.env.HOME;
-  process.env.HOME = home;
-  try {
-    const team = new TeamSource(kit).teamFor();
-    assert.ok(
-      team.errors.some((line) => line.includes("machine settings are not being used")),
-      `the team has to carry it: ${JSON.stringify(team.errors)}`,
-    );
-    assert.equal(team.rules, "", "and nothing the file held is in force");
-  } finally {
-    if (previous === undefined) delete process.env.HOME;
-    else process.env.HOME = previous;
-  }
+  const team = new TeamSource(kit).teamFor();
+  assert.ok(
+    team.errors.some((line) => line.includes("machine settings are not being used")),
+    `the team has to carry it: ${JSON.stringify(team.errors)}`,
+  );
+  assert.equal(team.rules, "", "and nothing the file held is in force");
 });
 
 test("the doctor reports an unreadable layer rather than a complete team", async () => {

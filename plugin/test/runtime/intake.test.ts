@@ -2,13 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { mock, test } from "node:test";
+import { saveLedger } from "../../server/desk/ledger.ts";
+import { settle } from "./fake-timeline.ts";
 import { harness, laneWithPeer } from "./harness.ts";
 
-const { saveLedger } = await import("../../server/desk/ledger.ts");
-const { settle } = await import("./fake-timeline.ts");
-
 test("a lane that waits for another opens by itself once that one lands, off a base that has its work, and its Supervisor is told", async () => {
-  const h = harness("outbox-after.json");
+  const h = harness();
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "set_project", { gate: "true" });
   const scope = { acceptance: ["a"], outOfScope: ["anything else in the repository"] };
@@ -34,11 +33,10 @@ test("a lane that waits for another opens by itself once that one lands, off a b
   assert.equal(h.git(h.root, "branch", "--show-current").trim(), order.branch);
   assert.equal(readFileSync(join(h.root, "a.txt"), "utf-8"), "cart\n", "off a base that has the lane it waited for");
   assert.match(h.agents.get(sup)!.sent.join("\n"), /WAITING L2 \(Order\), the lane you opened to wait for L1: Lane L2 is open on lane\/l2-order/);
-  h.runtime.dispose();
 });
 
 test("a lane waiting for one that closes without landing stays waiting, and its Supervisor is told once until it drops it", async () => {
-  const h = harness("outbox-after-dropped.json");
+  const h = harness();
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   const scope = { acceptance: ["a"], outOfScope: ["anything else in the repository"] };
   await h.call(sup, "supervisor", "open_lane", { title: "Cart", outcome: "a cart", ...scope, isolate: true });
@@ -57,11 +55,10 @@ test("a lane waiting for one that closes without landing stays waiting, and its 
   const dropped = await h.call(sup, "supervisor", "close_lane", { lane: "L2", land: false });
   assert.match(dropped.text, /was waiting and is dropped/);
   assert.equal(h.ledger().lanes.L2!.status, "closed");
-  h.runtime.dispose();
 });
 
 test("a waiting lane whose turn comes while an open lane writes its paths is held with the reason, and opens when that lane closes", async () => {
-  const h = harness("outbox-after-held.json");
+  const h = harness();
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   const scope = { acceptance: ["a"], outOfScope: ["anything else in the repository"] };
   await h.call(sup, "supervisor", "open_lane", { title: "Cart", outcome: "a cart", ...scope, writeSet: ["a.txt"], isolate: true });
@@ -91,11 +88,10 @@ test("a waiting lane whose turn comes while an open lane writes its paths is hel
   assert.equal(h.ledger().lanes.L3!.held, undefined);
   h.agents.get(h.ledger().lanes.L3!.lead!)!.status = "idle";
   await h.call(sup, "supervisor", "close_lane", { lane: "L3", land: false });
-  h.runtime.dispose();
 });
 
 test("a lane may wait only for lanes that exist and can still land, and one whose lanes have all landed opens at once", async () => {
-  const h = harness("outbox-after-refused.json");
+  const h = harness();
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   const scope = { outcome: "x", acceptance: ["a"], outOfScope: ["anything else in the repository"] };
   const open = (extra: Record<string, unknown>) => h.call(sup, "supervisor", "open_lane", { title: "T", ...scope, ...extra });
@@ -118,11 +114,10 @@ test("a lane may wait only for lanes that exist and can still land, and one whos
   await h.call(sup, "supervisor", "close_lane", { lane: landedId, land: true });
   const now = await open({ after: [landedId], isolate: true });
   assert.match(now.text, /is open on lane\//, "nothing left to wait for, so it opens now");
-  h.runtime.dispose();
 });
 
 test("a patrol round opens a waiting lane whose lanes landed without it being tried, as after a restart", async () => {
-  const h = harness("outbox-after-patrol.json");
+  const h = harness();
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   const scope = { outcome: "x", acceptance: ["a"], outOfScope: ["anything else in the repository"] };
   await h.call(sup, "supervisor", "open_lane", { title: "Cart", ...scope, isolate: true });
@@ -135,11 +130,10 @@ test("a patrol round opens a waiting lane whose lanes landed without it being tr
   await h.tick(Date.now());
   assert.equal(h.ledger().lanes.L2!.status, "open");
   assert.ok(h.ledger().lanes.L2!.slot, "in a copy of its own, as it was asked");
-  h.runtime.dispose();
 });
 
 test("a lane waiting for the project's copy is held while a closed lane's Lead ends its turn there, and a round opens it there once it has", async () => {
-  const h = harness("outbox-after-restoring.json");
+  const h = harness();
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   const scope = { outcome: "x", acceptance: ["a"], outOfScope: ["anything else in the repository"] };
   await h.call(sup, "supervisor", "open_lane", { title: "Cart", ...scope });
@@ -157,11 +151,10 @@ test("a lane waiting for the project's copy is held while a closed lane's Lead e
   const order = h.ledger().lanes.L2!;
   assert.deepEqual([order.status, order.slot], ["open", undefined], "it waited for the project's copy, as the Supervisor chose, and opened there");
   assert.equal(h.git(h.root, "branch", "--show-current").trim(), order.branch);
-  h.runtime.dispose();
 });
 
 test("work that arrives mid-lane is folded into the lane that owns it, and the lane that needs it opens once it lands", async () => {
-  const h = harness("outbox-cart.json");
+  const h = harness();
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "set_project", { gate: "true" });
   const scope = { outOfScope: ["anything else in the repository"] };
@@ -189,11 +182,10 @@ test("work that arrives mid-lane is folded into the lane that owns it, and the l
   assert.equal(order.status, "open", "the lane that needed the cart opens once it lands");
   assert.equal(readFileSync(join(h.root, "a.txt"), "utf-8"), "upsert\n", "off a base with the cart as amended");
   assert.deepEqual(h.ledger().lanes.L1!.amended?.[0]?.was, { acceptance: ["adds an item"] }, "and the record keeps what the cart was asked first");
-  h.runtime.dispose();
 });
 
 test("a waiting lane that cannot start is held with why, and a patrol round does not set it up and tear it down again", async () => {
-  const h = harness("outbox-after-unstartable.json");
+  const h = harness();
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   const scope = { outcome: "x", acceptance: ["a"], outOfScope: ["anything else in the repository"] };
   h.git(h.root, "branch", "gone-base");
@@ -217,11 +209,10 @@ test("a waiting lane that cannot start is held with why, and a patrol round does
   await h.tick(Date.now());
   assert.deepEqual([h.ledger().lanes.L2!.status, h.ledger().lanes.L3!.status], ["waiting", "open"], "a round opens the lane whose base came back, with no lane closing");
   assert.equal(h.ledger().lanes.L3!.held, undefined);
-  h.runtime.dispose();
 });
 
 test("a lane waiting to carry on a branch is held if the Human's copy has moved off it by its turn", async () => {
-  const h = harness("outbox-after-moved.json");
+  const h = harness();
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   const scope = { outcome: "x", acceptance: ["a"], outOfScope: ["anything else in the repository"] };
   await h.call(sup, "supervisor", "set_project", { gate: "true" });
@@ -236,11 +227,10 @@ test("a lane waiting to carry on a branch is held if the Human's copy has moved 
   h.git(h.root, "switch", "-q", "main");
   await h.tick(Date.now());
   assert.equal(h.ledger().lanes.L2!.status, "open", "the Human switching back is enough, no lane has to close");
-  h.runtime.dispose();
 });
 
 test("an amendment changes what an open lane is asked, keeps what it was asked, and tells its Lead what moved and that its READY no longer stands", async () => {
-  const { h, sup, lane } = await laneWithPeer("outbox-amend-lane.json");
+  const { h, sup, lane } = await laneWithPeer();
   const amended = await h.call(sup, "supervisor", "amend_lane", { lane: "L1", why: "the Human wants an upsert too", acceptance: ["a", "upserts an item"] });
   assert.equal(amended.ok, true, amended.text);
   assert.match(amended.text, /its Lead has the change; a READY it reported before no longer stands/);
@@ -258,11 +248,10 @@ test("an amendment changes what an open lane is asked, keeps what it was asked, 
   assert.match((await h.call(sup, "supervisor", "amend_lane", { lane: "L1", why: "x", acceptance: [] })).text, /at least one acceptance line/);
   await h.call(sup, "supervisor", "open_lane", { title: "Bees", outcome: "bees", acceptance: ["a"], outOfScope: ["the rest"], writeSet: ["b.txt"], isolate: true });
   assert.match((await h.call(sup, "supervisor", "amend_lane", { lane: "L1", why: "x", writeSet: ["a.txt", "b.txt"] })).text, /(overlaps lane L2 at b\.txt|L2 may already be writing b\.txt)[^]*Leave those paths out of this lane/, "a lane that takes on more paths is checked against the lanes open now");
-  h.runtime.dispose();
 });
 
 test("a waiting lane is amended in place and opens as it is asked then; a closed one is not amended", async () => {
-  const h = harness("outbox-amend-waiting.json");
+  const h = harness();
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   const scope = { acceptance: ["a"], outOfScope: ["anything else in the repository"] };
   await h.call(sup, "supervisor", "open_lane", { title: "Cart", outcome: "a cart", ...scope, isolate: true });
@@ -275,11 +264,10 @@ test("a waiting lane is amended in place and opens as it is asked then; a closed
   assert.equal(order.status, "open");
   assert.match(h.agents.get(order.lead!)!.prompt ?? "", /Outcome: orders from an upserted cart/, "its Lead is briefed on what it is asked now");
   assert.match((await h.call(sup, "supervisor", "amend_lane", { lane: "L1", why: "x", outcome: "y" })).text, /Lane L1 is closed/);
-  h.runtime.dispose();
 });
 
 test("a Lead amends a task its Peer is on: the Peer is told at its next turn, and the watch reads it against what it asks now", async (t) => {
-  const { h, lane, peer } = await laneWithPeer("outbox-amend-task.json");
+  const { h, lane, peer } = await laneWithPeer();
   const amended = await h.call(lane.lead!, "lead", "amend_task", { task: "L1-T1", why: "the lane now wants an upsert", goal: "upsert into the cart" });
   assert.equal(amended.ok, true, amended.text);
   assert.match(amended.text, /L1-T1 is amended; its Peer has it at its next turn/);
@@ -306,11 +294,10 @@ test("a Lead amends a task its Peer is on: the Peer is told at its next turn, an
 
   await h.call(lane.lead!, "lead", "cut", { task: "L1-T1", reason: "done with it" });
   assert.match((await h.call(lane.lead!, "lead", "amend_task", { task: "L1-T1", why: "x", goal: "y" })).text, /L1-T1 is cut; start a task for what is asked now/);
-  h.runtime.dispose();
 });
 
 test("a lane a stop left half-open gives back what it took: one that waited waits again and opens, one never answered is closed and told", async () => {
-  const h = harness("outbox-half-open.json");
+  const h = harness();
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   const scope = { outcome: "x", acceptance: ["a"], outOfScope: ["anything else in the repository"] };
   await h.call(sup, "supervisor", "open_lane", { title: "Cart", ...scope, isolate: true });
@@ -334,11 +321,10 @@ test("a lane a stop left half-open gives back what it took: one that waited wait
   assert.equal(h.git(h.root, "branch", "--show-current").trim(), "main", "the Human's copy is back on its base");
   assert.equal(h.git(h.root, "branch", "--list", "lane/l3-aside").trim(), "");
   assert.match(h.agents.get(sup)!.sent.join("\n"), /NOT OPENED L3 \(Aside\): the desk stopped while its Lead was being started/);
-  h.runtime.dispose();
 });
 
 test("a round while a lane's Lead is still being started leaves that lane alone", async () => {
-  const h = harness("outbox-half-open-live.json");
+  const h = harness();
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   const paseo = h.paseo as unknown as { workspaces: { ref(id: string): { agents: { create(options: unknown): Promise<unknown> } } } };
   const ref = paseo.workspaces.ref;
@@ -359,11 +345,10 @@ test("a round while a lane's Lead is still being started leaves that lane alone"
   go();
   assert.equal((await opening).ok, true);
   assert.ok(h.ledger().lanes.L1!.lead);
-  h.runtime.dispose();
 });
 
 test("a Lead Paseo started before a stop kept the desk from recording it is taken on, not left writing in a copy given back", async () => {
-  const h = harness("outbox-half-open-lead.json");
+  const h = harness();
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "open_lane", { title: "Cart", outcome: "x", acceptance: ["a"], outOfScope: ["the rest"] });
   const opened = h.ledger().lanes.L1!;
@@ -385,11 +370,10 @@ test("a Lead Paseo started before a stop kept the desk from recording it is take
   assert.equal(h.git(h.root, "branch", "--show-current").trim(), opened.branch, "the copy its Lead writes in is left where it is");
   assert.equal([...h.agents.values()].filter((agent) => agent.title.startsWith("L1 ")).length, 1, "and no second Lead is started");
   assert.match(h.agents.get(sup)!.sent.join("\n"), /OPENED L1 \(Cart\): the desk stopped while its Lead was being started, and that Lead, [^,]+, is kept on it/);
-  h.runtime.dispose();
 });
 
 test("a waiting lane asked to open by a round and a close at once opens once, with one Lead", async () => {
-  const h = harness("outbox-after-race.json");
+  const h = harness();
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   const scope = { outcome: "x", acceptance: ["a"], outOfScope: ["anything else in the repository"] };
   await h.call(sup, "supervisor", "open_lane", { title: "Cart", ...scope, isolate: true });
@@ -402,11 +386,10 @@ test("a waiting lane asked to open by a round and a close at once opens once, wi
   assert.equal(h.ledger().lanes.L2!.status, "open");
   assert.equal([...h.agents.values()].filter((agent) => agent.title.startsWith("L2 ")).length, 1, "both passed the checks, and only one claimed it");
   assert.equal(Object.values(h.ledger().slots).filter((slot) => slot.lane === "L2").length, 1, "and only one copy was taken for it");
-  h.runtime.dispose();
 });
 
 test("a lane whose Lead is gone gets a new one where it stands, with the asks that waited on the old one, and its Supervisor is told once", async () => {
-  const { h, sup, lane, peer } = await laneWithPeer("outbox-replace-lead.json");
+  const { h, sup, lane, peer } = await laneWithPeer();
   assert.match((await h.call(sup, "supervisor", "replace_lead", { lane: "L1" })).text, /still seated; message it instead/);
   assert.equal((await h.call(peer, "peer", "ask", { question: "Which rounding?" })).ok, true);
   h.agents.get(lane.lead!)!.archivedAt = new Date().toISOString();
@@ -435,22 +418,20 @@ test("a lane whose Lead is gone gets a new one where it stands, with the asks th
   const mail = h.agents.get(sup)!.sent.join("\n---\n");
   assert.equal(mail.match(/LEAD GONE L1/g)?.length, 1, mail);
   assert.match(mail, /LEAD GONE L1 \(Build\): its Lead [^ ]+ is no longer seated[^]*replace_lead puts a new Lead on it where it stands/);
-  h.runtime.dispose();
 });
 
 test("a Lead Paseo seated for a lane but the ledger never recorded is taken on rather than seating a second", async () => {
-  const { h, sup, lane } = await laneWithPeer("outbox-replace-adopt.json");
+  const { h, sup, lane } = await laneWithPeer();
   h.agents.get(lane.lead!)!.archivedAt = new Date().toISOString();
   const orphan = h.add("sw2-lead-claude/claude-opus-5", lane.worktree!, "L1 Build", "idle", undefined, { "seatworks.project": h.project.slug, "seatworks.lane": "L1", "seatworks.role": "lead" });
   const before = h.agents.size;
   const replaced = await h.call(sup, "supervisor", "replace_lead", { lane: "L1" });
   assert.match(replaced.text, new RegExp(`the Lead ${orphan} that Paseo already had seated for it`));
   assert.deepEqual([h.ledger().lanes.L1!.lead, h.agents.size], [orphan, before]);
-  h.runtime.dispose();
 });
 
 test("a task that waits for another starts by itself once that one is accepted, as it was amended, and its Lead is told", async () => {
-  const { h, lane, peer } = await laneWithPeer("outbox-task-after.json");
+  const { h, lane, peer } = await laneWithPeer();
   const lead = lane.lead!;
   const queued = await h.call(lead, "lead", "start_task", { title: "Receipt", goal: "show the total", acceptance: ["a"], owned: ["b.txt"], outOfScope: ["the rest"], after: ["l1-t1"] });
   assert.equal(queued.ok, true, queued.text);
@@ -472,11 +453,10 @@ test("a task that waits for another starts by itself once that one is accepted, 
   assert.match(h.agents.get(started.peer!)!.prompt ?? "", /show the total with tax/);
   await h.idle(lead);
   assert.match(h.agents.get(lead)!.sent.join("\n"), /WAITING L1-T2 \(Receipt\), the task you started to wait for L1-T1: Started L1-T2 in the lane's working copy/);
-  h.runtime.dispose();
 });
 
 test("a task waits only for tasks of its own lane, one waiting for a cut task is held and its Lead told, and closing the lane cuts it", async () => {
-  const { h, sup, lane } = await laneWithPeer("outbox-task-after-cut.json");
+  const { h, sup, lane } = await laneWithPeer();
   const lead = lane.lead!;
   const scope = { acceptance: ["a"], outOfScope: ["the rest"] };
   await h.call(sup, "supervisor", "open_lane", { title: "Other", outcome: "x", ...scope, isolate: true });
@@ -498,11 +478,10 @@ test("a task waits only for tasks of its own lane, one waiting for a cut task is
   h.agents.get(lead)!.status = "idle";
   await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false });
   assert.equal(h.ledger().tasks["L1-T2"]!.status, "cut", "a task still waiting when its lane closes goes with it");
-  h.runtime.dispose();
 });
 
 test("a task whose turn comes while another holds the lane's copy is held with why, and starts once that one is accepted", async () => {
-  const { h, lane, peer } = await laneWithPeer("outbox-task-after-held.json");
+  const { h, lane, peer } = await laneWithPeer();
   const lead = lane.lead!;
   const scope = { acceptance: ["a"], outOfScope: ["the rest"] };
   await h.call(lead, "lead", "start_task", { title: "Beside", goal: "g", ...scope, owned: ["b.txt"], parallel: true });
@@ -528,22 +507,20 @@ test("a task whose turn comes while another holds the lane's copy is held with w
   await h.call(lead, "lead", "accept", { task: "L1-T1" });
   assert.equal(h.ledger().tasks["L1-T3"]!.status, "running", "accepting what held the copy starts it");
   assert.equal(h.ledger().tasks["L1-T3"]!.held, undefined);
-  h.runtime.dispose();
 });
 
 test("a project is not detached while a seat still works in it, since that seat would put it back on record", async () => {
-  const h = harness("outbox-detach-live.json");
+  const h = harness();
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.tick(Date.now());
   const refused = (await h.runtime.control.removeProject(h.project.slug)) as { error?: string };
   assert.match(refused.error ?? "", new RegExp(`1 seat is still working in it \\(${sup}\\): archive it first`));
   h.agents.get(sup)!.archivedAt = new Date().toISOString();
   assert.deepEqual(await h.runtime.control.removeProject(h.project.slug), { removed: h.project.slug });
-  h.runtime.dispose();
 });
 
 test("a task left running with no Peer by a stop starts again if it waited, and is cut with its Lead told if not", async () => {
-  const { h, lane } = await laneWithPeer("outbox-half-started.json");
+  const { h, lane } = await laneWithPeer();
   const ledger = h.ledger();
   const base = { lane: "L1", kind: "code" as const, mode: "lane" as const, goal: "g", acceptance: ["a"], owned: ["b.txt"], outOfScope: [], branch: lane.branch, worktree: lane.worktree, status: "running" as const, openedAt: Date.now(), updatedAt: Date.now(), silent: 0 };
   ledger.tasks["L1-T1"]!.status = "merged";
@@ -558,11 +535,10 @@ test("a task left running with no Peer by a stop starts again if it waited, and 
   assert.equal(after["L1-T3"]!.status, "cut");
   await h.idle(lane.lead!);
   assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /NOT STARTED L1-T3 \(Straight\): the desk stopped while its Peer was being started, so it is cut\. Start it again if you still want it/);
-  h.runtime.dispose();
 });
 
 test("a task whose Peer Paseo had started before a stop is taken on, not started twice", async () => {
-  const { h, lane } = await laneWithPeer("outbox-half-seated.json");
+  const { h, lane } = await laneWithPeer();
   const ledger = h.ledger();
   ledger.tasks["L1-T1"]!.status = "merged";
   ledger.tasks["L1-T2"] = { id: "L1-T2", title: "Seated", lane: "L1", kind: "code", mode: "lane", goal: "g", acceptance: ["a"], owned: ["b.txt"], outOfScope: [], branch: lane.branch, worktree: lane.worktree, status: "running", opening: { role: "peer" }, openedAt: Date.now(), updatedAt: Date.now(), silent: 0 };
@@ -573,11 +549,10 @@ test("a task whose Peer Paseo had started before a stop is taken on, not started
   await h.tick(Date.now());
   assert.equal(h.ledger().tasks["L1-T2"]!.peer, already);
   assert.equal(h.agents.size, seats, "no second Peer");
-  h.runtime.dispose();
 });
 
 test("a round while a task's Peer is being started leaves it to start, rather than taking it for one a stop left", async () => {
-  const { h, lane } = await laneWithPeer("outbox-task-race.json");
+  const { h, lane } = await laneWithPeer();
   h.agents.get(h.ledger().tasks["L1-T1"]!.peer!)!.status = "idle";
   // The round runs while Paseo is still creating the Peer: the task is recorded running and has no Peer yet.
   const workspaces = (h.paseo as unknown as { workspaces: { ref(id: string): { agents: { create(options: unknown): Promise<unknown> } } } }).workspaces;
@@ -595,5 +570,4 @@ test("a round while a task's Peer is being started leaves it to start, rather th
   assert.equal(started.ok, true, started.text);
   const task = h.ledger().tasks["L1-T2"]!;
   assert.deepEqual([task.status, Boolean(task.peer)], ["running", true]);
-  h.runtime.dispose();
 });

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { contains, countNumstat, diffCounts, headSha, kindOf, landLane, mergeBranch, outsideOwned } from "../../server/core/git.ts";
@@ -134,7 +133,7 @@ test("a rename is counted as the two real paths it moved between, not as git's d
 });
 
 test("a path with a character outside ASCII is read back as itself, not as git's escaped form", async () => {
-  const root = mkdtempSync(join(tmpdir(), "sw2-quotepath-"));
+  const root = tempDir("sw2-quotepath-");
   const run = (...args: string[]) => execFileSync("git", ["-C", root, "-c", "user.name=t", "-c", "user.email=t@x", ...args], { encoding: "utf-8" });
   run("init", "-q", "-b", "main");
   run("commit", "-q", "--allow-empty", "-m", "seed");

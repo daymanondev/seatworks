@@ -98,7 +98,7 @@ test("a seat's brief is read again until the ledger has placed it", () => {
 });
 
 test("a refusal from the desk reaches no one as a failed call, while a command that failed does", async () => {
-  const { h, timeline } = await laneWithPeer("outbox-watch-refused.json", { attention: { watch: true } });
+  const { h, timeline } = await laneWithPeer({ attention: { watch: true } });
   timeline.beat("turn_started", "t1");
   timeline.add({ type: "user_message", text: "Clean the build" }, "t1");
   // As a Devin Peer's refused hand-back was recorded live.
@@ -108,5 +108,4 @@ test("a refusal from the desk reaches no one as a failed call, while a command t
   await settle();
   const facts = readFileSync(join(h.project.state, "events.log"), "utf-8").split("\n").filter(Boolean).map((line) => JSON.parse(line)).filter((event) => event.kind === "watch.fact");
   assert.deepEqual(facts.map((event) => [event.fact, event.quote]), [["call-failed", "Bash: cat ./missing.txt"]]);
-  h.runtime.dispose();
 });

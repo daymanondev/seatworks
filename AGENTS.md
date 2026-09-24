@@ -41,7 +41,8 @@ cd plugin && npm run check    # typecheck (both tsconfigs) + tests; before every
 paseo plugin reload seatworks-v2   # after a client change, to see it in the panel
 ```
 
-No build step; tests are `node --test` over `test/**/*.test.ts`.
+No build step; tests are `node --test` over `test/**/*.test.ts`, loaded after `test/setup.ts`: every test
+runs in a HOME of its own, and a `console.error` the test did not ask for fails it.
 
 ## Conventions that differ from the defaults
 
