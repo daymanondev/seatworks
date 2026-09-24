@@ -442,7 +442,7 @@
     },
     {
       "name": "start_task",
-      "description": "Start a Peer on one task. By default it works in your lane's working copy and commits straight onto the lane branch, one writer at a time; accepting it needs no merge. Set parallel when the task's owned paths are independent of every active task and touch no shared contract: it then gets its own working copy and branch, runs beside the others, and merges back when accepted. No limit caps how many tasks a lane may run.",
+      "description": "Start a Peer on one task the lane's plan did not foresee; lay a lane's tasks out with plan_tasks first. By default it works in your lane's working copy and commits straight onto the lane branch, one writer at a time; accepting it needs no merge. Set parallel when the task's owned paths are independent of every active task and touch no shared contract: it then gets its own working copy and branch, runs beside the others, and merges back when accepted. No limit caps how many tasks a lane may run.",
       "inputSchema": {
         "type": "object",
         "properties": {
