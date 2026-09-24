@@ -45,6 +45,7 @@ export type Lane = {
   landing?: { by: string; writers: string[] };
   openedAt: number;
   tasks: number;
+  reviews?: number;
 };
 
 type Handback = { file: string; outcome: string; commit?: string; summary: string; at: number; gate?: { ok: boolean; note: string } };
@@ -192,8 +193,12 @@ export function nextLaneId(ledger: Ledger): string {
 }
 
 export function nextTaskId(lane: Lane, kind: Task["kind"]): string {
+  if (kind === "review") {
+    lane.reviews = (lane.reviews ?? 0) + 1;
+    return `${lane.id}-R${lane.reviews}`;
+  }
   lane.tasks += 1;
-  return `${lane.id}-${kind === "review" ? "R" : "T"}${lane.tasks}`;
+  return `${lane.id}-T${lane.tasks}`;
 }
 
 /** Never handed out twice: a reused id gave a copy the sweep was removing the same path as the next one created. */

@@ -50,7 +50,8 @@ test("ids count per ledger and per lane, and titles become branch slugs", () => 
   const entry = { ...lane, id, tasks: 0 };
   assert.equal(id, "L1");
   assert.equal(nextTaskId(entry, "code"), "L1-T1");
-  assert.equal(nextTaskId(entry, "review"), "L1-R2");
+  assert.equal(nextTaskId(entry, "review"), "L1-R1", "reviews count apart from tasks");
+  assert.equal(nextTaskId(entry, "code"), "L1-T2");
   assert.equal(nextAskId(ledger), "A1");
   assert.equal(slugify("Add Discount Codes: 10% off!", 24), "add-discount-codes-10", "a long title is cut between words, never inside one");
   assert.equal(slugify("Money as integer cents, orders migrated", 24), "money-as-integer-cents");
