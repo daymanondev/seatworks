@@ -2688,3 +2688,31 @@ test("a Watcher's finding on a Peer whose work was accepted while it read still 
   assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /INCIDENT I1 \(missing_mechanism, attend\) on the Peer on L1-T1/);
   h.runtime.dispose();
 });
+
+test("mail a call brings about is not steered into the caller's turn until the caller has taken the call's answer", async () => {
+  const h = harness("outbox-call-steer.json");
+  const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
+  await h.call(sup, "supervisor", "open_lane", { title: "Build", outcome: "a.txt changes", acceptance: ["a"], outOfScope: ["anything else in the repository"] });
+  const lead = h.ledger().lanes.L1!.lead!;
+  const seat = h.agents.get(lead)!;
+  // As seen live: a Lead well into a long turn lays its plan out, and the plan's first task starts at once.
+  seat.status = "running";
+  h.runtime.outbox.turnStarted(lead, Date.now() - 2 * 60_000);
+  const spool = (h.runtime as unknown as { spool: string }).spool;
+  const replyFile = join(spool, "replies", "call-1.json");
+  mkdirSync(join(spool, "requests"), { recursive: true });
+  const task = { key: "build", title: "Clean build", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] };
+  writeFileSync(join(spool, "requests", "call-1.json"), JSON.stringify({ id: "call-1", agent: lead, role: "lead", tool: "plan_tasks", args: { tasks: [task] }, cwd: h.root, at: Date.now() }));
+  (h.runtime as unknown as { serveSpool(): void }).serveSpool();
+  for (let i = 0; i < 100 && !existsSync(replyFile); i++) await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.match(readFileSync(replyFile, "utf-8"), /The plan is recorded/);
+  assert.equal(h.ledger().tasks["L1-T1"]?.status, "running");
+  assert.deepEqual([...seat.steered, ...seat.sent].filter((text) => /L1-T1/.test(text)), [], "a text arriving while a call waits is taken as the call being cut short");
+  await h.tick();
+  assert.deepEqual(seat.steered.filter((text) => /L1-T1/.test(text)), [], "answered is not taken: the bridge has not read it yet");
+  // The bridge takes the answer, and the next round delivers what waited.
+  rmSync(replyFile);
+  await h.tick();
+  assert.match(seat.steered.join("\n"), /L1-T1/);
+  h.runtime.dispose();
+});

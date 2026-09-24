@@ -8,6 +8,8 @@ export type Compose = (to: string, letters: Letter[]) => string | Promise<string
 export type Dropped = (letter: Letter, now: number) => void;
 /** Whether the seat's harness takes a text into a running turn rather than replacing the turn with it. */
 export type Steers = (seat: SeatLook) => boolean;
+/** Whether the seat is waiting on a call to the desk: a text steered in then is taken as the call being cut short. */
+export type Calling = (agentId: string) => boolean;
 
 const KEEP_MS = 7 * 24 * 3_600_000;
 const DUPLICATE_MS = 30 * 60_000;
@@ -24,6 +26,7 @@ export class Outbox {
   private readonly seats: Seats;
   private readonly dropped: Dropped | undefined;
   private readonly steers: Steers;
+  private readonly calling: Calling;
   private readonly awaiting = new Map<string, number>();
   private readonly started = new Map<string, number>();
   private readonly sentKeys = new Map<string, number>();
@@ -35,12 +38,13 @@ export class Outbox {
   private readonly lanes = new Map<string, Promise<unknown>>();
   private counter = 0;
 
-  constructor(file: string, compose: Compose, seats: Seats, dropped?: Dropped, steers: Steers = () => false) {
+  constructor(file: string, compose: Compose, seats: Seats, dropped?: Dropped, steers: Steers = () => false, calling: Calling = () => false) {
     this.file = file;
     this.compose = compose;
     this.seats = seats;
     this.dropped = dropped;
     this.steers = steers;
+    this.calling = calling;
   }
 
   /** Aged-out letters included: both writers rebuild the file from this read, so filtering here deletes. */
@@ -116,7 +120,7 @@ export class Outbox {
       const waiting = since !== undefined && Date.now() - since < GRACE_MS;
       // A turn this desk never saw start — one running across a restart — is not known to be settled.
       const began = this.started.get(to);
-      const steer = seat.status === "running" && began !== undefined && Date.now() - began >= SETTLE_MS && this.steers(seat);
+      const steer = seat.status === "running" && began !== undefined && Date.now() - began >= SETTLE_MS && this.steers(seat) && !this.calling(to);
       if (!steer && (busy(seat.status) || waiting)) return new Set<string>();
       const text = await this.compose(to, mine);
       await this.seats.send(to, text, steer);

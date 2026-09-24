@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import type { PluginHookContext, PluginLifecycleEvents, PluginServerContext } from "@getpaseo/plugin/server";
 import { renderPrompt } from "../catalog/content.ts";
@@ -28,7 +28,7 @@ import { Patrol } from "./patrol.ts";
 import { Relink, reloadPlugin } from "./relink.ts";
 import { registerRpc } from "./rpc.ts";
 import { Seating } from "./seating.ts";
-import { spoolDirs, takeRequests, writeReply } from "./spool.ts";
+import { replyFile, spoolDirs, takeRequests, writeReply } from "./spool.ts";
 import { TeamSource } from "./team-source.ts";
 import { TurnRules } from "./turns.ts";
 import { FACT_TITLES, type Fact, callsTo } from "./watch/facts.ts";
@@ -58,6 +58,7 @@ export class Runtime {
   readonly desk: Desk;
   readonly control: SettingsControl;
   private readonly spool = spoolDir();
+  private readonly calls = new Map<string, { id: string; replied: boolean }[]>();
   private readonly seats: Seats;
   private readonly workspaces: Workspaces;
   private readonly source: TeamSource;
@@ -99,6 +100,7 @@ export class Runtime {
         const found = seatOf(kit, seat.provider);
         return found?.harness.steers === true && !can(found.role, "watch");
       },
+      (agentId) => this.waitedOn(agentId).length > 0,
     );
     const log = (project: Project, line: string) => this.log(project, line);
     const remember = (project: Project) => this.remember(project);
@@ -654,6 +656,14 @@ export class Runtime {
     });
   }
 
+  /** A call is waited on until the seat's bridge has taken its answer, which it deletes as it reads it. */
+  private waitedOn(agentId: string): { id: string; replied: boolean }[] {
+    const live = (this.calls.get(agentId) ?? []).filter((call) => !call.replied || existsSync(replyFile(this.spool, call.id)));
+    if (live.length > 0) this.calls.set(agentId, live);
+    else this.calls.delete(agentId);
+    return live;
+  }
+
   private serveSpool(): void {
     if (!this.api) return;
     let requests;
@@ -664,11 +674,16 @@ export class Runtime {
       return;
     }
     for (const request of requests) {
+      const call = { id: request.id, replied: false };
+      this.calls.set(request.agent, [...this.waitedOn(request.agent), call]);
       this.desk
         .answer(request)
         .catch((error) => ({ ok: false, text: `The desk failed: ${errorText(error)}` }))
         .then((reply) => writeReply(this.spool, request.id, reply))
-        .catch((error) => console.error("seatworks-v2: spool reply failed:", error));
+        .catch((error) => console.error("seatworks-v2: spool reply failed:", error))
+        .finally(() => {
+          call.replied = true;
+        });
     }
   }
 }
