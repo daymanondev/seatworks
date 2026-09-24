@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { readJson, writeJson } from "../core/store.ts";
 import { errorText } from "../core/errors.ts";
 import type { AskStatus } from "../domain/ask.ts";
+import type { Question } from "../domain/question.ts";
 import type { LaneStatus } from "../domain/lane.ts";
 import { ACTIVE, SETTLED, type TaskStatus } from "../domain/task.ts";
 
@@ -114,16 +115,17 @@ export type Slot = { id: string; path: string; workspaceId?: string; lane?: stri
 export type AgentRef = { id: string; role: string; lane?: string; task?: string; recordedAt?: number; spokeAt?: number };
 
 export type Ledger = {
-  seq: { lane: number; ask: number; slot?: number };
+  seq: { lane: number; ask: number; slot?: number; question?: number };
   lanes: Record<string, Lane>;
   tasks: Record<string, Task>;
   asks: Record<string, Ask>;
+  questions: Record<string, Question>;
   agents: Record<string, AgentRef>;
   slots: Record<string, Slot>;
 };
 
 export function emptyLedger(): Ledger {
-  return { seq: { lane: 0, ask: 0 }, lanes: {}, tasks: {}, asks: {}, agents: {}, slots: {} };
+  return { seq: { lane: 0, ask: 0 }, lanes: {}, tasks: {}, asks: {}, questions: {}, agents: {}, slots: {} };
 }
 
 function ledgerFile(state: string): string {
@@ -217,6 +219,11 @@ export function nextSlotId(ledger: Ledger): string {
 export function nextAskId(ledger: Ledger): string {
   ledger.seq.ask += 1;
   return `A${ledger.seq.ask}`;
+}
+
+export function nextQuestionId(ledger: Ledger): string {
+  ledger.seq.question = (ledger.seq.question ?? 0) + 1;
+  return `H${ledger.seq.question}`;
 }
 
 export function findTask(ledger: Ledger, id: string): Task | undefined {

@@ -59,7 +59,7 @@ export class TurnRules {
     }
     // A seat stopped on a question reads nothing, and a team waiting on a sleeping Human is stuck: the question goes by the desk.
     if (request.kind === "question" && request.id) {
-      const instead = can(role, "supervise") ? "ask the Human in your reply and end your turn" : "ask it with ask, then end your turn; the answer arrives as a message";
+      const instead = can(role, "supervise") ? "put it to the Human with ask_human, or ask them in your reply and end your turn" : "ask it with ask, then end your turn; the answer arrives as a message";
       await this.deps.seats.respond(agent.id, request.id, { behavior: "deny", message: `A question that stops your turn is not taken here: ${instead}.` });
       return;
     }

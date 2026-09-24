@@ -62,6 +62,13 @@ function laneNotes(lane: Lane, now: number): string[] {
   ];
 }
 
+/** The questions still before the Human, each with what goes ahead while they are silent. */
+function questionLines(ledger: Ledger, now: number): string[] {
+  const open = Object.values(ledger.questions).filter((question) => question.status === "open");
+  if (open.length === 0) return [];
+  return ["", "## Questions for the Human", "", ...open.map((question) => `- ${question.id} (${question.class}${question.lane ? `, ${question.lane}` : ""}), open ${minutes(now, question.openedAt)} min: ${question.question.slice(0, 160)} Recommended: ${question.recommend}. While silent: ${question.ifSilent.slice(0, 160)}`)];
+}
+
 function laneAim(lane: Lane): string[] {
   const outcome = lane.outcome.replace(/\s+/g, " ").trim();
   return [
@@ -161,6 +168,7 @@ export function statusText(
     lines.push(`- ${ask.id} ${ask.kind} from ${ask.fromRole} ${ask.from} to ${ask.to}, open ${minutes(now, ask.openedAt)} min: ${first.slice(0, 160)}`);
   }
   if (!laneId) {
+    lines.push(...questionLines(ledger, now));
     const closed = lanes.filter((lane) => lane.status === "closed").slice(-5);
     if (closed.length > 0) {
       lines.push("", "## Recently closed", "");

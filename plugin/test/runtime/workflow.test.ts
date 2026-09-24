@@ -1492,7 +1492,7 @@ test("a question that would stop a seat's turn is refused with where to ask inst
   await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Colour", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"] }] });
   const peer = h.ledger().tasks["L1-T1"]!.peer!;
   const question: Pending = { id: "permission-1", kind: "question", name: "AskUserQuestion", title: "Which colour should the button be?", input: { questions: [{ question: "Which colour should the button be?", options: [{ label: "Blue" }] }] } };
-  for (const [seat, text] of [[peer, /ask it with ask, then end your turn/], [sup, /ask the Human in your reply and end your turn/]] as const) {
+  for (const [seat, text] of [[peer, /ask it with ask, then end your turn/], [sup, /put it to the Human with ask_human, or ask them in your reply and end your turn/]] as const) {
     h.agents.get(seat)!.pending.push(question);
     await h.permission(seat, question);
     assert.equal(h.agents.get(seat)!.answered.at(-1)!.response.behavior, "deny");

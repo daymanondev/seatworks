@@ -5,6 +5,7 @@ import { addTasks } from "./add-tasks.ts";
 import { amendLane } from "./amend-lane.ts";
 import { amendTask } from "./amend-task.ts";
 import { answer } from "./answer.ts";
+import { askHuman } from "./ask-human.ts";
 import { askLead, askLeadReviewing, askOwner } from "./ask.ts";
 import { dropLane } from "./drop-lane.ts";
 import { cut } from "./cut.ts";
@@ -16,6 +17,7 @@ import { note } from "./note.ts";
 import { landLane } from "./land-lane.ts";
 import { openLane } from "./open-lane.ts";
 import { record } from "./record.ts";
+import { recordHumanAnswer } from "./record-human-answer.ts";
 import { replaceLead } from "./replace-lead.ts";
 import { resumeLane } from "./resume-lane.ts";
 import { report } from "./report.ts";
@@ -31,6 +33,8 @@ export const TOOLS: ToolDef[] = [
   amendLane,
   holdLane,
   resumeLane,
+  askHuman,
+  recordHumanAnswer,
   replaceLead,
   setProject,
   addTasks,

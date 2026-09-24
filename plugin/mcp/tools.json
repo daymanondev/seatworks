@@ -270,6 +270,111 @@
       }
     },
     {
+      "name": "ask_human",
+      "description": "Put a decision only the Human can make on their question queue, rather than stopping your turn to ask it: a behavior the concept leaves open, a risk only they may take, a change to what they want. Give the choices as what the user would see, your recommendation and why, and what happens while they are silent, by class: reversible goes on with that at once; costly goes on with it until the lane reports ready, where it stops if still unanswered; irreversible stops the lane now. Refused past the Human's daily number of questions: decide it yourself if it is yours to, or fold it into one still open.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "The decision, in the Human's words where you have them."
+          },
+          "why": {
+            "type": "string",
+            "description": "One line on why only the Human can answer it."
+          },
+          "lane": {
+            "type": "string",
+            "description": "The lane it concerns, if one does."
+          },
+          "options": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 4,
+            "description": "Two to four choices.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "maxLength": 60,
+                  "description": "A short name for the choice."
+                },
+                "effect": {
+                  "type": "string",
+                  "description": "What the user sees if it is chosen; for data or anything that cannot be undone, what it costs."
+                }
+              },
+              "required": [
+                "label",
+                "effect"
+              ]
+            }
+          },
+          "recommend": {
+            "type": "string",
+            "description": "The label of the choice you recommend."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why you recommend it."
+          },
+          "ifSilent": {
+            "type": "string",
+            "description": "What goes ahead while they have not answered, and until when it can still be undone."
+          },
+          "class": {
+            "type": "string",
+            "enum": [
+              "reversible",
+              "costly",
+              "irreversible"
+            ],
+            "description": "reversible: the default runs now and they can overturn it. costly: the default runs until the lane reports ready. irreversible: nothing it decides goes ahead until they answer."
+          }
+        },
+        "required": [
+          "question",
+          "why",
+          "options",
+          "recommend",
+          "reason",
+          "ifSilent",
+          "class"
+        ]
+      }
+    },
+    {
+      "name": "record_human_answer",
+      "description": "Put on record an answer the Human gave you in this chat to one of their questions, with their own words as they wrote them: the desk finds them in the chat before it records anything. A no is choice decline and a not now is choice cancel, kept apart from an answer.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "Its id, like H3."
+          },
+          "choice": {
+            "type": "string",
+            "description": "The label of the option they chose, or decline, or cancel."
+          },
+          "quote": {
+            "type": "string",
+            "description": "Their words, exactly as they wrote them in this chat."
+          },
+          "text": {
+            "type": "string",
+            "description": "Anything they added to the choice."
+          }
+        },
+        "required": [
+          "question",
+          "choice",
+          "quote"
+        ]
+      }
+    },
+    {
       "name": "replace_lead",
       "description": "Seat a new Lead on an open lane whose Lead is gone, where the lane stands: its copy, branch, tasks and the asks waiting on the old Lead carry over, and the new Lead is told it takes over. A Lead Paseo already started for the lane is taken on instead of a second one.",
       "inputSchema": {

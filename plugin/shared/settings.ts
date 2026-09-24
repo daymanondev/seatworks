@@ -59,6 +59,7 @@ export const AttentionChoice = z.strictObject({
   suppressed: Pattern.optional(),
   longTurnMinutes: z.number().int().min(1).optional(),
   incidentsPerDay: z.number().int().min(0).optional(),
+  questionsPerDay: z.number().int().min(0).optional(),
 });
 
 const FlowChoice = z.strictObject({

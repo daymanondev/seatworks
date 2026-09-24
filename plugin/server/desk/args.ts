@@ -17,6 +17,7 @@ function fits(name: string, schema: ArgSchema, value: unknown): string[] {
   if (typeof value === "number" && schema.maximum !== undefined && value > schema.maximum) return [`${name} must be at most ${schema.maximum}`];
   if (typeof value === "string" && schema.maxLength !== undefined && value.length > schema.maxLength) return [`${name} takes at most ${schema.maxLength} characters, and has ${value.length}`];
   if (!Array.isArray(value) || !schema.items) return [];
+  if (schema.minItems !== undefined && value.length < schema.minItems) return [`${name} takes at least ${schema.minItems}`];
   if (schema.maxItems !== undefined && value.length > schema.maxItems) return [`${name} takes at most ${schema.maxItems}`];
   for (const item of value) {
     const wrong = fits(`each of ${name}`, schema.items, item);

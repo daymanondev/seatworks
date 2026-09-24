@@ -19,7 +19,7 @@ pages in), the seat's bridge shows that set as the field's choices.
 <!-- drawn from the code: verbs -->
 | Role | Tools |
 |---|---|
-| Supervisor | `open_lane` `message` `answer` `land_lane` `drop_lane` `amend_lane` `hold_lane` `resume_lane` `replace_lead` `set_project` `status` `incidents` `mark_incident` `record` |
+| Supervisor | `open_lane` `message` `answer` `land_lane` `drop_lane` `amend_lane` `hold_lane` `resume_lane` `ask_human` `record_human_answer` `replace_lead` `set_project` `status` `incidents` `mark_incident` `record` |
 | Lead | `add_tasks` `start_review` `message` `answer` `accept` `rework` `amend_task` `cut` `ask` `report` `status` `incidents` `mark_incident` `record` `note` |
 | Peer, Reviewer | `done` `ask` |
 <!-- end -->
@@ -31,6 +31,8 @@ pages in), the seat's bridge shows that set as the field's choices.
 | `drop_lane` | Waits for queued merges, then closes the lane without landing, with a reason: it cuts leftover tasks, archives their seats and the Lead, puts the copy away, and keeps the branch. A waiting lane is dropped before anything starts |
 | `amend_lane` | Changes what an open or waiting lane is asked, keeping what it was asked before and why. Its Lead is told, and a READY it reported no longer stands. A write set or `contracts` that would overlap an open lane's is refused |
 | `replace_lead` | Seats a new Lead on an open lane whose Lead is gone, where the lane stands. A Lead Paseo already started for it is taken on instead, and the asks waiting on the old Lead move to the new one |
+| `ask_human` | The Supervisor puts a decision only the Human can make on their question queue: 2–4 choices, a recommendation, and what goes ahead while they are silent by class. `reversible` goes on at once; `costly` goes on until the lane reports ready, where the desk puts the lane on hold if it is still unanswered; `irreversible` puts the lane on hold now. Refused past `questionsPerDay` questions in a day across all projects |
+| `record_human_answer` | Records an answer the Human gave in the Supervisor's chat: a choice, `decline` or `cancel`, with their own words, which must be found in that chat. A lane put on hold for the question stays so until `resume_lane` |
 | `hold_lane` | Stops a lane where it stands, with a reason: its Lead and each Peer and reviewer get HOLD at once. Until `resume_lane`, mail to them waits, their permission requests are refused, and `add_tasks`, `accept`, `land_lane` and waiting tasks or lanes do not go ahead; a landing it was waiting on is called off |
 | `resume_lane` | Lifts a hold: each seat of the lane gets RESUMED with the mail held for it, and what waited may start |
 | `set_project` | Sets the base branch, the gate command and its timeout (30 min by default), whether the gate runs per lane or per task, the serial-only paths, and `laneHome`, where lanes work when a call does not say (`onBranch`, `newBranch`, `isolate`). An empty gate is an answer, and the desk never detects one over it |
@@ -62,6 +64,7 @@ Behaviour depends on a role's capabilities (`supervise`, `lead`, `work`, `write`
 | Lane | `waiting`, `open`, `closed` | `L<n>` |
 | Task | `waiting`, `running`, `rework`, `done`, `failed`, `stalled`, `merged`, `queued`, `merging`, `cut` | `<lane>-T<n>` for code, `<lane>-R<n>` for review, from one counter per lane |
 | Ask | `open`, `answered` | `A<n>` |
+| Question for the Human | `open`, `answered`, `declined`, `canceled` | `H<n>` |
 | Incident | open until marked | `I<n>` |
 | Slot | a git worktree held by a lane or task | `S<n>`, never reused once released |
 <!-- end -->
@@ -285,6 +288,7 @@ There are two layers: `~/.local/share/seatworks-v3/settings.json` for the machin
 | `reviewsAt` | 3 |
 | `longTurnMinutes` | 30 |
 | `incidentsPerDay` | 5 |
+| `questionsPerDay` | 3 |
 | `destructive` | a pattern in `catalog/ecosystem.json` |
 | `testPath` | a pattern in `catalog/ecosystem.json` |
 | `suppressed` | a pattern in `catalog/ecosystem.json` |

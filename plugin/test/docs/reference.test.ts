@@ -5,6 +5,7 @@ import { test } from "node:test";
 import { loadKit } from "../../server/catalog/kit.ts";
 import { ASK } from "../../server/domain/ask.ts";
 import { LANE } from "../../server/domain/lane.ts";
+import { QUESTION } from "../../server/domain/question.ts";
 import type { Lifecycle } from "../../server/domain/lifecycle.ts";
 import { TASK } from "../../server/domain/task.ts";
 
@@ -35,6 +36,7 @@ const DRAWN: Record<string, () => string[]> = {
     `| Lane | ${statuses(LANE)} | \`L<n>\` |`,
     `| Task | ${statuses(TASK)} | \`<lane>-T<n>\` for code, \`<lane>-R<n>\` for review, from one counter per lane |`,
     `| Ask | ${statuses(ASK)} | \`A<n>\` |`,
+    `| Question for the Human | ${statuses(QUESTION)} | \`H<n>\` |`,
     "| Incident | open until marked | `I<n>` |",
     "| Slot | a git worktree held by a lane or task | `S<n>`, never reused once released |",
   ],
