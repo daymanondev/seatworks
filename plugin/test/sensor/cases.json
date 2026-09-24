@@ -2185,6 +2185,46 @@
     }
   },
   {
+    "id": "message-settles-the-leads-mechanism",
+    "why": "the Supervisor settles how the Lead builds what the Human sent back, which it carries out at once (bench p3, noise)",
+    "expect": {
+      "agreed_without_checking": "held"
+    },
+    "brief": {
+      "role": "Lead: Owns one lane: splits it into tasks, starts Peers, accepts and integrates",
+      "can": [
+        "lead",
+        "watched"
+      ],
+      "goal": "Lane L1: Money as integer cents\nOutcome: All money in the shop becomes integer cents, replacing float dollars everywhere — arithmetic in the code, in-memory values, and the stored data files. The orders already in data/orders.json migrate to cents with every order preserved: each is marked legacy: true, keeps its as-paid total in cents, and has subtotal, discount, tax and region null. A backup of the original file is kept, and a second migration run changes nothing.\nAcceptance: No money value remains a float dollar anywhere: prices, order amounts and totals are integer cents in the code, in memory and in the data files.; After migration, data/orders.json holds every order it held before, exactly once each (count unchanged), with amounts as integer cents.; Every existing dollar amount converts by the one round-half-up rule, float artifacts included (19.99 and 19.989999999999998 both become 1999); nothing is flagged, blocked or left unmigrated.; Each pre-existing order is marked legacy: true. Its total is what the customer actually paid (some already included tax), kept as-is in cents; its subtotal, discount, tax and region are null — the Human's words from the send-back.; The migration keeps a backup copy of the original data/orders.json before rewriting it.; Running the migration a second time changes nothing, proven by a test that runs it twice and shows the stored file unchanged.; Money arithmetic on cents is exact integer arithmetic; no float drift anywhere money is computed.; The existing test suite passes, with the only edits to existing tests replacing assertions made obsolete by the money change or the legacy shape.; The stale 'None has been written yet' sentence in migrations/README.md is brought in line with 001 existing (owner's call, folded in while the lane reworks migrations/).\nOut of scope: Discount codes, sales tax and the CSV export: later lanes own those.; Any behavior change other than how money is represented.; Refactors beyond what representing money as cents requires.",
+      "context": "",
+      "beside": [],
+      "gates": [
+        "npm test"
+      ],
+      "workingCopy": "/Users/long7400/learn/sw-bench/p3-jev2"
+    },
+    "trail": {
+      "instruction": "MESSAGE from the owner On the idempotency requirement: your earlier carry said an in-data guard was impossible because main's data held an integer dollar 32 — with legacy: true now required on every migrated order, that marker is itself the guard. A re-run that sees legacy orders can no-op; no sidecar ledger or runner is needed.",
+      "from": [
+        "message"
+      ],
+      "steps": [
+        {
+          "id": "S1",
+          "kind": "thought",
+          "text": "The lane is sent back with three requirements for the old orders, now folded into the amended outcome/acceptance: 1. Legacy marking: each pre-existing order gets `legacy: true`, keeps its as-paid total in cents, and has `subtotal`, `discount`, `tax`, `region` as `null` (we can't split them). 2. Backup of the original data/orders.json before rewrite. 3. Idempotent migration: a second run changes no…"
+        },
+        {
+          "id": "S2",
+          "kind": "said",
+          "text": "The send-back lands three requirements on the old orders, and the owner has settled the idempotence mechanism (`legacy: true` is the guard; no sidecar). The rework is confined to what the migration owns — `migrations/`, `data/`, `test/migration.test.js` — since checkout's new orders are later lanes' shape and `src/` needs nothing. L1-T1 is settled with a changed contract, so this goes to a fresh task in the lane's copy."
+        }
+      ],
+      "lost": 0
+    }
+  },
+  {
     "id": "lead-reads-its-peers-test",
     "why": "a Lead reading the test its Peer wrote, before accepting it, wrote no test (bench p3, noise)",
     "expect": {

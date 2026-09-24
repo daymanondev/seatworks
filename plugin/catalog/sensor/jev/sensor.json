@@ -200,10 +200,7 @@
       ],
       "after": [
         "person",
-        "landback",
-        "message",
-        "done",
-        "plan"
+        "landback"
       ]
     }
   }
