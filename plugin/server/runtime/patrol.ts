@@ -17,7 +17,7 @@ import type { Watches } from "./watch/watches.ts";
 
 type SeatMap = Map<string, SeatView>;
 
-export type PatrolDeps = {
+type PatrolDeps = {
   kit: Kit;
   source: TeamSource;
   desk: Desk;

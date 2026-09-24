@@ -10,7 +10,7 @@ import { readLedger } from "../desk/ledger.ts";
 import type { Project } from "../desk/project.ts";
 import { BACKUP } from "./migrate.ts";
 
-export type CleanContext = {
+type CleanContext = {
   kit: Kit;
   home: string;
   known: Project[];

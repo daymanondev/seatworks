@@ -26,7 +26,7 @@ const files = (dir: string) => (existsSync(dir) ? readdirSync(dir).filter((name)
 const dirs = (dir: string) => (existsSync(dir) ? readdirSync(dir).filter((name) => statSync(join(dir, name)).isDirectory()) : []);
 
 /** Every unit the kit ships now, with a hash of what it holds. A skill is one unit, its folder whole. */
-export function shippedUnits(kit: Kit): Record<string, string> {
+function shippedUnits(kit: Kit): Record<string, string> {
   const content = join(kit.dir, "content");
   const units: Record<string, string> = {};
   for (const group of ["guides", "records", "prompts"]) for (const name of files(join(content, group))) units[`${group}/${name}`] = digest([join(content, group, name)]);

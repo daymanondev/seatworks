@@ -94,7 +94,7 @@ export const LayerSchema = z.strictObject({
 
 export type Layer = z.infer<typeof LayerSchema>;
 
-export type ReadResult = { status: "ready"; revision: string; values: Layer } | { status: "invalid"; revision: string; error: string };
+type ReadResult = { status: "ready"; revision: string; values: Layer } | { status: "invalid"; revision: string; error: string };
 export type SettingsView = ReadResult & { machine: Layer };
 export type WriteResult = { status: "saved"; revision: string; values: Layer } | { status: "conflict"; error: string } | { status: "invalid"; error: string };
 

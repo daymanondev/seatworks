@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { readJson, writeJson } from "../core/store.ts";
 import { errorText } from "../core/errors.ts";
 
-export type LaneStatus = "waiting" | "open" | "closed";
+type LaneStatus = "waiting" | "open" | "closed";
 export type TaskStatus = "waiting" | "running" | "done" | "rework" | "queued" | "merging" | "merged" | "failed" | "cut" | "stalled";
 /** Free-form: the ledger carries whatever it is told, because nothing routes on it. */
 export type AskKind = string;
@@ -46,7 +46,7 @@ export type Lane = {
   tasks: number;
 };
 
-export type Handback = { file: string; outcome: string; commit?: string; summary: string; at: number; gate?: { ok: boolean; note: string } };
+type Handback = { file: string; outcome: string; commit?: string; summary: string; at: number; gate?: { ok: boolean; note: string } };
 
 export type Task = {
   id: string;
@@ -99,10 +99,10 @@ export type Ask = {
 };
 
 /** A teardown waiting on the seats still writing in the copy. On the record, so a restart does not lose it. */
-export type Releasing = { writers: string[]; dropBranch?: string; into?: string };
+type Releasing = { writers: string[]; dropBranch?: string; into?: string };
 
 /** A lane in the project's own copy waiting to put its branch back; it acts only on a copy still on `branch`, since a later lane may own it. */
-export type Restoring = { writers: string[]; base: string; branch: string; landed?: boolean };
+type Restoring = { writers: string[]; base: string; branch: string; landed?: boolean };
 
 export type Slot = { id: string; path: string; workspaceId?: string; lane?: string; task?: string; createdAt: number; releasing?: Releasing };
 
@@ -121,7 +121,7 @@ export function emptyLedger(): Ledger {
   return { seq: { lane: 0, ask: 0 }, lanes: {}, tasks: {}, asks: {}, agents: {}, slots: {} };
 }
 
-export function ledgerFile(state: string): string {
+function ledgerFile(state: string): string {
   return join(state, "ledger.json");
 }
 
@@ -243,7 +243,7 @@ export function tasksOf(ledger: Ledger, laneId: string): Task[] {
   return Object.values(ledger.tasks).filter((task) => task.lane === laneId);
 }
 
-export const ACTIVE: TaskStatus[] = ["running", "rework", "queued", "merging"];
+const ACTIVE: TaskStatus[] = ["running", "rework", "queued", "merging"];
 
 export function activeTasks(ledger: Ledger, laneId: string): Task[] {
   return tasksOf(ledger, laneId).filter((task) => ACTIVE.includes(task.status));

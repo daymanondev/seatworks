@@ -14,7 +14,7 @@ export function sentBy(item: Record<string, unknown>): string[] {
   return typeof id === "string" && id.startsWith(DESK_MARK) ? id.slice(DESK_MARK.length).split("-")[0]!.split(".") : ["person"];
 }
 
-export type Bound = () => PaseoApi | undefined;
+type Bound = () => PaseoApi | undefined;
 
 type Handle = {
   id: string;

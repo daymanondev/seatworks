@@ -8,7 +8,7 @@ import { readJson, writeJson } from "../core/store.ts";
 
 export type Project = { root: string; slug: string; state: string };
 
-export type GateOn = "lane" | "task";
+type GateOn = "lane" | "task";
 
 export type ProjectConfig = { base?: string; gate?: string; gateTimeoutMinutes: number; gateOn: GateOn; serialOnly: string[]; landAs: LandAs };
 

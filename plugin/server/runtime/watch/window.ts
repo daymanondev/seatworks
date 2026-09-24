@@ -1,7 +1,7 @@
 import { sentBy } from "../../core/paseo-adapter.ts";
 import type { StreamRow } from "../../core/ports.ts";
 
-export type Detail = {
+type Detail = {
   type?: string;
   command?: string;
   filePath?: string;

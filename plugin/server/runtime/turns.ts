@@ -8,7 +8,7 @@ import { deniedCall, lastToolCall, outputText } from "./timeline.ts";
 
 type TurnEnded = PluginLifecycleEvents["agent.turn_ended"];
 
-export type TurnDeps = {
+type TurnDeps = {
   kit: Kit;
   desk: Desk;
   remember: (project: Project) => void;

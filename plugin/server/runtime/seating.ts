@@ -8,7 +8,7 @@ import type { Project } from "../desk/project.ts";
 import type { TeamSource } from "./team-source.ts";
 import { errorText } from "../core/errors.ts";
 
-export type SeatContext = { node: string; spool: string };
+type SeatContext = { node: string; spool: string };
 
 export class Seating {
   private readonly kit: Kit;

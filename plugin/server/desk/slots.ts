@@ -10,10 +10,10 @@ import { clip } from "./letters.ts";
 import type { Project } from "./project.ts";
 import { errorText } from "../core/errors.ts";
 
-export type Holder = { lane?: string; task?: string };
+type Holder = { lane?: string; task?: string };
 
 /** What putting a lane's copy away means: the copy itself if it had one, the project's branch if not. */
-export type Teardown = { project: Project; slot?: string; dropBranch?: string; into?: string; restore?: string; lane?: string; branch?: string };
+type Teardown = { project: Project; slot?: string; dropBranch?: string; into?: string; restore?: string; lane?: string; branch?: string };
 
 export class Slots {
   private readonly ctx: DeskContext;

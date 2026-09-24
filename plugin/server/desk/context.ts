@@ -34,7 +34,7 @@ export type Posted = "sent" | "held" | "duplicate";
 
 export type Mailer = { post(letter: { to: string; key: string; text: string }): Promise<Posted> };
 
-export type DeskDeps = {
+type DeskDeps = {
   kit: Kit;
   outbox: Mailer;
   log: (project: Project, line: string) => void;

@@ -10,7 +10,7 @@ import type { DeskServices } from "./services.ts";
 
 export type Noticed = { id: string; provider: string; title?: string | null };
 
-export type Placed = { where: string; lane?: Lane; task?: Task };
+type Placed = { where: string; lane?: Lane; task?: Task };
 
 function holdFor(incident: Incident, incidents: Incidents, attention: Attention, now: number): Held | undefined {
   if (!attention.watch) return "shadow";
@@ -18,7 +18,7 @@ function holdFor(incident: Incident, incidents: Incidents, attention: Attention,
   return undefined;
 }
 
-export function placeOf(project: Project, seat: Noticed): Placed {
+function placeOf(project: Project, seat: Noticed): Placed {
   try {
     const ledger = loadLedger(project.state);
     const task = taskOfPeer(ledger, seat.id);
@@ -65,7 +65,7 @@ export async function notice(services: DeskServices, project: Project, seat: Not
   return { opened, sent, place };
 }
 
-export type Reader = "lead" | "supervisor";
+type Reader = "lead" | "supervisor";
 
 /** Attention-level incidents about a Peer go to its Lead; the rest, or a Peer with no Lead, to whoever supervises. Never to the seat itself. */
 async function recipientFor(services: DeskServices, project: Project, seat: Noticed, place: Placed, level: Incident["level"]): Promise<{ to: string | undefined; as: Reader }> {

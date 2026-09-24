@@ -1,15 +1,15 @@
 import { useRpc, usePaseo } from "@getpaseo/plugin/client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Check, FlowAsk, FlowLane, FlowSeat, FlowTask, FlowView, WatchIncident, WatchView } from "../shared/views.ts";
+import type { Check, FlowLane, FlowSeat, FlowView, WatchIncident, WatchView } from "../shared/views.ts";
 import { catalogRpc, doctorRpc, flowRpc, mcpParseRpc, pathsRpc, projectsAddRpc, projectsCandidatesRpc, projectsRemoveRpc, projectsRpc, settingsReadRpc, settingsWriteRpc, statusRpc, teamRpc } from "../shared/rpc.ts";
 
-export type { Check, FlowAsk, FlowLane, FlowSeat, FlowTask, FlowView, WatchIncident, WatchView };
+export type { Check, FlowLane, FlowSeat, FlowView, WatchView };
 
 export type Scalar = string | number | boolean;
-export type Connect = { type: "stdio" | "http" | "sse"; command?: string[]; env?: Record<string, string>; url?: string; headers?: Record<string, string> };
-export type Parsed = { id: string; label: string; connect: Connect } | { error: string };
+type Connect = { type: "stdio" | "http" | "sse"; command?: string[]; env?: Record<string, string>; url?: string; headers?: Record<string, string> };
+type Parsed = { id: string; label: string; connect: Connect } | { error: string };
 export type SettingSpec = { type: "number" | "string" | "boolean"; label: string; default?: Scalar };
-export type ModelView = { id: string; label: string; isDefault?: boolean; thinkingOptions?: { id: string; label: string; isDefault?: boolean }[] };
+type ModelView = { id: string; label: string; isDefault?: boolean; thinkingOptions?: { id: string; label: string; isDefault?: boolean }[] };
 
 export type Catalog = {
   roles: { id: string; label: string; description: string; can: string[]; concern: string | null; defaults: { harness: string; model?: string; thinking?: string }; follows: string | null; harnesses: string[] }[];
@@ -28,7 +28,7 @@ export type TeamView = {
   roles: Record<string, { harness: string; provider: string; model: string | null; thinking: string | null; mcp: string[]; tools: Record<string, string[]>; skills: string[]; rules: string }>;
 };
 
-export type AttentionChoice = {
+type AttentionChoice = {
   tickSeconds?: number; leadIdleMinutes?: number; askRemindMinutes?: number; maxReminders?: number;
   watch?: boolean; destructive?: string; testPath?: string; repeatsAt?: number; reworksAt?: number; reviewsAt?: number; suppressed?: string;
   longTurnMinutes?: number; incidentsPerDay?: number;
@@ -41,16 +41,16 @@ export type Layer = { critic?: { by?: CriticBy }; checkpoints?: { risk?: string;
 
 export type ProjectRow = { slug: string; root: string };
 export type PaseoProject = { name: string; root: string };
-export type Folder = { name: string; path: string; repository: boolean };
+type Folder = { name: string; path: string; repository: boolean };
 /** `root` is the repository this folder belongs to when it is not itself that repository's top. */
 export type Folders = { path: string; parent: string | null; repository: boolean; root?: string | null; folders: Folder[] };
-export type FlowResult = FlowView | { unchanged: true; revision: string } | { error: string };
+type FlowResult = FlowView | { unchanged: true; revision: string } | { error: string };
 type SettingsRead = ({ status: "ready"; revision: string; values: Layer } | { status: "invalid"; revision: string; error: string }) & { machine: Layer };
 type WriteResult = { status: "saved"; revision: string; values: Layer } | { status: "conflict"; error: string } | { status: "invalid"; error: string };
 type AddResult = { slug: string; root: string } | { error: string };
 type RemoveResult = { removed: string } | { error: string };
 
-export type Data =
+type Data =
   | { status: "loading" }
   | { status: "error"; error: string }
   | {

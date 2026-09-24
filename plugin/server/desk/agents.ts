@@ -6,7 +6,7 @@ import type { Project } from "./project.ts";
 import type { Roster } from "./roster.ts";
 import type { Slots } from "./slots.ts";
 
-export type StartOptions = { parent?: string; title: string; prompt: string; labels: Record<string, string> };
+type StartOptions = { parent?: string; title: string; prompt: string; labels: Record<string, string> };
 
 export class Agents {
   private readonly ctx: DeskContext;

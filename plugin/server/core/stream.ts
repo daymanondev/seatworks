@@ -22,7 +22,7 @@ export type TimelineHandle = {
   refetch(options: { direction: "tail" | "after"; cursor?: Cursor; limit?: number; projection: "canonical" | "projected" }): Promise<Page>;
 };
 
-export type FollowOptions = { readyMs?: number; log?: (line: string, error?: unknown) => void; archived?: () => Promise<boolean> };
+type FollowOptions = { readyMs?: number; log?: (line: string, error?: unknown) => void; archived?: () => Promise<boolean> };
 
 const ENDED: Record<string, "completed" | "failed" | "canceled"> = { turn_completed: "completed", turn_failed: "failed", turn_canceled: "canceled" };
 

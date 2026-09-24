@@ -22,8 +22,8 @@ import {
 } from "./kit.ts";
 import { type CHECKPOINT_MODES, type Connect, type Layer, type McpChoice } from "./settings.ts";
 
-export type SettingValue = string | number | boolean;
-export type McpState = {
+type SettingValue = string | number | boolean;
+type McpState = {
   id: string;
   label: string;
   entry?: McpEntry;
@@ -34,7 +34,7 @@ export type McpState = {
   roles: string[];
   settings: Record<string, SettingValue>;
 };
-export type RoleSeat = { role: RoleSpec; harness: HarnessSpec; model?: ModelSpec; thinking?: string; rules: string; mcp: string[] };
+type RoleSeat = { role: RoleSpec; harness: HarnessSpec; model?: ModelSpec; thinking?: string; rules: string; mcp: string[] };
 export type Team = {
   roles: Record<string, RoleSeat>;
   mcp: Record<string, McpState>;
@@ -63,14 +63,14 @@ export const RISKY_PATHS =
   "(^|/)(auth|login|session|passwords?|secrets?|credentials?|tokens?|payments?|billing|migrations?|schema)(/|\\.|$)|\\.sql$|(^|/)\\.github/workflows(/|$)|(^|/)(Dockerfile|docker-compose[^/]*|\\.env[^/]*)$|(^|/)(infra|deploy|terraform|k8s|helm)(/|$)";
 
 /** More changed lines than one sitting reviews well: past a few hundred, reviewers find fewer defects. */
-export const LAND_LINES = 1000;
+const LAND_LINES = 1000;
 
 export function templateRoles(entry: McpEntry): string[] {
   return entry.kind === "proxy" ? Object.keys(entry.tools ?? {}) : (entry.roles ?? []);
 }
 
 /** No roles named means every role working with tools, not a Critic: a pasted server's tools can write. */
-export function eligibleRoles(state: McpState, kit: Kit): string[] {
+function eligibleRoles(state: McpState, kit: Kit): string[] {
   const entry = state.entry;
   if (entry?.kind === "proxy") return Object.keys(state.tools ?? entry.tools ?? {});
   // A Critic reads a lane and does no work, and a pasted server's tools can write.
@@ -94,7 +94,7 @@ export function connectToServer(connect: Connect): Record<string, unknown> | und
   return { type: connect.type, url: connect.url, ...(connect.headers ? { headers: connect.headers } : {}) };
 }
 
-export function fill(template: string, settings: Record<string, SettingValue>): string {
+function fill(template: string, settings: Record<string, SettingValue>): string {
   return template.replace(/\{(\w+)\}/g, (whole, key: string) => (key in settings ? String(settings[key]) : whole));
 }
 

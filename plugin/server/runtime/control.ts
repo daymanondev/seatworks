@@ -82,7 +82,7 @@ function connectFrom(value: unknown): Connect | string {
   return { type, url, ...(headers ? { headers } : {}) };
 }
 
-export function describeCatalog(kit: Kit): unknown {
+function describeCatalog(kit: Kit): unknown {
   return {
     roles: kit.roles.map((role) => ({
       id: role.role,
@@ -160,7 +160,7 @@ export function describeTeam(kit: Kit, team: Team, project?: Project): unknown {
   };
 }
 
-export type ControlDeps = {
+type ControlDeps = {
   kit: Kit;
   source: TeamSource;
   seating: Seating;

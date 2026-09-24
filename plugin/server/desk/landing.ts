@@ -6,7 +6,7 @@ import { loadIncidents } from "./incidents.ts";
 import { type Lane, type Ledger, tasksOf } from "./ledger.ts";
 import { type Project, loadConfig } from "./project.ts";
 
-export type LandGate = { set: boolean; ok: boolean };
+type LandGate = { set: boolean; ok: boolean };
 
 export const NOT_READY = "Its Lead has not reported it ready as it now stands: never, or the lane was amended since.";
 export const GATE_FAILED = "The gate failed on the lane, and landing was asked for over it.";

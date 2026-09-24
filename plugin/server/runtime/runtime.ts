@@ -44,7 +44,7 @@ const TROUBLES = 10;
 
 const INCIDENTS_SHOWN = 200;
 
-export type RuntimeOptions = { outboxFile?: string; paseo?: PaseoApi; codeIndex?: (proxy: IndexedProxy) => CodeIndex; reloadDaemon?: () => Promise<boolean> };
+type RuntimeOptions = { outboxFile?: string; paseo?: PaseoApi; codeIndex?: (proxy: IndexedProxy) => CodeIndex; reloadDaemon?: () => Promise<boolean> };
 
 export class Runtime {
   readonly kit: Kit;

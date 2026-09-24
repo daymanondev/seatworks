@@ -63,7 +63,7 @@ function drop(root: unknown, path: Path): Path | undefined {
   return undefined;
 }
 
-export function repairLayer(raw: unknown): { values: unknown; dropped: string[] } | undefined {
+function repairLayer(raw: unknown): { values: unknown; dropped: string[] } | undefined {
   const values = structuredClone(raw);
   const dropped: string[] = [];
   for (let round = 0; round < 50; round++) {

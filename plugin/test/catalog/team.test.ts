@@ -3,6 +3,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { RISKY_PATHS, resolveTeam, rulesFor, servingProject, serversFor, skillDirsFor, withHarness } from "../../server/catalog/team.ts";
+import { describeTeam } from "../../server/runtime/control.ts";
 import { makeKit } from "../kit.ts";
 import { tempDir } from "../tempdir.ts";
 
@@ -187,20 +188,18 @@ test("a server that needs something the project lacks is left off its seats, wit
   assert.deepEqual(servingProject(team, opened).roles.peer!.mcp, ["ide", "docs"]);
 });
 
-test("a project's land check follows the machine where it says nothing, starts in shadow, and is shown to the panel as plain JSON", async () => {
+test("a project's land check follows the machine where it says nothing, starts in shadow, and is shown to the panel as plain JSON", () => {
   assert.equal(resolveTeam(kit).checkpoints.land, "shadow", "a check nobody chose is recorded, not enforced, until someone reads what it would have done");
   assert.deepEqual(
     (({ land, landApprove, landLines }) => ({ land, landApprove, landLines }))(resolveTeam(kit, { checkpoints: { land: "off", landLines: 400 } }, { checkpoints: { land: "on", landApprove: "every" } }).checkpoints),
     { land: "on", landApprove: "every", landLines: 400 },
     "and the project's own choice wins",
   );
-  const { describeTeam } = await import("../../server/runtime/control.ts");
   const view = describeTeam(kit, resolveTeam(kit)) as { checkpoints: unknown };
   assert.deepStrictEqual(JSON.parse(JSON.stringify(view)).checkpoints, { risk: RISKY_PATHS, land: "shadow", landApprove: "risky", landLines: 1000, forced: null }, "Paseo refuses a reply with an undefined field in it");
 });
 
-test("the panel is shown who reads a new lane, as plain JSON", async () => {
-  const { describeTeam } = await import("../../server/runtime/control.ts");
+test("the panel is shown who reads a new lane, as plain JSON", () => {
   assert.deepEqual(JSON.parse(JSON.stringify(describeTeam(kit, resolveTeam(kit)))).critic, { by: "seat" });
   assert.deepEqual(resolveTeam(kit, { critic: { by: "off" } }).critic, { by: "off" });
 });

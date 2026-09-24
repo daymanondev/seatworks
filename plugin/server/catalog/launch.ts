@@ -6,7 +6,7 @@ import { type Team, preapprovedFor, rulesFor, skillDirsFor } from "./team.ts";
 
 export type AgentConfig = PluginBeforeRequests["agent.create"]["config"];
 export type SessionOpen = PluginBeforeRequests["agent.session_open"];
-export type RenderPrompt = (role: RoleSpec) => string;
+type RenderPrompt = (role: RoleSpec) => string;
 
 type Json = Record<string, unknown>;
 

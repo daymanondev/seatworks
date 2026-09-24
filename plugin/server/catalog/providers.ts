@@ -8,7 +8,7 @@ import type { Team } from "./team.ts";
 
 type Json = Record<string, any>;
 
-export function labelFor(kit: Kit, role: RoleSpec, harness: HarnessSpec): string {
+function labelFor(kit: Kit, role: RoleSpec, harness: HarnessSpec): string {
   const tag = kit.prefix.replace(/[-_]+$/, "");
   const base = `${role.label} · ${harness.label}`;
   return tag ? `${base} (${tag})` : base;

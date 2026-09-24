@@ -5,7 +5,7 @@ import type { Project } from "./project.ts";
 import { appendRecord } from "./records.ts";
 
 /** One time a checkpoint ran: what it was run on, what it found, and what it decided, whether or not that held anything. */
-export type Run = {
+type Run = {
   checkpoint: "land";
   mode: CheckpointMode;
   lane: string;

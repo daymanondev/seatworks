@@ -49,7 +49,7 @@ function skillDirs(root: string): string[] {
 }
 
 /** A preset outside this package names its own files, so an absolute path is taken as given. */
-export function contentPath(kit: Kit, path: string): string {
+function contentPath(kit: Kit, path: string): string {
   return isAbsolute(path) ? path : ownOr(kit, path);
 }
 

@@ -7,14 +7,14 @@ import type { AgentRef, Ask, Lane, Ledger, Task } from "./ledger.ts";
 import { laneRecords } from "./records.ts";
 
 export const KEEP_CLOSED_LANES = 20;
-export const ARCHIVE_KEEP_BYTES = 64 * 1024 * 1024;
-export const DESK_ROTATE_BYTES = 8 * 1024 * 1024;
-export const DESK_KEEP_BYTES = 16 * 1024 * 1024;
+const ARCHIVE_KEEP_BYTES = 64 * 1024 * 1024;
+const DESK_ROTATE_BYTES = 8 * 1024 * 1024;
+const DESK_KEEP_BYTES = 16 * 1024 * 1024;
 export const RECORD_TAIL_BYTES = 1024 * 1024;
 
 /** A lane that left the ledger, one file each: its entries and the records it wrote, by path under the state directory. */
 export type LaneArchive = { lane?: Lane; tasks: Task[]; asks: Ask[]; agents: AgentRef[]; records: Record<string, string> };
-export type Taken = { lanes: LaneArchive[]; agents: AgentRef[]; asks: Ask[] };
+type Taken = { lanes: LaneArchive[]; agents: AgentRef[]; asks: Ask[] };
 
 export function archiveDir(state: string): string {
   return join(state, "archive");

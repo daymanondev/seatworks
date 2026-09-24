@@ -6,7 +6,7 @@ import type { Call, Change, Unit, Window } from "./window.ts";
 const ASSERTION = "\\b(assert|expect)\\b|\\.should\\b";
 const SKIPPED = "\\.(skip|only|todo)\\b|\\bx(it|describe|test)\\b|@Disabled\\b|pytest\\.mark\\.skip\\b";
 
-export type Level = "page" | "attend" | "note";
+type Level = "page" | "attend" | "note";
 
 /** Every fact the code raises and its level; one that can open an incident has the title a person reads it by. */
 export const FACTS = {
@@ -72,14 +72,14 @@ export function callsTo(pattern: string | undefined, field: string | undefined, 
   return name && ((call) => name.test(call.name));
 }
 
-export function failed(call: Call, exit?: RegExp): boolean {
+function failed(call: Call, exit?: RegExp): boolean {
   if (call.status === "failed") return true;
   if (typeof call.detail.exitCode === "number") return call.detail.exitCode !== 0;
   const code = exit?.exec(str(call.detail.output).trim())?.[1];
   return code !== undefined && Number(code) !== 0;
 }
 
-export function isGate(call: Call, gates: string[]): boolean {
+function isGate(call: Call, gates: string[]): boolean {
   return call.detail.type === "shell" && gates.some((gate) => str(call.detail.command).includes(gate));
 }
 
@@ -124,7 +124,7 @@ export function stuck(units: Unit[], rules: Pick<Rules, "exit" | "repeatsAt">): 
   return undefined;
 }
 
-export function describe(call: Call): string {
+function describe(call: Call): string {
   const detail = call.detail;
   const what = str(detail.command) || str(detail.filePath) || str(detail.url) || str(detail.query);
   return [call.name || "tool", what].filter(Boolean).join(": ");
@@ -165,14 +165,14 @@ export function onDetail(call: Call, rules: Rules): Fact[] {
 
 const PROSE = /\.(md|mdx|markdown|txt|rst|adoc)$/i;
 
-export function within(text: string, limit: number): string {
+function within(text: string, limit: number): string {
   if (text.length <= limit) return text;
   const cut = text.slice(0, limit);
   return /[\uD800-\uDBFF]$/.test(cut) ? cut.slice(0, -1) : cut;
 }
 
 /** Cuts around the match, not from the front: what makes a long command irreversible is often at its end. */
-export function around(text: string, pattern: RegExp | undefined, limit: number): string {
+function around(text: string, pattern: RegExp | undefined, limit: number): string {
   if (text.length <= limit) return text;
   const found = pattern ? new RegExp(pattern.source, pattern.flags.replace("g", "")).exec(text) : null;
   const start = found && found.index + found[0].length > limit ? Math.max(0, Math.min(found.index - Math.floor(limit / 4), text.length - limit)) : 0;
@@ -180,9 +180,9 @@ export function around(text: string, pattern: RegExp | undefined, limit: number)
   return `${start > 0 ? "…" : ""}${body}${start + body.length < text.length ? "…" : ""}`;
 }
 
-export const TRUNCATED = /^\.\.\.\[truncated \d+ chars\]$/;
+const TRUNCATED = /^\.\.\.\[truncated \d+ chars\]$/;
 
-export function sides(detail: Call["detail"], known?: (path: string) => string | undefined): [string, string] | undefined {
+function sides(detail: Call["detail"], known?: (path: string) => string | undefined): [string, string] | undefined {
   const diff = str(detail.unifiedDiff);
   if (diff) {
     let lines = diff.split("\n");
@@ -216,7 +216,7 @@ function hits(text: string, pattern: RegExp): string[] {
   return text.match(new RegExp(pattern.source, "gi")) ?? [];
 }
 
-export function onSettle(call: Call, rules: Rules, known?: (path: string) => string | undefined): Fact[] {
+function onSettle(call: Call, rules: Rules, known?: (path: string) => string | undefined): Fact[] {
   const facts: Fact[] = [];
   const detail = call.detail;
   const bad = failed(call, rules.exit);
@@ -246,7 +246,7 @@ export function onSettle(call: Call, rules: Rules, known?: (path: string) => str
 
 const RUNNERS = new Set(["npm", "pnpm", "yarn", "bun", "npx", "bunx", "uv", "uvx", "poetry", "pipenv", "python", "python3", "cargo", "go", "make", "just", "deno", "node", "dotnet", "mvn", "gradle", "./gradlew", "git", "gh", "docker", "kubectl"]);
 
-export function head(command: string): string {
+function head(command: string): string {
   const main = command.split(/&&|;/).map((part) => part.trim()).filter((part) => part && !/^cd\s/.test(part)).at(-1) ?? command;
   const words = main.split("|")[0]!.trim().split(/\s+/).filter((word) => !/^[A-Za-z_][A-Za-z0-9_]*=/.test(word));
   if (!RUNNERS.has(words[0] ?? "")) return words[0] ?? "";

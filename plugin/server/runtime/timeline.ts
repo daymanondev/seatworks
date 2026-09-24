@@ -2,7 +2,7 @@ import type { PluginLifecycleEvents } from "@getpaseo/plugin/server";
 
 export type Timeline = PluginLifecycleEvents["agent.turn_ended"]["timeline"];
 
-export type Item = { type: string; text?: unknown; status?: unknown; error?: unknown; name?: unknown; detail?: unknown; callId?: unknown };
+type Item = { type: string; text?: unknown; status?: unknown; error?: unknown; name?: unknown; detail?: unknown; callId?: unknown };
 
 function items(timeline: Timeline): Item[] {
   return timeline as unknown as Item[];
@@ -34,10 +34,10 @@ export function outputText(timeline: Timeline): string {
 
 const QUIET_CHARS = 200;
 
-export const REFUSED = "permission|denied|not allowed|refused|blocked by";
+const REFUSED = "permission|denied|not allowed|refused|blocked by";
 
 /** What ended the turn on its last tool call: a refusal, or a call that simply never finished. */
-export type LastCall = { what: string; refused: boolean };
+type LastCall = { what: string; refused: boolean };
 
 export function deniedCall(timeline: Timeline, refused = REFUSED): LastCall | undefined {
   const list = items(timeline);

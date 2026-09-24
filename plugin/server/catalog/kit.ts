@@ -6,7 +6,7 @@ import { AttentionChoice } from "./settings.ts";
 import { isAbsolute, join } from "node:path";
 import { errorText } from "../core/errors.ts";
 
-export type ThinkingSpec = { id: string; label: string; isDefault?: boolean };
+type ThinkingSpec = { id: string; label: string; isDefault?: boolean };
 export type ModelSpec = { id: string; label: string; isDefault?: boolean; thinkingOptions?: ThinkingSpec[] };
 export type McpServers = Record<string, unknown>;
 export type McpTransport = "stdio" | "http" | "sse";
@@ -149,8 +149,8 @@ export function harnessProblems(id: string, raw: Record<string, unknown>): strin
   return problems;
 }
 
-export type ProxyBackend = { type: "http"; url: string } | { type: "stdio"; command: string[] };
-export type ProxyHook = { tool: string; args?: Record<string, unknown>; when?: string; timeoutSeconds?: number };
+type ProxyBackend = { type: "http"; url: string } | { type: "stdio"; command: string[] };
+type ProxyHook = { tool: string; args?: Record<string, unknown>; when?: string; timeoutSeconds?: number };
 
 export type ProxySpec = {
   backend: ProxyBackend;
@@ -165,7 +165,7 @@ export type ProxySpec = {
   timeoutSeconds?: number;
 };
 
-export type McpSetting = { type: "number" | "string" | "boolean"; label: string; default?: string | number | boolean };
+type McpSetting = { type: "number" | "string" | "boolean"; label: string; default?: string | number | boolean };
 
 export type McpEntry = {
   id: string;
@@ -262,7 +262,7 @@ function loadMcp(dir: string): Record<string, McpEntry> {
 }
 
 /** The shipped SLP preset, unless the state root holds a file of the same name, which replaces it. */
-export function rolesFile(dir: string, stateDir?: string): string {
+function rolesFile(dir: string, stateDir?: string): string {
   const own = stateDir ? join(stateDir, "roles.json") : undefined;
   return own && existsSync(own) ? own : join(dir, "roles.json");
 }
@@ -305,7 +305,7 @@ export function loadKit(dir: string, stateDir?: string): Kit {
   };
 }
 
-export function shippedOrOwn(dir: string, own: string | undefined, path: string): string {
+function shippedOrOwn(dir: string, own: string | undefined, path: string): string {
   const mine = own ? join(own, path) : undefined;
   return mine && existsSync(mine) ? mine : join(dir, "content", path);
 }

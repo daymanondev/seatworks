@@ -3,7 +3,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { globToRegex, normalize } from "./scope.ts";
 
-export type Run = { code: number; stdout: string; stderr: string };
+type Run = { code: number; stdout: string; stderr: string };
 
 export function git(cwd: string, args: string[], timeout = 60_000): Promise<Run> {
   return new Promise((resolve) => {
@@ -93,7 +93,7 @@ export async function removeWorktree(root: string, path: string | undefined): Pr
   await git(root, ["worktree", "prune"], 30_000);
 }
 
-export type MergeResult = { ok: true; before: string; after: string } | { ok: false; conflicts: string[]; message: string };
+type MergeResult = { ok: true; before: string; after: string } | { ok: false; conflicts: string[]; message: string };
 
 export async function mergeBranch(cwd: string, branch: string, message: string): Promise<MergeResult> {
   const before = await headSha(cwd);
@@ -161,7 +161,7 @@ export function outsideOwned(files: string[], owned: string[]): string[] {
   return files.filter((file) => !rules.some((rule) => rule.test(file)));
 }
 
-export type LandResult = { landed: boolean; how: string };
+type LandResult = { landed: boolean; how: string };
 
 /** Whether `base` is already contained in `branch`, so landing is a fast-forward rather than a merge. */
 export async function isAncestor(root: string, base: string, branch: string): Promise<boolean> {

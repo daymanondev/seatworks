@@ -128,7 +128,7 @@ export class SeatWatch {
   }
 }
 
-export type WatchDeps = {
+type WatchDeps = {
   kit: Kit;
   seats: Seats;
   context: (seat: WatchedSeat) => SeatContext | undefined;

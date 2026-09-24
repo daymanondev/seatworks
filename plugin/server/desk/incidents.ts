@@ -33,9 +33,9 @@ export type Incidents = { next: number; items: Record<string, Incident> };
 
 type Sighting = Omit<Incident, "id" | "opened" | "last" | "count" | "open" | "told" | "held" | "label" | "note" | "closed" | "later">;
 
-export const DAY_MS = 24 * 3_600_000;
+const DAY_MS = 24 * 3_600_000;
 
-export function incidentsFile(state: string): string {
+function incidentsFile(state: string): string {
   return join(state, "incidents.json");
 }
 

@@ -4,7 +4,6 @@ import type { Check } from "./doctor.ts";
 import type { PaseoApi } from "../core/paseo.ts";
 import type { SettingsView, WriteResult } from "../catalog/settings.ts";
 
-export { contracts };
 
 export interface Control {
   catalog(): unknown;

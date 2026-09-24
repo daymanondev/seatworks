@@ -57,7 +57,7 @@ function toolFor(role: RoleSpec, name: string): Tool | undefined {
   return name === "ask" ? ASK.find((entry) => entry.holds(role))?.tool : TOOLS[name];
 }
 
-export type DeskOptions = {
+type DeskOptions = {
   kit: Kit;
   outbox: Mailer;
   seats: Seats;
@@ -69,7 +69,7 @@ export type DeskOptions = {
 
 const SPEAKS = ["done", "ask", "answer", "message", "report"];
 
-export const ANSWER_WITHIN_MS = 240_000;
+const ANSWER_WITHIN_MS = 240_000;
 
 export class Desk {
   readonly projects: Map<string, Project>;

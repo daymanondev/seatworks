@@ -13,7 +13,7 @@ import { errorText } from "../core/errors.ts";
 
 type Json = Record<string, unknown>;
 
-export type SeatProject = { slug: string; state: string };
+type SeatProject = { slug: string; state: string };
 
 export function seatDir(kit: Kit, role: RoleSpec, harness: HarnessSpec, homeDir = home(), project?: SeatProject): string {
   const name = `${kit.prefix}${role.role}-${harness.id}${project ? `-${project.slug}` : ""}`;
@@ -37,7 +37,7 @@ function present(path: string): boolean {
   }
 }
 
-export function ensureLink(path: string, target: string): boolean {
+function ensureLink(path: string, target: string): boolean {
   if (isLink(path)) {
     if (readlinkSync(path) === target) return false;
     unlinkSync(path);
@@ -63,7 +63,7 @@ export function digest(sources: string[]): string {
 }
 
 /** Copied under the state root, never linked, so it resolves outside every repo: Devin loads the AGENTS.md above a file's real path. */
-export function snapshot(source: string, name: string, homeDir = home()): string {
+function snapshot(source: string, name: string, homeDir = home()): string {
   const target = join(contentRoot(homeDir), `${name}-${digest([source])}`);
   if (!existsSync(target)) {
     const building = `${target}.${process.pid}.building`;
@@ -95,7 +95,7 @@ export function placeGuides(kit: Kit, homeDir = home()): void {
   ensureLink(guidesDir(homeDir), snapshot(join(kit.dir, "content", "guides"), "guides", homeDir));
 }
 
-export function writeReal(path: string, text: string): boolean {
+function writeReal(path: string, text: string): boolean {
   if (isLink(path)) unlinkSync(path);
   if (present(path) && readFileSync(path, "utf-8") === text) return false;
   mkdirSync(dirname(path), { recursive: true });
@@ -107,14 +107,14 @@ function isPlain(value: unknown): value is Json {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-export function deepMerge(base: unknown, over: unknown): unknown {
+function deepMerge(base: unknown, over: unknown): unknown {
   if (!isPlain(base) || !isPlain(over)) return over === undefined ? base : over;
   const out: Json = { ...base };
   for (const [key, value] of Object.entries(over)) out[key] = deepMerge(base[key], value);
   return out;
 }
 
-export function layerSettings(base: unknown, over: unknown): unknown {
+function layerSettings(base: unknown, over: unknown): unknown {
   if (Array.isArray(base) && Array.isArray(over)) return [...new Set([...base, ...over])];
   if (!isPlain(base) || !isPlain(over)) return over === undefined ? base : over;
   const out: Json = { ...base };
@@ -273,7 +273,7 @@ function writeFiles(kit: Kit, harness: HarnessSpec, role: RoleSpec, dir: string,
   }
 }
 
-export class LeftAlone extends Error {}
+class LeftAlone extends Error {}
 
 function linkShared(harness: HarnessSpec, dir: string, homeDir: string, record: Recorder): void {
   for (const link of harness.links ?? []) {

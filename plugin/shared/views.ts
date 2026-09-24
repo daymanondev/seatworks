@@ -32,7 +32,7 @@ export type CleanItem = {
 };
 export type CleanView = { items: CleanItem[]; removed: string[]; failed: { path: string; error: string }[] };
 
-export type UpdateCommit = { sha: string; subject: string };
+type UpdateCommit = { sha: string; subject: string };
 export type UpdateView = {
   dir: string;
   version: string;

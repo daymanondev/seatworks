@@ -10,7 +10,7 @@ import { type Project, conceptFile, loadConfig } from "./project.ts";
 import type { DeskServices } from "./services.ts";
 
 /** Why a lane cannot open, and what open_lane would do instead: the reason is shared, the advice is not. */
-export type Refusal = { why: string; instead: string };
+type Refusal = { why: string; instead: string };
 
 function scopeProblem(serial: string[], open: Lane[], writeSet: string[], contracts: string[]): Refusal | undefined {
   if (open.length === 0) return undefined;

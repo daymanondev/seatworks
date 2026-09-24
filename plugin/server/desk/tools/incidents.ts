@@ -8,7 +8,7 @@ import type { Tool } from "../services.ts";
 
 const at = (ms: number) => new Date(ms).toISOString().slice(0, 16).replace("T", " ");
 
-export const HELD: Record<string, string> = {
+const HELD: Record<string, string> = {
   shadow: "shadow",
   budget: "the day's budget is spent",
   nobody: "nobody was seated to tell",

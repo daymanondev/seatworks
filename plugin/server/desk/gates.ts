@@ -5,7 +5,7 @@ import type { DeskContext } from "./context.ts";
 import type { Lane } from "./ledger.ts";
 import { type Project, loadConfig } from "./project.ts";
 
-export type GateVerdict = { ok: boolean; text: string };
+type GateVerdict = { ok: boolean; text: string };
 
 export async function laneGate(ctx: DeskContext, project: Project, lane: Lane): Promise<GateVerdict> {
   const config = loadConfig(project.state);
@@ -22,7 +22,7 @@ export async function laneGate(ctx: DeskContext, project: Project, lane: Lane): 
   return { ok: false, text: `${config.gate} ${reason} on the lane branch.\n\n${result.tail}\n\nFull log: ${logFile}` };
 }
 
-export type GateRun = { ok: boolean; note: string; reason: string; tail: string; logFile: string };
+type GateRun = { ok: boolean; note: string; reason: string; tail: string; logFile: string };
 
 /** The one owner of "run the gate on a task". Returns undefined when this project does not gate tasks. */
 export async function taskGate(project: Project, taskId: string, cwd: string): Promise<GateRun | undefined> {

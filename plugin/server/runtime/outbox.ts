@@ -2,21 +2,21 @@ import type { SeatLook, Seats } from "../core/ports.ts";
 import { readJson, writeJson } from "../core/store.ts";
 
 export type Letter = { id: string; to: string; key: string; text: string; at: number };
-export type Posted = "sent" | "held" | "duplicate";
-export type Compose = (to: string, letters: Letter[]) => string | Promise<string>;
+type Posted = "sent" | "held" | "duplicate";
+type Compose = (to: string, letters: Letter[]) => string | Promise<string>;
 /** Told when a letter is given up on, so that the one thing the desk must not lose is not lost quietly. */
-export type Dropped = (letter: Letter, now: number) => void;
+type Dropped = (letter: Letter, now: number) => void;
 /** Whether the seat's harness takes a text into a running turn rather than replacing the turn with it. */
-export type Steers = (seat: SeatLook) => boolean;
+type Steers = (seat: SeatLook) => boolean;
 /** Whether the seat is waiting on a call to the desk: a text steered in then is taken as the call being cut short. */
-export type Calling = (agentId: string) => boolean;
+type Calling = (agentId: string) => boolean;
 
 const KEEP_MS = 7 * 24 * 3_600_000;
 const DUPLICATE_MS = 30 * 60_000;
 const GRACE_MS = 10 * 60_000;
 const SETTLE_MS = 60_000;
 
-export function busy(status: string | null | undefined): boolean {
+function busy(status: string | null | undefined): boolean {
   return status === "running" || status === "initializing";
 }
 

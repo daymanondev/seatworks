@@ -10,7 +10,7 @@ import type { DeskServices, Tool } from "./services.ts";
 const LABEL = "seatworks.critique";
 
 /** The lane as the Critic reads it, and as its quotes are checked against. */
-export function laneText(lane: Lane): string {
+function laneText(lane: Lane): string {
   return [
     `Title: ${lane.title}`,
     `Outcome: ${lane.outcome}`,

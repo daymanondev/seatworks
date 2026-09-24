@@ -8,7 +8,7 @@ const POINTER = "@AGENTS.md";
 
 const block = (body: string) => `${BEGIN}\n${body.trim()}\n${END}\n`;
 
-export function withoutBlock(text: string): string {
+function withoutBlock(text: string): string {
   const start = text.indexOf(BEGIN.slice(0, 20));
   const end = text.indexOf(END);
   if (start < 0 || end < start) return text;
@@ -25,7 +25,7 @@ function pointed(text: string): boolean {
 }
 
 /** CLAUDE.md is the Human's too: a pointer is added only where it does not already reach AGENTS.md. */
-export function withPointer(text: string): string {
+function withPointer(text: string): string {
   const rest = withoutBlock(text);
   if (pointed(rest)) return rest === text ? text : `${rest}\n`;
   return withBlock(text, POINTER);

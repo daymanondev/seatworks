@@ -1,6 +1,6 @@
 import type { PendingPermission, PermissionResponse, SeatView } from "./paseo.ts";
 
-export type { PendingPermission, PermissionResponse, SeatView };
+export type { SeatView };
 
 export type SeatLook = {
   id: string;

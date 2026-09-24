@@ -5,9 +5,9 @@ import { type Fact, type FactKind, fact } from "./facts.ts";
  * What a lane's history shows that no turn window can. One fact per kind per lane, naming every task:
  * incidents key on seat and kind, and the exact quote is how a standing condition is not re-raised.
  */
-export type Seen = { seat: string; fact: Fact };
+type Seen = { seat: string; fact: Fact };
 
-export type Reading = {
+type Reading = {
   reworksAt: number;
   reviewsAt: number;
 };

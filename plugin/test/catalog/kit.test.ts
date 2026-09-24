@@ -72,8 +72,7 @@ test("loading a kit refuses a harness that breaks the contract, naming the field
   assert.deepEqual(Object.keys(loadKit(dir).harnesses), ["acme"]);
 });
 
-test("the shipped harnesses satisfy their own contract", async () => {
-  const { loadKit } = await import("../../server/catalog/kit.ts");
+test("the shipped harnesses satisfy their own contract", () => {
   const kit = loadKit(new URL("../..", import.meta.url).pathname);
   for (const [id, harness] of Object.entries(kit.harnesses)) assert.deepEqual(harnessProblems(id, harness as unknown as Record<string, unknown>), [], `harness ${id}`);
 });

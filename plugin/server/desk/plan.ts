@@ -4,7 +4,7 @@ import { type Lane, type Ledger, activeTasks } from "./ledger.ts";
 import { taskWaitsFor } from "./waiting.ts";
 
 /** One task of a plan: its fields as `start_task` takes them, and what it waits for, plan keys and task ids alike. */
-export type Planned = { key: string; args: Args; parallel: boolean; owned: string[]; after: string[] };
+type Planned = { key: string; args: Args; parallel: boolean; owned: string[]; after: string[] };
 
 /**
  * The plan in an order it can run in, or why it is not one: each key once, each `after` a key of it or a task of this

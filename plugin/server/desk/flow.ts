@@ -4,9 +4,8 @@ import type { Ledger } from "./ledger.ts";
 import type { FlowAsk, FlowCritic, FlowLane, FlowSeat, FlowTask, FlowView } from "../../shared/views.ts";
 import type { Project } from "./project.ts";
 
-export type { FlowAsk, FlowLane, FlowSeat, FlowTask, FlowView };
 
-export const LANE_CAP = 50;
+const LANE_CAP = 50;
 
 const minutes = (now: number, at: number | string | undefined): number =>
   at === undefined ? 0 : Math.max(0, Math.round((now - (typeof at === "string" ? Date.parse(at) : at)) / 60_000));
