@@ -1,5 +1,6 @@
 import type { Team } from "../catalog/team.ts";
 import { type Kit, type RoleSpec, can, schemaOf, seatOf, worksTasks } from "../catalog/kit.ts";
+import type { TaskMove, TaskStatus } from "../domain/task.ts";
 import type { Seats, Workspaces } from "../core/ports.ts";
 import { Agents } from "./agents.ts";
 import { argsProblems, shapeOf } from "./args.ts";
@@ -165,6 +166,10 @@ export class Desk {
 
   setTask(project: Project, taskId: string, change: (task: Task) => void): Promise<Task | undefined> {
     return this.services.ctx.setTask(project, taskId, change);
+  }
+
+  moveTask(project: Project, taskId: string, move: TaskMove, change?: (task: Task) => void): Promise<Task | TaskStatus | undefined> {
+    return this.services.ctx.moveTask(project, taskId, move, change);
   }
 
   /** The patrol's net under a close or an acceptance that never got to start what waited on it; one whose start failed waits for the next. */

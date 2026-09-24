@@ -1,5 +1,6 @@
 import type { Team } from "../catalog/team.ts";
 import type { SeatView } from "../core/paseo.ts";
+import { AT_WORK } from "../domain/task.ts";
 import { runsOf } from "./checkpoints.ts";
 import { type Lane, type Ledger, ownCopyHolder } from "./ledger.ts";
 import { type Project, type ProjectConfig, projectOf } from "./project.ts";
@@ -114,7 +115,7 @@ export function statusText(
     const tasks = Object.values(ledger.tasks).filter((task) => task.lane === lane.id);
     if (tasks.length === 0) lines.push("- no tasks yet");
     for (const task of tasks) {
-      const detail = ["running", "rework"].includes(task.status)
+      const detail = AT_WORK.includes(task.status)
         ? `, Peer ${seatLine(seats, task.peer, now)}`
         : task.status === "waiting"
           ? `${task.after?.length ? `, after ${task.after.join(", ")}` : ""}${task.held ? `. Not started: ${task.held.why}` : ""}`

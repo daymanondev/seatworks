@@ -2,8 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { readJson, writeJson } from "../core/store.ts";
 import { errorText } from "../core/errors.ts";
-
-export type Held = "shadow" | "budget" | "nobody";
+import { type Held, close } from "../domain/incident.ts";
 
 export type Incident = {
   id: string;
@@ -110,10 +109,7 @@ export function spentToday(incidents: Incidents, now: number): number {
 export function closeSeat(incidents: Incidents, seat: string, now: number): string[] {
   const closed: string[] = [];
   for (const item of Object.values(incidents.items)) {
-    if (!item.open || item.seat !== seat) continue;
-    item.open = false;
-    item.closed = now;
-    closed.push(item.id);
+    if (item.seat === seat && close(item, now)) closed.push(item.id);
   }
   return closed;
 }

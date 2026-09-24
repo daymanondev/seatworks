@@ -1,4 +1,6 @@
 import { branchExists, currentBranch, headSha } from "../core/git.ts";
+import { LANE } from "../domain/lane.ts";
+import { TASK } from "../domain/task.ts";
 import { hash } from "./context.ts";
 import { fetchIssue } from "./issue.ts";
 import { type Lane, type Ledger, type Task, loadLedger } from "./ledger.ts";
@@ -84,13 +86,13 @@ async function releaseTask(desk: DeskServices, project: Project, lane: Lane, tas
   const startSha = task.mode === "parallel" ? undefined : await headSha(lane.worktree!);
   const claimed = await desk.ctx.ledger(project, (ledger) => {
     const entry = ledger.tasks[task.id];
-    if (entry?.status !== "waiting") return undefined;
-    Object.assign(entry, { status: "running", startSha, updatedAt: Date.now() });
+    if (!entry || !TASK.move(entry, "start")) return undefined;
+    Object.assign(entry, { startSha, updatedAt: Date.now() });
     desk.ctx.seating.add(seatingKey(project, entry.id));
     return { ...entry };
   });
   if (!claimed) return undefined;
-  const started = await startPeer(desk, project, lane, claimed, { role: claimed.opening!.role, parent: lane.lead, failed: "waiting" });
+  const started = await startPeer(desk, project, lane, claimed, { role: claimed.opening!.role, parent: lane.lead, failed: "wait" });
   if (typeof started === "string") return { why: `${started} It is tried again when a task is accepted or cut; cut it to drop it.`, tried: true };
   await desk.ctx.setTask(project, task.id, (entry) => {
     delete entry.held;
@@ -110,15 +112,14 @@ async function release(desk: DeskServices, project: Project, lane: Lane): Promis
   if (typeof placed === "string" || "why" in placed) return { why: `${typeof placed === "string" ? placed : placed.why} It opens by itself once that clears; amend it, or close it to drop it.` };
   const claimed = await desk.ctx.ledger(project, (ledger) => {
     const entry = ledger.lanes[lane.id];
-    if (entry?.status !== "waiting") return undefined;
-    entry.status = "open";
+    if (!entry || !LANE.move(entry, "open")) return undefined;
     desk.ctx.seating.add(seatingKey(project, lane.id));
     return { ...entry };
   });
   if (!claimed) return undefined;
   const fetched = claimed.issue ? await fetchIssue(claimed.issue, project.root) : undefined;
   const issue = fetched && !("error" in fetched) ? fetched : undefined;
-  const started = await startLead(desk, project, claimed, { ownCopy: placed.ownCopy, failed: "waiting", role: claimed.opening?.role, parent: claimed.opener, issue });
+  const started = await startLead(desk, project, claimed, { ownCopy: placed.ownCopy, failed: "wait", role: claimed.opening?.role, parent: claimed.opener, issue });
   if (typeof started === "string") return { why: `${started} It is tried again when a lane closes; close it to drop it.`, tried: true };
   await desk.ctx.ledger(project, (ledger) => {
     const entry = ledger.lanes[lane.id];
@@ -148,7 +149,7 @@ async function putBackHalfStarted(desk: DeskServices, project: Project): Promise
         return [];
       }
       const slot = task.mode === "parallel" ? task.slot : undefined;
-      task.status = task.opening ? "waiting" : "cut";
+      TASK.move(task, task.opening ? "wait" : "cut");
       if (task.mode === "parallel") {
         delete task.slot;
         delete task.worktree;
@@ -182,7 +183,7 @@ async function putBackHalfOpen(desk: DeskServices, project: Project): Promise<vo
         Object.assign(lane, { lead: lead.id, worktree: lead.cwd, slot: slot?.id, workspaceId: slot?.workspaceId });
         ledger.agents[lead.id] = { id: lead.id, role: lead.labels!["seatworks.role"] ?? "lead", lane: lane.id };
       } else {
-        lane.status = lane.after ? "waiting" : "closed";
+        LANE.move(lane, lane.after ? "wait" : "close");
         delete lane.held;
       }
       return { lane: { ...lane }, slot: slot?.id };

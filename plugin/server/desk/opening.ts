@@ -3,8 +3,9 @@ import { trackedFiles } from "../core/git.ts";
 import type { SeatView } from "../core/paseo.ts";
 import { errorText } from "../core/errors.ts";
 import { firstOverlap, serialHits, serialPaths, serialReach } from "../core/scope.ts";
+import { HOLDS_COPY, TASK } from "../domain/task.ts";
 import type { Issue } from "./issue.ts";
-import { type Lane, type Ledger, type Task, type TaskStatus, activeTasks, loadLedger, ownCopyHolder } from "./ledger.ts";
+import { type Lane, type Ledger, type Task, activeTasks, loadLedger, ownCopyHolder } from "./ledger.ts";
 import { letters, outside } from "./letters.ts";
 import { directiveFor } from "./directive.ts";
 import { type Project, loadConfig, serialOnlyOf } from "./project.ts";
@@ -84,17 +85,12 @@ export async function placement(kit: Kit, project: Project, lane: Pick<Lane, "on
 type Seating = { ownCopy: boolean; from?: string; role?: string; parent?: string; issue?: Issue };
 type Seated = { slot: { id?: string; path: string; workspaceId?: string }; lead: string };
 
-/** Seats the Lead of a lane marked seating; a failure puts back what it took, sets the lane to `failed`, and comes back as the reason. */
-export async function startLead(desk: DeskServices, project: Project, lane: Lane, how: Seating & { failed: "closed" | "waiting" }): Promise<Seated | string> {
+/** Seats the Lead of a lane marked seating; a failure puts back what it took, moves the lane by `failed`, and comes back as the reason. */
+export async function startLead(desk: DeskServices, project: Project, lane: Lane, how: Seating & { failed: "close" | "wait" }): Promise<Seated | string> {
   const { ctx } = desk;
   try {
     const started = await seatLead(desk, project, lane, how);
-    if (typeof started === "string") {
-      await ctx.ledger(project, (ledger) => {
-        const entry = ledger.lanes[lane.id];
-        if (entry) entry.status = how.failed;
-      });
-    }
+    if (typeof started === "string") await ctx.moveLane(project, lane.id, how.failed);
     return started;
   } finally {
     ctx.seating.delete(seatingKey(project, lane.id));
@@ -139,10 +135,8 @@ async function seatLead(desk: DeskServices, project: Project, lane: Lane, how: S
   }
 }
 
-const HOLDS: TaskStatus[] = ["running", "rework", "done", "stalled"];
-
 /** Handed-back and stalled tasks still hold the copy (their Peer is seated there), unless the stalled Peer's seat is gone. */
-const holds = (task: Task): boolean => HOLDS.includes(task.status) && !(task.status === "stalled" && task.peerGone);
+const holds = (task: Task): boolean => HOLDS_COPY.includes(task.status) && !(task.status === "stalled" && task.peerGone);
 
 export function holderOf(ledger: Ledger, lane: Lane, except?: string): Task | undefined {
   return Object.values(ledger.tasks).find(
@@ -173,8 +167,8 @@ export async function parallelProblem(kit: Kit, project: Project, ledger: Ledger
   return undefined;
 }
 
-/** Seats the Peer of a task recorded running; a failure gives back its copy, sets it to `failed`, and comes back as the reason. */
-export async function startPeer(desk: DeskServices, project: Project, lane: Lane, task: Task, how: { role: string; parent?: string; failed: "cut" | "waiting" }): Promise<{ peer: string; where: string } | string> {
+/** Seats the Peer of a task recorded running; a failure gives back its copy, moves it by `failed`, and comes back as the reason. */
+export async function startPeer(desk: DeskServices, project: Project, lane: Lane, task: Task, how: { role: string; parent?: string; failed: "cut" | "wait" }): Promise<{ peer: string; where: string } | string> {
   const { ctx, slots, agents } = desk;
   const parallel = task.mode === "parallel";
   try {
@@ -202,7 +196,7 @@ export async function startPeer(desk: DeskServices, project: Project, lane: Lane
   } catch (error) {
     const taken = loadLedger(project.state).tasks[task.id]?.slot;
     await ctx.setTask(project, task.id, (entry) => {
-      entry.status = how.failed;
+      TASK.move(entry, how.failed);
       if (parallel) {
         delete entry.slot;
         delete entry.worktree;

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { SeatView } from "../core/paseo.ts";
+import { AT_WORK, SETTLED } from "../domain/task.ts";
 import type { Ledger } from "./ledger.ts";
 import type { FlowAsk, FlowCritic, FlowLane, FlowSeat, FlowTask, FlowView } from "../../shared/views.ts";
 import type { Project } from "./project.ts";
@@ -38,10 +39,10 @@ export function flowView(
   const held = new Map<string, FlowTask[]>();
 
   for (const task of Object.values(ledger.tasks)) {
-    if (task.status === "merged" || task.status === "cut") continue;
+    if (SETTLED.includes(task.status)) continue;
     const count = counts.get(task.lane) ?? { total: 0, running: 0 };
     count.total += 1;
-    if (task.status === "running" || task.status === "rework") count.running += 1;
+    if (AT_WORK.includes(task.status)) count.running += 1;
     counts.set(task.lane, count);
     if (!open.has(task.lane)) continue;
     const built: FlowTask = {

@@ -1,4 +1,5 @@
 import { can } from "../../catalog/kit.ts";
+import { close } from "../../domain/incident.ts";
 import { type Caller, no, ok, str } from "../context.ts";
 import { type Incident, incidentsFault, loadIncidents } from "../incidents.ts";
 import { laneOfLead, loadLedger } from "../ledger.ts";
@@ -88,10 +89,7 @@ export const ack: Tool = async ({ ctx }, caller, args) => {
     if (!item || !allowed(item)) return undefined;
     item.label = verdict;
     if (note) item.note = note;
-    if (item.open) {
-      item.open = false;
-      item.closed = now;
-    }
+    close(item, now);
     return { ...item };
   });
   if (!done) return no(`There is no incident ${id} here for you to mark. incidents lists the ones there are.`);

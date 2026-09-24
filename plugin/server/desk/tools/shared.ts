@@ -1,8 +1,10 @@
 import { can, roleNamed } from "../../catalog/kit.ts";
 import { uncommittedWork } from "../../catalog/project-files.ts";
 import { currentBranch, headSha } from "../../core/git.ts";
+import { ASK } from "../../domain/ask.ts";
+import { SETTLED } from "../../domain/task.ts";
 import { hash, no, ok, str } from "../context.ts";
-import { type Ask, findLane, findTask, laneOfLead, loadLedger } from "../ledger.ts";
+import { type Ask, type Task, findLane, findTask, laneOfLead, loadLedger } from "../ledger.ts";
 import { letters } from "../letters.ts";
 import { loadConfig } from "../project.ts";
 import type { Tool } from "../services.ts";
@@ -15,8 +17,8 @@ export const message: Tool = async ({ ctx, roster }, caller, args) => {
   // Keyed by the event, not the words: keyed on text, the same instruction sent again was dropped as a repeat.
   const key = `message:${caller.id}:${hash(to, text)}:${Date.now()}`;
   const unread = (who: string) => `${who} is not seated any more, so a message would wait for nobody.`;
-  const settled = (task: { id: string; status: string }) =>
-    ["merged", "cut"].includes(task.status) ? `${task.id} is ${task.status === "merged" ? "accepted" : "cut"}, and its Peer has been put away with it.` : undefined;
+  const settled = (task: Task) =>
+    SETTLED.includes(task.status) ? `${task.id} is ${task.status === "merged" ? "accepted" : "cut"}, and its Peer has been put away with it.` : undefined;
   const deliver = async (target: string, from: string, who: string): Promise<string> => {
     const reached = await roster.answerQuestion(target, `From ${from}: ${text}`);
     if (reached === "answered") {
@@ -71,9 +73,9 @@ export const answer: Tool = async ({ ctx }, caller, args) => {
   const result = await ctx.ledger(caller.project, (ledger): { ask: Ask; waitingRole?: string } | string => {
     const ask = ledger.asks[id];
     if (!ask) return `There is no ask ${id}.`;
-    if (ask.status !== "open") return `Ask ${id} is already answered.`;
+    if (!ASK.may(ask.status, "answer")) return `Ask ${id} is already answered.`;
     if (ask.to !== caller.id && !can(caller.role, "supervise")) return `Ask ${id} was not addressed to you.`;
-    ask.status = "answered";
+    ASK.move(ask, "answer");
     ask.answer = text;
     return { ask: { ...ask }, waitingRole: ledger.agents[ask.to]?.role };
   });

@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { currentBranch, headSha } from "../../core/git.ts";
 import { workState } from "../../catalog/project-files.ts";
+import { IN_QUEUE, SETTLED, TASK } from "../../domain/task.ts";
 import { type Args, hash, no, ok, str } from "../context.ts";
 import { taskGate } from "../gates.ts";
 import { type Ask, type Task, loadLedger, nextAskId, taskOfPeer } from "../ledger.ts";
@@ -32,7 +33,7 @@ export const done: Tool = async ({ ctx, roster }, caller, args) => {
   const ledger = loadLedger(project.state);
   const task = taskOfPeer(ledger, caller.id);
   if (!task) return no("No task is assigned to you.");
-  if (["merged", "cut"].includes(task.status)) return no(`This task is already ${task.status === "merged" ? "accepted" : "cut"}; there is nothing to hand back.`);
+  if (SETTLED.includes(task.status)) return no(`This task is already ${task.status === "merged" ? "accepted" : "cut"}; there is nothing to hand back.`);
   const review = task.kind === "review";
   const commit = review ? undefined : str(args.commit) || (task.worktree ? await headSha(task.worktree) : undefined);
   // Only what git actually said: a copy it could not read is not a copy with work left in it.
@@ -51,15 +52,14 @@ export const done: Tool = async ({ ctx, roster }, caller, args) => {
   const already = await ctx.ledger(project, (current) => {
     const entry = current.tasks[task.id];
     if (!entry) return "gone";
-    if (["queued", "merging", "merged", "cut"].includes(entry.status)) return entry.status;
-    entry.status = "done";
+    if (!TASK.move(entry, "handBack")) return entry.status;
     entry.silent = 0;
     entry.handback = { file, outcome, commit, summary: clip(str(args.summary) || str(args.findings), 400), at: Date.now(), ...(run ? { gate: { ok: run.ok, note: run.note } } : {}) };
     return undefined;
   });
   if (already) {
     return no(
-      already === "queued" || already === "merging"
+      already !== "gone" && IN_QUEUE.includes(already)
         ? `${task.id} is already accepted and waiting to be merged; handing it back again would take it out of the queue. End your turn.`
         : `${task.id} is already ${already === "merged" ? "accepted" : already}; there is nothing to hand back.`,
     );

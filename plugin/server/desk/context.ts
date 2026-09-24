@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import type { Team } from "../catalog/team.ts";
 import type { Kit, RoleSpec } from "../catalog/kit.ts";
+import { LANE, type LaneMove } from "../domain/lane.ts";
+import { TASK, type TaskMove, type TaskStatus } from "../domain/task.ts";
 import { type Ledger, type Task, ledgerFault, loadLedger, saveLedger } from "./ledger.ts";
 import type { Project } from "./project.ts";
 import { appendRecord } from "./records.ts";
@@ -127,6 +129,26 @@ export class DeskContext {
       change(task);
       task.updatedAt = Date.now();
       return { ...task };
+    });
+  }
+
+  /** Moves a task by its lifecycle under the lock, `change` alongside; a move the table refuses changes nothing and comes back as the status that stopped it. */
+  moveTask(project: Project, taskId: string, move: TaskMove, change?: (task: Task) => void): Promise<Task | TaskStatus | undefined> {
+    return this.ledger(project, (ledger) => {
+      const task = ledger.tasks[taskId];
+      if (!task) return undefined;
+      if (!TASK.move(task, move)) return task.status;
+      change?.(task);
+      task.updatedAt = Date.now();
+      return { ...task };
+    });
+  }
+
+  /** As `moveTask`, for a lane: a move its table refuses leaves it as it was. */
+  moveLane(project: Project, laneId: string, move: LaneMove): Promise<void> {
+    return this.ledger(project, (ledger) => {
+      const lane = ledger.lanes[laneId];
+      if (lane) LANE.move(lane, move);
     });
   }
 }

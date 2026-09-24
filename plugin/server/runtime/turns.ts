@@ -1,5 +1,6 @@
 import { type Kit, type RoleSpec, can, seatOf, worksTasks } from "../catalog/kit.ts";
 import type { TurnEnded } from "../core/ports.ts";
+import { DECIDED, TASK } from "../domain/task.ts";
 import type { Desk } from "../desk/desk.ts";
 import { type Ledger, laneOfLead, loadLedger, taskOfPeer } from "../desk/ledger.ts";
 import { letters } from "../desk/letters.ts";
@@ -72,14 +73,13 @@ export class TurnRules {
     const { agent, timeline } = event;
     const task = taskOfPeer(ledger, agent.id);
     if (!task) return;
-    const settled = ["merged", "cut", "queued", "merging"].includes(task.status);
-    if (settled && !recorded) return;
+    if (DECIDED.includes(task.status) && !recorded) return;
     const lane = ledger.lanes[task.lane];
     if (recorded || task.status === "done") {
       // Heard from, so the quiet count restarts; left standing it was a lifetime tally.
       if (spoke && task.silent > 0) await desk.setTask(project, task.id, (entry) => { entry.silent = 0; });
       // Nothing else sets a stalled task back to running once its Peer works again.
-      if (recorded && task.status === "stalled") await desk.setTask(project, task.id, (entry) => { if (entry.status === "stalled") { entry.status = "running"; delete entry.peerGone; } });
+      if (recorded && task.status === "stalled") await desk.moveTask(project, task.id, "resume", (entry) => { delete entry.peerGone; });
       return;
     }
     // A call still in flight is not silence: a nudge here started a second gate beside the first.
@@ -88,7 +88,7 @@ export class TurnRules {
     desk.event(project, { kind: "turn.silent", task: task.id, denied: denied?.what ?? null, refused: denied?.refused ?? false, lastCall: JSON.stringify(lastToolCall(timeline) ?? null).slice(0, 600) });
     const updated = await desk.setTask(project, task.id, (entry) => {
       entry.silent += 1;
-      if (entry.silent >= 2 || denied) entry.status = "stalled";
+      if (entry.silent >= 2 || denied) TASK.move(entry, "stall");
     });
     if (!updated) return;
     if (updated.status !== "stalled") {

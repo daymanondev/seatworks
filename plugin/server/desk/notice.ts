@@ -1,7 +1,8 @@
 import type { Attention } from "../catalog/attention.ts";
 import { seatOf } from "../catalog/kit.ts";
+import { type Held, deliveryOf, hold, tell, unheard } from "../domain/incident.ts";
 import type { Finding } from "../runtime/watch/findings.ts";
-import { type Held, type Incident, type Incidents, closeSeat, forget, settledAsNoise, sight, spentToday } from "./incidents.ts";
+import { type Incident, type Incidents, closeSeat, forget, settledAsNoise, sight, spentToday } from "./incidents.ts";
 import { type Lane, type Task, laneOfLead, loadLedger, taskOfPeer } from "./ledger.ts";
 import { errorText } from "../core/errors.ts";
 import { letters } from "./letters.ts";
@@ -44,14 +45,10 @@ export async function notice(services: DeskServices, project: Project, seat: Not
       const sighting = { seat: seat.id, provider: seat.provider, where: place.where, lane: place.lane?.id, task: place.task?.id, kind: finding.kind, level: finding.level, quote: finding.quote, facts: finding.facts };
       if (settledAsNoise(incidents, sighting, now)) continue;
       const { incident, opened: isNew } = sight(incidents, sighting, now);
-      if (incident.told !== undefined) continue;
+      if (deliveryOf(incident) === "told") continue;
       const held = holdFor(incident, incidents, attention, now);
-      if (held) incident.held = held;
-      else {
-        delete incident.held;
-        incident.told = now;
-        sending.push({ ...incident });
-      }
+      if (held) hold(incident, held);
+      else if (tell(incident, now)) sending.push({ ...incident });
       if (isNew) {
         ctx.event(project, { kind: "incident.open", id: incident.id, agent: seat.id, finding: incident.kind, level: incident.level, held: incident.held ?? null });
         opened.push({ ...incident });
@@ -94,9 +91,7 @@ async function deliver(services: DeskServices, project: Project, seat: Noticed, 
       await ctx.incidents(project, (incidents) => {
         for (const sent of batch) {
           const incident = incidents.items[sent.id];
-          if (!incident || incident.told !== now) continue;
-          delete incident.told;
-          incident.held = "nobody";
+          if (incident?.told === now) unheard(incident);
         }
       });
       for (const sent of batch) ctx.event(project, { kind: "incident.held", id: sent.id, held: "nobody" });
@@ -143,10 +138,7 @@ export async function retell(services: DeskServices, project: Project, now = Dat
       const taken: Incident[] = [];
       for (const item of mine) {
         const incident = incidents.items[item.id];
-        if (!incident?.open || incident.held !== "nobody" || incident.told !== undefined) continue;
-        delete incident.held;
-        incident.told = now;
-        taken.push({ ...incident });
+        if (incident?.open && incident.held === "nobody" && tell(incident, now)) taken.push({ ...incident });
       }
       return taken;
     });

@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type Kit, can, roleNamed, seatOf } from "../catalog/kit.ts";
 import type { SeatView, Seats } from "../core/ports.ts";
+import { TASK } from "../domain/task.ts";
 import type { Desk } from "../desk/desk.ts";
 import { loadIncidents, openFor, saidBefore } from "../desk/incidents.ts";
 import { type Ask, type Ledger, activeTasks, loadLedger, openAsksFrom } from "../desk/ledger.ts";
@@ -146,14 +147,14 @@ export class Patrol {
 
   private async goneTasks(project: Project, ledger: Ledger, seats: SeatMap): Promise<void> {
     const { desk } = this.deps;
-    for (const task of Object.values(ledger.tasks).filter((entry) => ["running", "rework"].includes(entry.status) && entry.peer)) {
+    for (const task of Object.values(ledger.tasks).filter((entry) => TASK.may(entry.status, "lose") && entry.peer)) {
       const gone = `${project.slug}:${task.id}`;
       if (seats.has(task.peer!) || this.goneFlag.has(gone)) continue;
       this.goneFlag.add(gone);
-      await desk.setTask(project, task.id, (entry) => {
-        entry.status = "stalled";
+      const lost = await desk.moveTask(project, task.id, "lose", (entry) => {
         entry.peerGone = true;
       });
+      if (typeof lost !== "object") continue;
       await desk.post(ledger.lanes[task.lane]?.lead, `gone:${project.slug}:${task.id}`, letters.failed(`the Peer on ${task.id} (${task.title})`, "its agent was closed or archived"));
     }
   }

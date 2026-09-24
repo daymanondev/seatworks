@@ -4,6 +4,7 @@ import { skillDirsFor } from "../../catalog/team.ts";
 import { branchExists, currentBranch, diffCounts, git, headSha, outsideOwned, resetHard, trackedFiles } from "../../core/git.ts";
 import { serialPaths } from "../../core/scope.ts";
 import { workState } from "../../catalog/project-files.ts";
+import { DECIDED, IN_QUEUE, TASK } from "../../domain/task.ts";
 import { type Args, type Caller, type DeskContext, given, hash, no, ok, str, strs } from "../context.ts";
 import { errorText } from "../../core/errors.ts";
 import { gateNote, laneGate } from "../gates.ts";
@@ -225,9 +226,7 @@ export const startReview: Tool = async ({ ctx, agents }, caller, args) => {
     ctx.event(project, { kind: "review.started", task: review.id, of: target?.id ?? null, reviewer });
     return ok(`Started ${review.id}${target ? ` on ${target.id}` : ""} with reviewer ${reviewer}. The verdict arrives as mail.`);
   } catch (error) {
-    await ctx.setTask(project, review.id, (entry) => {
-      entry.status = "cut";
-    });
+    await ctx.moveTask(project, review.id, "cut");
     return no(`The reviewer could not start: ${errorText(error)}`);
   } finally {
     ctx.seating.delete(seatingKey(project, review.id));
@@ -241,12 +240,11 @@ export const accept: Tool = async (desk, caller, args) => {
   if (typeof found === "string") return no(found);
   const { lane, task } = found;
   if (task.kind !== "code") return no(`${task.id} is a review; cut it when you are done with it.`);
-  if (["waiting", "merged", "queued", "merging", "cut"].includes(task.status)) return no(`${task.id} is ${task.status}.`);
+  if (!TASK.may(task.status, task.mode === "parallel" ? "queue" : "accept")) return no(`${task.id} is ${task.status}.`);
   if (task.mode === "parallel") {
-    await ctx.setTask(project, task.id, (entry) => {
-      entry.status = "queued";
-    });
-    const ahead = Object.values(loadLedger(project.state).tasks).filter((entry) => entry.status === "queued" || entry.status === "merging").length - 1;
+    const queued = await ctx.moveTask(project, task.id, "queue");
+    if (typeof queued !== "object") return no(`${task.id} is ${queued ?? "gone"}.`);
+    const ahead = Object.values(loadLedger(project.state).tasks).filter((entry) => IN_QUEUE.includes(entry.status)).length - 1;
     merges.enqueue(project, task.id);
     return ok(`${task.id} is in the merge queue${ahead > 0 ? ` behind ${ahead}` : ""}. MERGED or MERGE FAILED arrives as mail.`);
   }
@@ -271,11 +269,10 @@ export const accept: Tool = async (desk, caller, args) => {
   const counts = await diffCounts(lane.worktree, task.startSha ?? lane.base, "HEAD", fileKinds(ctx.kit));
   // Not rerun: a per-task gate already gave the Lead its verdict with the hand-back.
   const gate = gateNote(project, task);
-  const updated = await ctx.setTask(project, task.id, (entry) => {
-    entry.status = "merged";
-  });
+  const updated = await ctx.moveTask(project, task.id, "accept");
+  if (typeof updated !== "object") return no(`${task.id} is ${updated ?? "gone"}.`);
   await ctx.post(lane.lead, `merge:${task.id}:merged:${Date.now()}`, letters.merged(task, counts, outsideOwned(counts?.files ?? [], task.owned), gate));
-  if (updated) await agents.retire(project, updated, lane.branch);
+  await agents.retire(project, updated, lane.branch);
   ctx.event(project, { kind: "task.accepted", task: task.id, mode: "lane" });
   await startWaiting(desk, project, true);
   return ok(
@@ -291,10 +288,10 @@ export const rework: Tool = async ({ ctx, roster }, caller, args) => {
     const found = laneTask(ledger, caller, str(args.task));
     if (typeof found === "string") return found;
     const { lane, task } = found;
-    if (["waiting", "merged", "cut", "queued", "merging"].includes(task.status)) return `${task.id} is ${task.status}.`;
+    if (!TASK.may(task.status, "rework")) return `${task.id} is ${task.status}.`;
     const holder = task.mode === "parallel" ? undefined : holderOf(ledger, lane, task.id);
     if (holder) return `${holder.id} holds the lane's working copy; waking the Peer on ${task.id} in there would put two writers in one checkout. Accept or cut ${holder.id} first.`;
-    task.status = "rework";
+    TASK.move(task, "rework");
     task.silent = 0;
     task.reworks = (task.reworks ?? 0) + 1;
     task.updatedAt = Date.now();
@@ -327,7 +324,7 @@ export const amendTask: Tool = async ({ ctx }, caller, args) => {
     const found = laneTask(ledger, caller, str(args.task));
     if (typeof found === "string") return found;
     const { task } = found;
-    if (["merged", "cut", "queued", "merging"].includes(task.status)) return `${task.id} is ${task.status}; start a task for what is asked now.`;
+    if (DECIDED.includes(task.status)) return `${task.id} is ${task.status}; start a task for what is asked now.`;
     const amendment = amend(task, changes, caller.id, str(args.why));
     if (!amendment) return `Nothing about ${task.id} would change; pass the fields it asks differently now.`;
     task.updatedAt = Date.now();
@@ -347,11 +344,10 @@ export const cut: Tool = async (desk, caller, args) => {
   const found = laneTask(ledger, caller, str(args.task));
   if (typeof found === "string") return no(found);
   const { lane, task } = found;
-  if (task.status === "merged") return no(`${task.id} is already accepted.`);
-  const updated = await ctx.setTask(project, task.id, (entry) => {
-    entry.status = "cut";
-  });
-  if (!updated) return no(`${task.id} is gone.`);
+  if (!TASK.may(task.status, "cut")) return no(`${task.id} is already accepted.`);
+  const updated = await ctx.moveTask(project, task.id, "cut");
+  if (updated === undefined) return no(`${task.id} is gone.`);
+  if (typeof updated === "string") return no(`${task.id} is already accepted.`);
   await roster.archive(task.peer, true);
   let undone = "";
   if (task.kind === "code" && task.mode === "lane" && task.startSha && lane.worktree) {

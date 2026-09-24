@@ -74,8 +74,6 @@ test("what a Peer and a Lead read carries none of the words hidden from them", (
 test("a hand-back names the Peer that wrote it, so its lead can read what it did", () => {
   const named = letters.handback(task, "/state/handbacks/L1-T1.md", "Outcome: complete", "agent-7");
   assert.match(named, /HANDBACK L1-T1 \(Apply discount\) from agent-7/, "the lead is told which agent to read, at the moment it decides");
-  const anonymous = letters.handback(task, "/state/handbacks/L1-T1.md", "Outcome: complete");
-  assert.match(anonymous, /^HANDBACK L1-T1 \(Apply discount\)$/m, "with no agent named the header still reads as a heading, not a dangling from");
 });
 
 test("issue references resolve to gh arguments", () => {

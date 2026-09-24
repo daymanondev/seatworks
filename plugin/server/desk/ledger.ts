@@ -2,9 +2,10 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { readJson, writeJson } from "../core/store.ts";
 import { errorText } from "../core/errors.ts";
+import type { AskStatus } from "../domain/ask.ts";
+import type { LaneStatus } from "../domain/lane.ts";
+import { ACTIVE, type TaskStatus } from "../domain/task.ts";
 
-type LaneStatus = "waiting" | "open" | "closed";
-export type TaskStatus = "waiting" | "running" | "done" | "rework" | "queued" | "merging" | "merged" | "failed" | "cut" | "stalled";
 /** Free-form: the ledger carries whatever it is told, because nothing routes on it. */
 export type AskKind = string;
 /** What a change replaced, kept so the record says what the work was asked before it was asked again. */
@@ -90,7 +91,7 @@ export type Ask = {
   kind: AskKind;
   text: string;
   default?: string;
-  status: "open" | "answered";
+  status: AskStatus;
   openedAt: number;
   remindedAt?: number;
   reminders: number;
@@ -242,8 +243,6 @@ export function ownCopyHolder(lanes: Lane[]): Lane | undefined {
 export function tasksOf(ledger: Ledger, laneId: string): Task[] {
   return Object.values(ledger.tasks).filter((task) => task.lane === laneId);
 }
-
-const ACTIVE: TaskStatus[] = ["running", "rework", "queued", "merging"];
 
 export function activeTasks(ledger: Ledger, laneId: string): Task[] {
   return tasksOf(ledger, laneId).filter((task) => ACTIVE.includes(task.status));

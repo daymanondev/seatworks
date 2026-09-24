@@ -4,6 +4,8 @@ import { configFault } from "../../core/config-file.ts";
 import { errorText } from "../../core/errors.ts";
 import { LAND_AS, branchExists, currentBranch, headSha, isAncestor, landLane, landedRef, mergeBranch } from "../../core/git.ts";
 import { blockUncommitted } from "../../catalog/project-files.ts";
+import { LANE } from "../../domain/lane.ts";
+import { TASK } from "../../domain/task.ts";
 import { type Args, type Caller, type ToolReply, given, no, ok, str, strs } from "../context.ts";
 import { laneGate } from "../gates.ts";
 import { type Issue, fetchIssue } from "../issue.ts";
@@ -95,7 +97,7 @@ export const openLane: Tool = async (desk, caller, args) => {
   if ("why" in placed) return no(`${placed.why} ${placed.instead}`.trim());
   const { issue, unread } = await readIssue(args, project);
   const lane = await recordLane(desk, caller, args, place, issue);
-  const started = await startLead(desk, project, lane, { ownCopy: placed.ownCopy, failed: "closed", from: newBranch ? here : undefined, role: str(args.role), parent: caller.id, issue });
+  const started = await startLead(desk, project, lane, { ownCopy: placed.ownCopy, failed: "close", from: newBranch ? here : undefined, role: str(args.role), parent: caller.id, issue });
   if (typeof started === "string") return no(started);
   await seatCritic(desk, project, lane);
   const unshared = started.slot.id && (await blockUncommitted(project.root))
@@ -188,10 +190,7 @@ async function close(desk: DeskServices, project: Project, by: string, args: Arg
   if (!lane) return no(`There is no lane ${str(args.lane)}.`);
   if (lane.status === "waiting") {
     if (args.land === true) return no(`Lane ${lane.id} never opened, so there is nothing to land; close it with land false to drop it.`);
-    await ctx.ledger(project, (current) => {
-      const entry = current.lanes[lane.id];
-      if (entry?.status === "waiting") entry.status = "closed";
-    });
+    await ctx.moveLane(project, lane.id, "drop");
     ctx.event(project, { kind: "lane.closed", lane: lane.id, land: false, landing: "dropped while waiting", reason: str(args.reason), writers: [] });
     return ok(`Lane ${lane.id} was waiting and is dropped; nothing had started for it.`);
   }
@@ -253,11 +252,11 @@ async function close(desk: DeskServices, project: Project, by: string, args: Arg
   }
   const retired = await ctx.ledger(project, (current) => {
     const entry = current.lanes[lane.id];
-    if (entry) Object.assign(entry, { status: "closed", landed: args.land === true || undefined });
+    if (entry && LANE.move(entry, "close")) entry.landed = args.land === true || undefined;
     delete entry?.landApproval;
     const tasks: Task[] = [];
     for (const task of Object.values(current.tasks).filter((item) => item.lane === lane.id)) {
-      if (["waiting", "running", "rework", "queued", "done", "failed", "stalled"].includes(task.status)) task.status = "cut";
+      TASK.move(task, "drop");
       tasks.push({ ...task });
     }
     return tasks;

@@ -1,4 +1,5 @@
 import type { Ledger, Task } from "../../desk/ledger.ts";
+import { SETTLED } from "../../domain/task.ts";
 import { type Fact, type FactKind, fact } from "./facts.ts";
 
 /**
@@ -38,7 +39,7 @@ function took(task: Task): string {
 const MOST_NAMED = 5;
 
 const reworksOf = (task: Task): number => task.reworks ?? 0;
-const settled = (task: Task): boolean => task.status === "merged" || task.status === "cut";
+const settled = (task: Task): boolean => SETTLED.includes(task.status);
 
 /** Whether a brief hands over an answer to be typed in rather than an outcome to be reached. */
 export function prewritten(text: string): boolean {

@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { lastBytes } from "../core/gate.ts";
 import { appendRolling } from "../core/rolling.ts";
+import { IN_QUEUE } from "../domain/task.ts";
 import type { AgentRef, Ask, Lane, Ledger, Task } from "./ledger.ts";
 import { laneRecords } from "./records.ts";
 
@@ -54,7 +55,7 @@ export function takeFinished(ledger: Ledger, gone: (agentId: string) => boolean)
       carried.has(lane.id) ||
       lane.restoring !== undefined ||
       Object.values(ledger.slots).some((slot) => slot.lane === lane.id || (slot.task !== undefined && taskIds.has(slot.task)) || slot.id === lane.slot) ||
-      tasks.some((task) => task.status === "queued" || task.status === "merging") ||
+      tasks.some((task) => IN_QUEUE.includes(task.status)) ||
       asks.some((ask) => ask.status === "open") ||
       [...seats].some((id) => !gone(id));
     if (pending) continue;

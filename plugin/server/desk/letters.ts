@@ -1,6 +1,7 @@
 import { TEAM_SERVER } from "../catalog/kit.ts";
 import type { Counts } from "../core/git.ts";
 import { type PendingPermission, questionsIn } from "../core/paseo.ts";
+import { IN_QUEUE } from "../domain/task.ts";
 import type { Incident } from "./incidents.ts";
 import type { Amendment, Ask, Lane, Task } from "./ledger.ts";
 
@@ -85,9 +86,8 @@ export const letters = {
     return [`ANSWER to your ${tool} call, which ran longer than a tool call can wait.`, "", reply.ok ? reply.text : `It was refused: ${reply.text}`].join("\n");
   },
 
-  handback(task: Task, file: string, body: string, peer?: string): string {
-    const head = peer ? `HANDBACK ${task.id} (${task.title}) from ${peer}` : `HANDBACK ${task.id} (${task.title})`;
-    return [head, "", clip(body, 2500), "", `Full hand-back: ${file}`].join("\n");
+  handback(task: Task, file: string, body: string, peer: string): string {
+    return [`HANDBACK ${task.id} (${task.title}) from ${peer}`, "", clip(body, 2500), "", `Full hand-back: ${file}`].join("\n");
   },
 
   askTo(ask: Ask, from: string): string {
@@ -133,7 +133,7 @@ export const letters = {
       `Current intent: ${lane.outcome}`,
       `Ownership: ${task.id} (${task.title}) is still owned by ${peer}, on ${lane.branch}. The lane is still yours.`,
       "Topology: unchanged. No seat was started, moved or put away.",
-      task.status === "queued" || task.status === "merging"
+      IN_QUEUE.includes(task.status)
         ? `Integration and acceptance: you have already accepted ${task.id} and it is waiting to merge; nothing here changed that.`
         : `Integration and acceptance: unchanged. Accepting ${task.id} is still yours to judge, and nothing here accepted it.`,
       "",
@@ -158,8 +158,8 @@ export const letters = {
     return lines.join("\n");
   },
 
-  mergeFailed(task: Task, reason: string, tail: string, state = "The lane branch is unchanged."): string {
-    const lines = [`MERGE FAILED ${task.id} (${task.title}): ${reason}`, state];
+  mergeFailed(task: Task, reason: string, tail: string): string {
+    const lines = [`MERGE FAILED ${task.id} (${task.title}): ${reason}`, "The lane branch is unchanged."];
     if (tail) lines.push("", "```", tail, "```");
     return lines.join("\n");
   },
