@@ -71,11 +71,17 @@ export function seatsOn(bound: Bound): Seats {
       await ref(id).send(text, { messageId: `${DESK_MARK}${randomUUID()}`, ...(steer ? { activeTurnBehavior: "steer" } : {}) });
     },
     async typed(id: string): Promise<string[]> {
-      // The daemon stamps every message it is sent with the sender's id, and a person's client stamps one of its own.
-      const page = await ref(id).timeline.refetch({ direction: "tail", limit: 200, projection: "canonical" });
-      return page.entries.flatMap(({ item }) =>
-        item.type === "user_message" && typeof item.text === "string" && typeof item.clientMessageId === "string" && !item.clientMessageId.startsWith(DESK_MARK) ? [item.text] : [],
-      );
+      // The projected timeline holds one row per call, so a whole session fits; a seat's first prompt has only a messageId.
+      const page = await ref(id).timeline.refetch({ direction: "tail", limit: 0, projection: "projected" });
+      return page.entries.flatMap(({ item }) => {
+        if (item.type === "user_message" && typeof item.text === "string") {
+          const sent = item.clientMessageId ?? item.messageId;
+          return typeof sent === "string" && sent.startsWith(DESK_MARK) ? [] : [item.text];
+        }
+        // What the person chose when a seat asked them is their word too.
+        const output = (item.detail as { output?: { output?: unknown } } | undefined)?.output?.output;
+        return item.type === "tool_call" && item.name === "AskUserQuestion" && item.status === "completed" && typeof output === "string" ? [output] : [];
+      });
     },
     async respond(id: string, requestId: string, response: PermissionResponse): Promise<void> {
       await ref(id).respondToPermission({ requestId, response });

@@ -15,11 +15,19 @@ function talked(outbox: string, settings?: Record<string, unknown>) {
   }
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   const timeline = h.timelineOf(sup);
-  timeline.add({ type: "user_message", text: "Let users sign in with email and password, and keep them signed in for a day.", clientMessageId: "7d1c9a40-ui" });
+  // As the daemon records them: the prompt a seat was started with carries only a messageId of its own.
+  timeline.add({ type: "user_message", text: "Let users sign in with email and password, and keep them signed in for a day.", messageId: "773d2eee-257e" });
   timeline.add({ type: "reasoning", text: "They probably want password reset too." });
   timeline.add({ type: "assistant_message", text: "Should a session also survive a browser restart?" });
   timeline.add({ type: "user_message", text: "Yes, a day even across restarts.", clientMessageId: "0b52e1f7-ui" });
-  timeline.add({ type: "user_message", text: "REPORT L9 (Old): ready to land", clientMessageId: "sw2-3f2a" });
+  timeline.add({ type: "user_message", text: "REPORT L9 (Old): ready to land", clientMessageId: "sw2-3f2a", messageId: "sw2-3f2a" });
+  timeline.add({
+    type: "tool_call",
+    callId: "ask-1",
+    name: "AskUserQuestion",
+    status: "completed",
+    detail: { type: "unknown", input: { questions: [{ question: "Should a remembered sign-in end on sign-out?" }] }, output: { output: 'Your questions have been answered: "Should a remembered sign-in end on sign-out?"="Yes, sign-out ends it everywhere". You can now continue with these answers in mind.' } },
+  });
   mkdirSync(h.project.state, { recursive: true });
   writeFileSync(join(h.project.state, "CONTEXT.md"), "# Context\n\n- Session: what keeps a user signed in.\n");
   const critics = () => [...h.agents.values()].filter((agent) => agent.provider.startsWith("sw2-critic-"));
@@ -36,6 +44,7 @@ test("a lane opened is read by a fresh Critic against the Human's own words and 
   const brief = critic.prompt ?? "";
   assert.match(brief, /Let users sign in with email and password, and keep them signed in for a day\./);
   assert.match(brief, /Yes, a day even across restarts\./);
+  assert.match(brief, /"Should a remembered sign-in end on sign-out\?"="Yes, sign-out ends it everywhere"/, "what the Human chose when asked is theirs too");
   assert.match(brief, /Session: what keeps a user signed in\./);
   assert.match(brief, /A wrong password shows an error\./);
   assert.doesNotMatch(brief, /password reset|browser restart\?|REPORT L9/, "not what the Supervisor thought or said, nor the desk's own mail");

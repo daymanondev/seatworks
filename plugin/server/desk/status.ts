@@ -41,7 +41,7 @@ function ownCopyLines(project: Project, ledger: Ledger, config: ProjectConfig, c
 function checkLines(project: Project, checks: Team["checkpoints"]): string[] {
   const line = (checkpoint: "plan" | "land", set: CheckpointMode, approval: string, holds: boolean) => {
     const { runs, held, asked, last } = runsOf(project, checkpoint);
-    const kept = runs === 0 ? "nothing checked yet" : `${runs} checked, ${holds ? `${held} ${set === "on" ? "held" : "would have been held"}, ` : ""}${asked} ${set === "on" ? "sent for approval" : "would have been sent for approval"}${last ? `; last flagged ${last.lane} at ${last.at}: ${last.findings[0] ?? ""}` : ""}`;
+    const kept = runs === 0 ? "nothing checked yet" : `${runs} checked, ${holds ? `${held} ${set === "on" ? "held" : "would have been held"}, ` : ""}${asked} ${set === "on" ? "sent for approval" : "would have been sent for approval"}${last ? `; last flagged ${last.lane} at ${last.at}: ${(last.findings[0] ?? "").replace(/[.!?]+$/, "")}` : ""}`;
     const digest = digestOf(project, checkpoint, checks.forced ? "on" : set).lines.map((text) => `  ${text}`);
     return [`- ${checkpoint}: ${checks.forced ? `on, because ${checks.forced}` : set}. ${set === "off" && !checks.forced ? "Nothing is checked." : `${approval}. In checkpoints.log: ${kept}.`}`, ...digest].join("\n");
   };

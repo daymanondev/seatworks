@@ -218,6 +218,7 @@ test("once a shadow check has run enough to judge, the Supervisor is told once, 
   assert.equal(told.match(/CHECK DIGEST/g)?.length, 1, "once, not every round");
   assert.match(told, /CHECK DIGEST land: the check running in shadow has run enough to judge\. Turned on, it would have stopped work 3 times in 30 runs over 10 days \(0\.3 a day\)\.[^]*L20: src\/auth\/f20\.ts is a path[^]*Tell the Human in two lines/);
   assert.match((await h.call(sup, "supervisor", "status", {})).text, /- land: shadow\.[^\n]*\n  Turned on, it would have stopped work 3 times/);
+  assert.doesNotMatch((await h.call(sup, "supervisor", "status", {})).text, /\.\./, "a reason that ends in a full stop is not given a second");
   h.runtime.dispose();
 });
 
