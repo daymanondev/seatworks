@@ -198,11 +198,6 @@ test("a project's land check follows the machine where it says nothing, starts i
   assert.deepStrictEqual(JSON.parse(JSON.stringify(view)).checkpoints, { risk: RISKY_PATHS, land: "shadow", landApprove: "risky", landLines: 1000, forced: null }, "Paseo refuses a reply with an undefined field in it");
 });
 
-test("the panel is shown who reads a new lane, as plain JSON", () => {
-  assert.deepEqual(JSON.parse(JSON.stringify(describeTeam(kit, resolveTeam(kit)))).critic, { by: "seat" });
-  assert.deepEqual(resolveTeam(kit, { critic: { by: "off" } }).critic, { by: "off" });
-});
-
 test("a pasted MCP server under the name of the team's own server or Paseo's is left out and reported, since it would replace that server for every seat", () => {
   const connect = { type: "http", url: "http://example.invalid/mcp" } as const;
   const team = resolveTeam(kit, {}, { mcp: { team: { connect }, paseo: { connect }, team_x: { connect } } });

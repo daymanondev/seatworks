@@ -22,7 +22,6 @@ pages in), the seat's bridge shows that set as the field's choices.
 | Supervisor | `open_lane` `message` `answer` `land_lane` `drop_lane` `amend_lane` `replace_lead` `set_project` `status` `incidents` `mark_incident` `record` |
 | Lead | `add_tasks` `start_review` `message` `answer` `accept` `rework` `amend_task` `cut` `ask` `report` `status` `incidents` `mark_incident` `record` `note` |
 | Peer, Reviewer | `done` `ask` |
-| Critic | `findings` |
 <!-- end -->
 
 | Verb | Effect |
@@ -49,10 +48,9 @@ pages in), the seat's bridge shows that set as the field's choices.
 | `record` | What a lane's Lead, or a task's Peer or reviewer, ran, read, changed and said, one numbered step a line, without output or diffs. A Lead reads only its own lane's tasks. Once the seat is archived it shows what the desk kept instead, since Paseo starts an archived agent again to read its history |
 | `note` | Writes a page into a folder the caller's role declares under the project's state (the Lead's: `plans`, `council`, `ultra-review`, `repo-refresh`), replacing one of the same name, and answers with its path. It never writes into the repository. The Lead has no file-editing tools, except on Codex, where only its prompt keeps it from editing |
 | `status` | Lanes, tasks, working copies and open asks. A Lead sees its own lane. Asked again with nothing changed, it says only that |
-| `findings` | The Critic hands in where the Human's words and the lane may not agree, each quote checked against what it read. The Supervisor gets them, and the Critic is archived |
 
 Behaviour depends on a role's capabilities (`supervise`, `lead`, `work`, `write`, `review`,
-`critique`, `watched`), never its name.
+`watched`), never its name.
 
 ## Records
 
@@ -96,7 +94,7 @@ letter, never written by hand where it is posted.
 | Kind | Letters |
 |---|---|
 | Opening a seat | OWNER DIRECTIVE, TASK, REVIEW |
-| Between seats | MESSAGE, RECONCILE, ASK, ANSWER to your ask, ANSWERED FOR YOU, STILL OPEN, UNANSWERED, CRITIQUE |
+| Between seats | MESSAGE, RECONCILE, ASK, ANSWER to your ask, ANSWERED FOR YOU, STILL OPEN, UNANSWERED |
 | Work moving | HANDBACK, REWORK, AMENDED, MERGED, MERGE FAILED, MERGE CONFLICT, REPORT, CAN LAND, CLEARED |
 | Landing held for the Human | LAND HELD, LANDED, HELD AGAIN, CHANGED, APPROVED, SENT BACK, LAND SENT BACK |
 | Waiting and starting again | WAITING, OPENED, NOT OPENED, NOT STARTED, LEAD GONE |
@@ -187,8 +185,8 @@ settings revision changes, its settings file is gone, or a login appeared since.
 | Agent | Directory | Written there | Launch |
 |---|---|---|---|
 | Claude Code | `~/.claude/profiles/…` | `settings.json` (deny rules, sandbox), `.claude.json` (its own MCP servers cleared), `skills/`, a `projects` link, `CLAUDE.md` for working rules | `bin/seat-room` with `--setting-sources user`, so the project's settings, hooks and skills stay out |
-| Codex | `~/.codex/seats/…` | `config.toml` (`model_provider` and `model_providers` from your own `~/.codex/config.toml`; `workspace-write`, or `read-only` for Reviewer and Critic; `approval_policy = "never"`; subagents off), `model-catalog.json`, `rules/seatworks.rules`, `skills/`, an `auth.json` link, `AGENTS.md` | Paseo's Codex provider |
-| Pi | `~/.pi/seats/…` | `settings.json` (`pi-mcp-adapter`, project trust off, tool lists for Reviewer and Critic), `mcp.json`, `skills/`, links to login, models and npm | Paseo's Pi provider |
+| Codex | `~/.codex/seats/…` | `config.toml` (`model_provider` and `model_providers` from your own `~/.codex/config.toml`; `workspace-write`, or `read-only` for the Reviewer; `approval_policy = "never"`; subagents off), `model-catalog.json`, `rules/seatworks.rules`, `skills/`, an `auth.json` link, `AGENTS.md` | Paseo's Codex provider |
+| Pi | `~/.pi/seats/…` | `settings.json` (`pi-mcp-adapter`, project trust off, tool lists for the Lead and Reviewer), `mcp.json`, `skills/`, links to login, models and npm | Paseo's Pi provider |
 | OpenCode | `~/.config/opencode-seats/…` | `opencode/opencode.json` (your providers, permissions with command denials, subagents and questions off, autoupdate and sharing off), `opencode/AGENTS.md`, `opencode/skills/`, a link to your git config | Paseo's OpenCode provider, with its env given at each session |
 | Oh My Pi | `~/.omp/seats/…` | `config.yml` (command denials in `bash.patterns`, tool denials, subagents, questions, memory and other agents' config off), `mcp.json`, `AGENTS.md`, `skills/`, links to its login and models | Paseo's omp provider |
 
@@ -210,7 +208,7 @@ settings revision changes, its settings file is gone, or a login appeared since.
 | `context7` | Plain HTTP, no key | Library docs. Queries leave the machine |
 
 Catalog servers are off until a settings layer turns them on. One that names no roles goes to every
-role with desk tools except the Critic. `mcp/code.mjs` can pin calls to the seat's git root, sync
+role with desk tools. `mcp/code.mjs` can pin calls to the seat's git root, sync
 changed files, open and close the working copy in the backend, wait out indexing, rewrite errors and
 replace tool descriptions.
 

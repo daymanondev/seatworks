@@ -63,7 +63,6 @@ export const TeamView = z.object({
   errors: z.array(z.string()),
   attention: Attention,
   checkpoints: z.object({ risk: z.string(), land: z.enum(CHECKPOINT_MODES), landApprove: z.enum(["risky", "every"]), landLines: z.number(), forced: z.string().nullable() }),
-  critic: z.object({ by: z.enum(["seat", "off"]) }),
   rules: z.string(),
   mcp: z.record(
     z.string(),
@@ -152,10 +151,7 @@ export type WatchIncident = z.infer<typeof WatchIncident>;
 /** What the code noticed about the seats and nobody has marked yet, and the trouble nobody is mailed about. */
 const WatchView = z.object({ incidents: z.array(WatchIncident), trouble: z.array(z.object({ kind: z.string(), minutes: z.number(), detail: z.string() })) });
 export type WatchView = z.infer<typeof WatchView>;
-/** A Critic reading one lane, for the few minutes it lives. */
-const FlowCritic = z.object({ lane: z.string(), title: z.string(), seat: FlowSeat });
-export type FlowCritic = z.infer<typeof FlowCritic>;
-const FlowView = z.object({ project: z.string(), at: z.number(), revision: z.string(), supervisors: z.array(FlowSeat), critics: z.array(FlowCritic), lanes: z.array(FlowLane), moreLanes: z.number(), asks: z.array(FlowAsk), watch: WatchView });
+const FlowView = z.object({ project: z.string(), at: z.number(), revision: z.string(), supervisors: z.array(FlowSeat), lanes: z.array(FlowLane), moreLanes: z.number(), asks: z.array(FlowAsk), watch: WatchView });
 export type FlowView = z.infer<typeof FlowView>;
 export const FlowRead = z.union([FlowView, z.object({ unchanged: z.literal(true), revision: z.string() }), Refused]);
 export type FlowRead = z.infer<typeof FlowRead>;

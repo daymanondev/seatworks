@@ -10,7 +10,6 @@ import { type LaneHome, type Project, type ProjectConfig, configFile, detectGate
 import { type DeskServices, defineTool } from "../services.ts";
 import { type Refusal, openedReply, placement, seatingKey, serialIn, startLead } from "../opening.ts";
 import { waitsFor } from "../waiting.ts";
-import { seatCritic } from "../critique.ts";
 
 /** An unreadable issue ref is a note on the lane, never a reason to refuse opening it. */
 async function readIssue(args: Args, project: Project): Promise<{ issue?: Issue; unread?: string }> {
@@ -115,7 +114,6 @@ export const openLane = defineTool({
       const { issue } = await readIssue(args, project);
       const lane = recordWaiting(desk, caller, args, place, issue, after);
       desk.ctx.event(project, { kind: "lane.waiting", lane: lane.id, after });
-      await seatCritic(desk, project, lane);
       return ok(`Lane ${lane.id} waits for ${pending.map((entry) => `${entry.id} (${entry.status})`).join(", ")}. It opens by itself once they have all landed, checked again against the lanes open then; if it cannot, or one closes without landing, you get a letter. Close it to drop it.`);
     }
     const serial = await serialIn(desk.ctx.kit, project, project.root);
@@ -128,7 +126,6 @@ export const openLane = defineTool({
     const { lane } = placed;
     const started = await startLead(desk, project, lane, { ownCopy: placed.ownCopy, failed: "close", from: newBranch ? here : undefined, role: str(args.role), parent: caller.id, issue });
     if (typeof started === "string") return no(started);
-    await seatCritic(desk, project, lane);
     const unshared = started.slot.id && (await blockUncommitted(project.root))
       ? "\n\nThe team block in AGENTS.md and CLAUDE.md is not committed, so this lane's copy was made without it: ask the Human to commit those two files now."
       : "";

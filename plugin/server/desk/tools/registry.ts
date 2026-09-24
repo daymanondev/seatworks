@@ -1,4 +1,3 @@
-import { findings } from "../critique.ts";
 import type { ToolDef } from "../services.ts";
 import { accept } from "./accept.ts";
 import { markIncident } from "./mark-incident.ts";
@@ -49,5 +48,4 @@ export const TOOLS: ToolDef[] = [
   markIncident,
   record,
   note,
-  findings,
 ];

@@ -26,7 +26,7 @@ test("the shipped kit resolves to a complete team, and every role's seat builds 
   assert.deepEqual(Object.values(off.mcp).filter((state) => state.enabled), [], "the kit ships no server switched on");
   const team = resolveTeam(kit, { mcp: Object.fromEntries(Object.keys(kit.mcp).map((id) => [id, { enabled: true }])) });
   assert.deepEqual(team.errors, []);
-  assert.deepEqual(kit.roles.map((role) => role.role).sort(), ["critic", "lead", "peer", "reviewer", "supervisor"]);
+  assert.deepEqual(kit.roles.map((role) => role.role).sort(), ["lead", "peer", "reviewer", "supervisor"]);
   assert.deepEqual(Object.keys(kit.mcp).sort(), ["code-search", "context7", "intellij-index"]);
   const every = kit.roles.flatMap((role) => ["claude", "codex", "omp", "opencode", "pi"].map((harness) => `${role.role}-${harness}`)).sort();
   assert.deepEqual(seatPairs(kit).map((pair) => `${pair.role.role}-${pair.harness.id}`).sort(), every, "every role can sit on every agent the kit ships");
@@ -39,7 +39,7 @@ test("the shipped kit resolves to a complete team, and every role's seat builds 
     const dir = seatDir(kit, role, harness, home, where);
     assert.ok(existsSync(join(dir, harness.skillsDir)), `${name} skills dir`);
     assert.doesNotMatch(renderPrompt(kit, role, { guides: "/guides", state: "/state" }), /\{\{/, `${name} prompt has no placeholder left`);
-    // A seat with no rules to carry, like the Critic's, is given no context file at all.
+    // A seat with no rules to carry is given no context file at all.
     const contextFile = join(dir, harness.contextFile!);
     const context = existsSync(contextFile) ? readFileSync(contextFile, "utf-8") : "";
     assert.doesNotMatch(context, /\{\{/, `${name} seat has no placeholder left`);
@@ -70,7 +70,7 @@ test("every role builds on every agent the kit ships, each in that agent's own t
     const settings = readConfig<Record<string, any>>(join(dir, harness.settings.file), {});
     const where = `${role.role} on ${harness.id}`;
     // The Lead coordinates and keeps its pages with note; only Codex has no way to take its file tools away.
-    const edits = !["reviewer", "critic", "lead"].includes(role.role);
+    const edits = !["reviewer", "lead"].includes(role.role);
     // Mail wakes a coordinating seat; one that sleeps in its turn only holds the turn open.
     const waits = !["lead", "supervisor"].includes(role.role);
     if (harness.id === "claude") {
@@ -81,7 +81,7 @@ test("every role builds on every agent the kit ships, each in that agent's own t
       assert.deepEqual(settings.features, { multi_agent: false, multi_agent_v2: false }, `${where}: Paseo is the only control plane`);
       assert.equal(settings.approval_policy, "never", `${where}: nobody is there to approve`);
       assert.equal(settings.skills.bundled.enabled, false, `${where}: only the role's skills, as on every other agent`);
-      assert.equal(settings.sandbox_mode, ["reviewer", "critic"].includes(role.role) ? "read-only" : "workspace-write", where);
+      assert.equal(settings.sandbox_mode, role.role === "reviewer" ? "read-only" : "workspace-write", where);
       const catalog = JSON.parse(readFileSync(settings.model_catalog_json, "utf-8"));
       assert.ok(catalog.models.length > 0 && catalog.models.every((model: Record<string, unknown>) => model.multi_agent_version === null), `${where}: no model offers native agents`);
       assert.ok(settings.sandbox_workspace_write.writable_roots.every((path: string) => path.startsWith("/state/demo/")), `${where}: writes into the state only where its content says`);
@@ -104,20 +104,17 @@ test("every role builds on every agent the kit ships, each in that agent's own t
     }
     if (harness.id === "opencode") {
       const { bash, task, question, external_directory: outside } = settings.permission ?? {};
-      if (role.role === "critic") assert.equal(bash, "deny", `${where}: runs nothing`);
-      else {
-        assert.equal(Object.keys(bash)[0], "*", `${where}: the allow comes first, since the last rule that matches wins`);
-        assert.ok(bash["git push *"] === "deny" && bash["git -C * push *"] === "deny", `${where}: a seat does not push, with -C or without`);
-        assert.equal(bash["git commit *"] === "deny", ["supervisor", "lead", "reviewer"].includes(role.role), `${where}: commits only where the role may`);
-        assert.equal(bash["sleep *"] === "deny", !waits, `${where}: sleeps only where the role may`);
-      }
+      assert.equal(Object.keys(bash)[0], "*", `${where}: the allow comes first, since the last rule that matches wins`);
+      assert.ok(bash["git push *"] === "deny" && bash["git -C * push *"] === "deny", `${where}: a seat does not push, with -C or without`);
+      assert.equal(bash["git commit *"] === "deny", ["supervisor", "lead", "reviewer"].includes(role.role), `${where}: commits only where the role may`);
+      assert.equal(bash["sleep *"] === "deny", !waits, `${where}: sleeps only where the role may`);
       assert.deepEqual([task, question, outside], ["deny", "deny", "allow"], `${where}: no subagents, no question that stops the turn, and nothing waiting on a person`);
       assert.equal(settings.permission?.edit === "deny", !edits, `${where}: edits files only where the role may`);
     }
     if (harness.id === "pi") {
       assert.deepEqual(settings.packages, ["npm:pi-mcp-adapter"], `${where}: the desk's tools reach Pi only through the adapter`);
       assert.equal(settings.defaultProjectTrust, "never", `${where}: the repository's own .pi does not load in a seat`);
-      const tools = { reviewer: ["read", "bash", "grep", "find", "ls"], lead: ["read", "bash", "grep", "find", "ls"], critic: [] }[role.role as "reviewer"];
+      const tools = { reviewer: ["read", "bash", "grep", "find", "ls"], lead: ["read", "bash", "grep", "find", "ls"] }[role.role as "reviewer"];
       assert.deepEqual(settings.defaultTools, tools, where);
       // The adapter lists an unconnected server with no tools until first called, so a fresh Peer could not find `done`.
       const desk = readConfig<Record<string, any>>(join(dir, harness.mcp.file), {}).mcpServers?.team;
@@ -308,7 +305,7 @@ test("a prompt never tells a seat to use something that seat cannot reach", () =
   }
 });
 
-test("a pasted server that names no roles is given to every role that works with tools, and not to the Critic", () => {
+test("a pasted server that names no roles is given to every role that works with tools", () => {
   const kit = loadKit(pluginRoot);
   const team = resolveTeam(kit, { mcp: { pasted: { enabled: true, label: "Pasted", connect: { type: "http", url: "https://mcp.example.com" } } } });
   assert.deepEqual(team.errors, []);

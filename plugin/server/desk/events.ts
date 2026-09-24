@@ -52,8 +52,6 @@ export type DeskEvent =
   | { kind: "worktree.swept"; path: string }
   | { kind: "index.opened"; server: string; slot: string; reused: boolean; ok: boolean; detail: string }
   | { kind: "index.closed"; server: string; slot: string; ok: boolean; detail: string }
-  | { kind: "critique.asked"; lane: string; agent: string; words: number }
-  | { kind: "critique.found"; lane: string; agent: string; found: number; kinds: string[] }
   | { kind: "watch.fact"; agent: string; fact: string; level: Level; quote: string }
   | { kind: "watch.finding"; agent: string; finding: string; level: Finding["level"]; quote: string; facts: string[] }
   | { kind: "watch.unbriefed"; agent: string; error: string }

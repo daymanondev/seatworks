@@ -1,7 +1,7 @@
 import type { PluginHookContext } from "@getpaseo/plugin/server";
 import type { PendingPermission, PermissionResponse, SeatView } from "../../core/paseo.ts";
 import type { SeatLook, SeatSpec, Seats, Workspace, Workspaces } from "../../core/ports.ts";
-import { deskId, sentBy } from "../../core/sent-by.ts";
+import { deskId } from "../../core/sent-by.ts";
 import { type TimelineHandle, follow } from "../../core/stream.ts";
 
 export type PaseoApi = PluginHookContext["paseo"];
@@ -71,16 +71,6 @@ export function seatsOn(bound: Bound): Seats {
     async send(id: string, text: string, steer: boolean, kinds: string[]): Promise<void> {
       // The daemon takes `activeTurnBehavior` though the SDK's type leaves it out; the id is how `typed` and `sentBy` know the desk sent it.
       await ref(id).send(text, { messageId: deskId(kinds), ...(steer ? { activeTurnBehavior: "steer" } : {}) });
-    },
-    async typed(id: string): Promise<string[]> {
-      // Paseo projects history, one row per call, so a whole session fits.
-      const page = await ref(id).timeline.refetch({ direction: "tail", limit: 0 });
-      return page.entries.flatMap(({ item }) => {
-        if (item.type === "user_message" && typeof item.text === "string") return sentBy(item)[0] === "person" ? [item.text] : [];
-        // What the person chose when a seat asked them is their word too.
-        const output = (item.detail as { output?: { output?: unknown } } | undefined)?.output?.output;
-        return item.type === "tool_call" && item.name === "AskUserQuestion" && item.status === "completed" && typeof output === "string" ? [output] : [];
-      });
     },
     async history(id: string, limit: number) {
       const page = await ref(id).timeline.refetch({ direction: "tail", limit });

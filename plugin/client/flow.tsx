@@ -1,6 +1,6 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { SettingsCard, SettingsRow, SettingsSection, SettingsSwitch } from "@getpaseo/plugin/client/ui";
-import { Fragment, memo, useMemo } from "react";
+import { memo, useMemo } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Empty } from "./bits.tsx";
 import type { FlowLane, FlowSeat, FlowView } from "../shared/views.ts";
@@ -40,7 +40,6 @@ function useStyles(theme: PluginTheme) {
   return useMemo(
     () => ({
       canvas: { borderRadius: 8, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface0, overflow: "hidden" as const },
-      reads: { borderStyle: "dashed" as const },
       node: { width: NODE_W, height: NODE_H, gap: 4, paddingHorizontal: 12, paddingVertical: 12, borderRadius: 6, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface2 },
       head: { flexDirection: "row" as const, alignItems: "center" as const, gap: 8 },
       title: { flex: 1, color: theme.colors.foreground, fontSize: 14, fontWeight: "500" as const },
@@ -61,19 +60,18 @@ function useStyles(theme: PluginTheme) {
   );
 }
 
-const Node = memo(function Node({ title, hint, state, alive, caret, reads, theme, onPress }: {
+const Node = memo(function Node({ title, hint, state, alive, caret, theme, onPress }: {
   title: string;
   hint: string;
   state: string;
   alive: boolean;
   caret?: string;
-  reads?: boolean;
   theme: PluginTheme;
   onPress?: () => void;
 }) {
   const styles = useStyles(theme);
   return (
-    <Pressable accessibilityRole={onPress ? "button" : "text"} accessibilityLabel={title} disabled={!onPress} onPress={onPress} style={[styles.node, reads ? styles.reads : null]}>
+    <Pressable accessibilityRole={onPress ? "button" : "text"} accessibilityLabel={title} disabled={!onPress} onPress={onPress} style={styles.node}>
       <View style={styles.head}>
         <Text style={styles.title} numberOfLines={1}>
           {title}
@@ -166,17 +164,9 @@ export function FlowSection({ following, flow, error, live, theme, disabled, onL
         <View style={styles.canvas}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={{ paddingBottom: PAD }}>
-              {flow.supervisors.map((seat, index) => (
+              {flow.supervisors.map((seat) => (
                 <View key={seat.id} style={styles.lane}>
                   <Node theme={theme} title={seat.role === "supervisor" ? "Supervisor" : `Supervisor · ${seat.role}`} hint={seat.id} state={seatText(seat)} alive={seat.status !== "gone"} />
-                  {index === 0
-                    ? flow.critics.map((critic) => (
-                        <Fragment key={critic.seat.id}>
-                          <View style={{ width: COL_GAP }} />
-                          <Node theme={theme} title={`Critic · ${critic.lane} ${critic.title}`.trim()} hint="the lane vs the Human's words" state={seatText(critic.seat)} alive={critic.seat.status !== "gone"} reads />
-                        </Fragment>
-                      ))
-                    : null}
                 </View>
               ))}
               {flow.lanes.map((lane) => (

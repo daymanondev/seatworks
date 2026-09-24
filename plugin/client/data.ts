@@ -1,7 +1,7 @@
 import { useRpc, usePaseo } from "@getpaseo/plugin/client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { catalogRpc, doctorRpc, flowRpc, mcpParseRpc, pathsRpc, projectsAddRpc, projectsCandidatesRpc, projectsRemoveRpc, projectsRpc, settingsReadRpc, settingsWriteRpc, statusRpc, teamRpc } from "../shared/rpc.ts";
-import type { AttentionChoice, CriticBy, Layer, McpChoice, RoleChoice } from "../shared/settings.ts";
+import type { AttentionChoice, Layer, McpChoice, RoleChoice } from "../shared/settings.ts";
 import type { CatalogView, FlowView, ProjectRow, TeamView, WatchIncident } from "../shared/views.ts";
 
 export type PaseoProject = { name: string; root: string };
@@ -401,10 +401,6 @@ export function modelRow(model: string, models: { id: string; label: string }[])
 
 export function setAttention(values: Layer, choice: AttentionChoice): Layer {
   return { ...values, attention: { ...values.attention, ...choice } };
-}
-
-export function setCritic(values: Layer, by: CriticBy): Layer {
-  return { ...values, critic: { ...values.critic, by } };
 }
 
 export function setCheckpoint(values: Layer, choice: NonNullable<Layer["checkpoints"]>): Layer {

@@ -17,7 +17,7 @@ const ended = (text: string) => (/[.!?]$/.test(text.trim()) ? text.trim() : `${t
 
 /** Every kind of letter the desk mails. A letter's key starts with its kind, and so does the id Paseo shows for the message. */
 type Kind =
-  | "answer" | "answeredFor" | "ask" | "amended" | "canland" | "critique" | "detour" | "done" | "escalate" | "failed" | "gone"
+  | "answer" | "answeredFor" | "ask" | "amended" | "canland" | "detour" | "done" | "escalate" | "failed" | "gone"
   | "halfopen" | "held" | "idle" | "incident" | "land" | "landback" | "landheld" | "later" | "leadgone" | "merge" | "message"
   | "notstarted" | "nudge" | "opened" | "permission" | "reconcile" | "remind" | "report" | "rework" | "silent" | "started" | "unanswered";
 
@@ -314,21 +314,6 @@ export const letters = {
 
   escalated(ask: Ask, minutes: number, lane: string): Letter {
     return mail("escalate", [ask.id], [`UNANSWERED ${ask.id} in ${lane}: a Peer has waited ${minutes} minutes on its Lead.`, "", ask.text, ...theirDefault(ask)].join("\n"));
-  },
-
-  critique(lane: Lane, found: { kind: string; human: string; lane: string; why: string; question: string }[], critic: string): Letter {
-    const points = found.map(
-      (point, index) =>
-        `${index + 1}. ${point.kind} — ${point.human ? `the Human: "${point.human}"` : "the Human said nothing of it"}; ${point.lane ? `the lane: "${point.lane}"` : "the lane says nothing of it"}.\n   ${point.why}\n   Ask: ${point.question}`,
-    );
-    const text = [
-      `CRITIQUE ${lane.id} (${lane.title}): ${found.length} point${found.length === 1 ? "" : "s"} where the Human's words and the lane may not agree, from a Critic that read only those words, CONTEXT.md and the lane.`,
-      "",
-      ...points,
-      "",
-      "Weigh each on the Human's words, not on who raised it: amend_lane where it is right, ask the Human where only they can settle it (the questions above, at most five, one decision each), and let it go where it is wrong.",
-    ].join("\n");
-    return mail("critique", [lane.id, critic], text);
   },
 
   mailbox(items: string[], open: Ask[]): string {

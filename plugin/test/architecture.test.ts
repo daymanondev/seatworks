@@ -35,21 +35,21 @@ const NAMED = [
 const LIMITS = { file: 300, testFile: 400, function: 50 };
 
 const LONG_FILES: Record<string, number> = {
-  "client/data.ts": 446,
+  "client/data.ts": 442,
   "mcp/code.mjs": 308,
   "server/catalog/seats.ts": 371,
-  "server/desk/letters.ts": 341,
+  "server/desk/letters.ts": 326,
   "server/desk/slots.ts": 378,
-  "server/runtime/control.ts": 459,
-  "server/runtime/runtime.ts": 401,
+  "server/runtime/control.ts": 458,
+  "server/runtime/runtime.ts": 399,
   "test/runtime/facts.test.ts": 418,
   "test/runtime/intake.test.ts": 559,
-  "test/runtime/workflow.test.ts": 1776,
+  "test/runtime/workflow.test.ts": 1775,
 };
 
 const LONG_FUNCTIONS: Record<string, number> = {
   "client/data.ts useSeatworks": 240,
-  "client/flow.tsx FlowSection": 82,
+  "client/flow.tsx FlowSection": 74,
   "client/health.tsx HealthSection": 94,
   "client/model-picker.tsx ModelPicker": 128,
   "client/projects.tsx ProjectList": 57,
@@ -63,7 +63,7 @@ const LONG_FUNCTIONS: Record<string, number> = {
   "server/adapters/paseo/agents.ts workspacesOn": 57,
   "server/catalog/team.ts resolveRole": 60,
 
-  "server/desk/flow.ts flowView": 100,
+  "server/desk/flow.ts flowView": 93,
   "server/desk/status.ts statusText": 104,
   "server/runtime/doctor.ts doctor": 77,
   "server/runtime/watch/history.ts deskFacts": 54,

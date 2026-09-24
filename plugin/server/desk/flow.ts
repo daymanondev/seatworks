@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { SeatView } from "../core/paseo.ts";
 import { AT_WORK, SETTLED } from "../domain/task.ts";
 import type { Ledger } from "./ledger.ts";
-import type { FlowAsk, FlowCritic, FlowLane, FlowSeat, FlowTask, FlowView } from "../../shared/views.ts";
+import type { FlowAsk, FlowLane, FlowSeat, FlowTask, FlowView } from "../../shared/views.ts";
 import type { Project } from "./project.ts";
 
 
@@ -115,14 +115,7 @@ export function flowView(
     shown.set(agent.id, seatOf(seats, agent.id, agent.role, now, heard(agent.id))!);
   }
   const supervisors = [...shown.values()];
-  // A Critic is never in the ledger: it lives one look, known by the lane its labels name.
-  const critics: FlowCritic[] = [...seats.values()].flatMap((seat) => {
-    const lane = seat.labels?.["seatworks.critique"];
-    if (!lane || seat.archivedAt || seat.labels?.["seatworks.project"] !== project.slug) return [];
-    return [{ lane, title: ledger.lanes[lane]?.title ?? "", seat: seatOf(seats, seat.id, "critic", now)! }];
-  });
-
-  const body = { project: project.slug, supervisors, critics, lanes, moreLanes, asks };
+  const body = { project: project.slug, supervisors, lanes, moreLanes, asks };
   const revision = createHash("sha1").update(JSON.stringify(body)).digest("hex").slice(0, 16);
   return { ...body, at: now, revision };
 }

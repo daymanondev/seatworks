@@ -42,7 +42,7 @@ These are mostly absences, so the code won't show them to you.
 - **The plugin never judges the work.** A gate result is evidence the Lead weighs. The only verdict
   the desk acts on is a red gate when a lane lands, and the Supervisor can override it.
 - **Capabilities, not names.** No code under `server/` compares a role to a name. What a role can do
-  (`supervise`, `lead`, `work`, `write`, `review`, `critique`, `watched`) decides routing,
+  (`supervise`, `lead`, `work`, `write`, `review`, `watched`) decides routing,
   acceptance and watching.
 - **One door to Paseo.** Only `server/adapters/paseo/` imports Paseo's SDK: it registers the hooks,
   binds the daemon's API from each hook and panel call, and calls the agent, workspace and model API.

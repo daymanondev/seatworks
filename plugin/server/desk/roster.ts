@@ -32,10 +32,6 @@ export class Roster {
     return this.seats.look(agentId);
   }
 
-  typed(agentId: string): Promise<string[]> {
-    return this.seats.typed(agentId);
-  }
-
   history(agentId: string, limit: number): Promise<StreamRow[]> {
     return this.seats.history(agentId, limit);
   }

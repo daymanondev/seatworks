@@ -37,8 +37,6 @@ export type Seats = {
   open(): Promise<SeatView[]>;
   look(id: string): Promise<SeatLook>;
   send(id: string, text: string, steer: boolean, kinds: string[]): Promise<void>;
-  /** What a person said to the seat, oldest first: the messages the desk did not send, and their answers when it asked. */
-  typed(id: string): Promise<string[]>;
   /** The last `limit` entries of the seat's history, whole, as Paseo projects them; an archived seat is started again to read it. */
   history(id: string, limit: number): Promise<StreamRow[]>;
   respond(id: string, requestId: string, response: PermissionResponse): Promise<void>;

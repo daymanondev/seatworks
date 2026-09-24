@@ -10,7 +10,6 @@ import {
   type RoleSpec,
   PASEO_SERVER,
   TEAM_SERVER,
-  can,
   supportsRole,
   agentDefault,
 } from "./kit.ts";
@@ -35,8 +34,6 @@ export type Team = {
   attention: Attention;
   /** `forced` says why a check runs at its strictest though nobody chose it: settings the desk could not read. */
   checkpoints: Checkpoints;
-  /** Who reads a new lane against the Human's own words before its Lead gets far: a Critic seat, or nobody. */
-  critic: { by: "seat" | "off" };
   rules: string;
   errors: string[];
 };
@@ -61,14 +58,11 @@ export function templateRoles(entry: McpEntry): string[] {
   return entry.kind === "proxy" ? Object.keys(entry.tools ?? {}) : (entry.roles ?? []);
 }
 
-/** No roles named means every role working with tools, not a Critic: a pasted server's tools can write. */
+/** No roles named means every role working with tools. */
 function eligibleRoles(state: McpState, kit: Kit): string[] {
   const entry = state.entry;
   if (entry?.kind === "proxy") return Object.keys(state.tools ?? entry.tools ?? {});
-  // A Critic reads a lane and does no work, and a pasted server's tools can write.
-  const working = () => kit.roles.filter((role) => role.tools && !can(role, "critique")).map((role) => role.role);
-  if (entry) return entry.roles ?? working();
-  return working();
+  return entry?.roles ?? kit.roles.filter((role) => role.tools).map((role) => role.role);
 }
 
 export function transportOf(state: McpState): McpTransport {
@@ -226,7 +220,6 @@ export function resolveTeam(kit: Kit, machine: Layer = {}, project: Layer = {}, 
             landApprove: project.checkpoints?.landApprove ?? machine.checkpoints?.landApprove ?? "risky",
             landLines: project.checkpoints?.landLines ?? machine.checkpoints?.landLines ?? LAND_LINES,
           },
-    critic: { by: project.critic?.by ?? machine.critic?.by ?? "seat" },
     rules: [machine.rules, project.rules].filter((text) => text && text.trim()).join("\n\n"),
     errors,
   };

@@ -124,7 +124,6 @@ export function describeTeam(kit: Kit, team: Team, project?: Project): TeamView 
     errors: team.errors,
     attention: team.attention,
     checkpoints: { ...team.checkpoints, forced: team.checkpoints.forced ?? null },
-    critic: team.critic,
     rules: team.rules,
     mcp: Object.fromEntries(
       Object.entries(team.mcp).map(([id, state]) => [

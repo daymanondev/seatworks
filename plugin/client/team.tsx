@@ -10,7 +10,6 @@ import type { CatalogView, ModelsRefreshed, TeamView } from "../shared/views.ts"
 import { message, modelRow, setAttention, setCheckpoint, setRole, sourceOf } from "./data.ts";
 import { ModelPicker } from "./model-picker.tsx";
 import { TabBar } from "./tabs.tsx";
-import { CriticSettings } from "./critic.tsx";
 
 type Props = {
   catalog: CatalogView;
@@ -64,7 +63,7 @@ function ModelsCard({ catalog, disabled, reload }: Pick<Props, "catalog" | "disa
 
 type Role = CatalogView["roles"][number];
 
-/** Rows, not a component: the card borders each child it gets, and the Critic's card wraps its own rows around these. */
+/** Rows, not a component: the card borders each child it gets. */
 function roleRows({ catalog, team, values, machine, layer, theme, disabled, save, role }: Omit<Props, "active" | "onActive" | "reload"> & { role: Role }): ReactElement[] {
   const seat = team.roles[role.id];
   const follows = role.follows ? catalog.roles.find((entry) => entry.id === role.follows)?.label : undefined;
@@ -187,11 +186,7 @@ export function TeamSection(props: Props) {
   return (
     <SettingsSection title="Team" info={role.description}>
       <TabBar theme={theme} active={role.id} disabled={disabled} onPick={onActive} tabs={catalog.roles.map((entry) => ({ id: entry.id, label: entry.label }))} />
-      {role.can.includes("critique") ? (
-        <CriticSettings {...props} rows={roleRows({ ...props, role })} />
-      ) : (
-        <SettingsCard>{roleRows({ ...props, role })}</SettingsCard>
-      )}
+      <SettingsCard>{roleRows({ ...props, role })}</SettingsCard>
       {role.can.includes("supervise") ? <LandCheckCard {...props} /> : null}
       {role.can.includes("supervise") ? <IncidentMailCard {...props} /> : null}
       <ModelsCard catalog={props.catalog} disabled={props.disabled} reload={props.reload} />
