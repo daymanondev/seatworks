@@ -1,6 +1,7 @@
 import { execFile, execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { globToRegex, normalize } from "./scope.ts";
 
 export type Run = { code: number; stdout: string; stderr: string };
 
@@ -155,9 +156,9 @@ export async function diffCounts(cwd: string, from: string, to: string, uncounte
 
 export function outsideOwned(files: string[], owned: string[]): string[] {
   if (owned.length === 0) return [];
-  const prefixes = owned.map((path) => path.replace(/^\.\//, "").replace(/\*+.*$/, ""));
-  // On a path boundary: an owned "src/app" is not ownership of "src/apparel/secret.ts".
-  return files.filter((file) => !prefixes.some((prefix) => file === prefix || (prefix !== "" && file.startsWith(prefix.endsWith("/") ? prefix : `${prefix}/`))));
+  // A plain path owns what is under it too, on a path boundary: an owned "src/app" is not ownership of "src/apparel/secret.ts".
+  const rules = owned.map((path) => globToRegex(/[*?{]/.test(path) ? path : `${normalize(path).replace(/\/$/, "")}{,/**}`));
+  return files.filter((file) => !rules.some((rule) => rule.test(file)));
 }
 
 export type LandResult = { landed: boolean; how: string };

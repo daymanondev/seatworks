@@ -115,6 +115,8 @@ test("lines are counted as source, tests or docs, and files outside owned paths 
   assert.deepEqual({ src: counts.src, test: counts.test, docs: counts.docs }, { src: 12, test: 5, docs: 6 });
   assert.deepEqual(outsideOwned(["src/a.js", "src/b/c.js", "lib/x.js"], ["src/a.js", "src/b/"]), ["lib/x.js"]);
   assert.deepEqual(outsideOwned(["src/apparel/secret.ts"], ["src/app"]), ["src/apparel/secret.ts"], "an owned src/app is not ownership of src/apparel");
+  // A write set as a Supervisor writes it: a glob from the front, and a choice of extensions.
+  assert.deepEqual(outsideOwned(["test/cart.test.js", "src/cart.ts", "src/cart.md"], ["**/test*/**", "**/*.{js,ts}"]), ["src/cart.md"]);
 });
 
 test("a rename is counted as the two real paths it moved between, not as git's display form", async () => {

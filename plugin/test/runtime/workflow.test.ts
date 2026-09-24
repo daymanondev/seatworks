@@ -35,6 +35,8 @@ test("write sets overlap by path prefix and glob, and serial-only paths are caug
   assert.ok(firstOverlap(["app/a*.tsx"], ["app/*b.tsx"]), "app/ab.tsx satisfies both");
   assert.ok(firstOverlap(["src/?.ts"], ["src/a.*"]), "src/a.ts satisfies both");
   assert.equal(firstOverlap(["src/*.ts"], ["src/*.py"]), undefined, "and one extension cannot be the other");
+  assert.ok(firstOverlap(["**/*.{js,ts}"], ["src/a.js"]), "a choice of extensions overlaps the file it names");
+  assert.equal(firstOverlap(["src/*.{js,ts}"], ["src/*.py"]), undefined);
   // Rules and write sets are both globs, so rules resolve against tracked files, or every subtree lane would wait.
   const tracked = ["package-lock.json", "db/migrations/0001.sql", "src/app.ts", "Assets/Scenes/Main.unity"];
   const serial = serialPaths(tracked, SERIAL_ONLY);
