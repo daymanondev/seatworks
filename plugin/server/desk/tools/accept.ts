@@ -32,7 +32,7 @@ export const accept = defineTool({
     if (task.kind !== "code") return no(`${task.id} is a review; cut it when you are done with it.`);
     if (!TASK.may(task.status, task.mode === "parallel" ? "queue" : "accept")) return no(`${task.id} is ${task.status}.`);
     if (task.mode === "parallel") {
-      const queued = await ctx.moveTask(project, task.id, "queue");
+      const queued = await ctx.moveTask(project, task.id, "queue", (entry) => (entry.queuedAt = Date.now()));
       if (typeof queued !== "object") return no(`${task.id} is ${queued ?? "gone"}.`);
       const ahead = Object.values(loadLedger(project.state).tasks).filter((entry) => IN_QUEUE.includes(entry.status)).length - 1;
       merges.enqueue(project, task.id);

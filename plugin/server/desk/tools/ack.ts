@@ -2,7 +2,7 @@ import { z } from "zod";
 import { close } from "../../domain/incident.ts";
 import { no, ok, str } from "../context.ts";
 import type { Incident } from "../incidents.ts";
-import { clip } from "../letters.ts";
+import { clip } from "../../core/text.ts";
 import { mask } from "../../core/mask.ts";
 import { defineTool } from "../services.ts";
 import { at, mine } from "./incidents.ts";

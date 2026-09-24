@@ -5,7 +5,7 @@ import { blockUncommitted } from "../../catalog/project-files.ts";
 import { type Args, type Caller, no, ok, str, strs } from "../context.ts";
 import { type Issue, fetchIssue } from "../issue.ts";
 import { type Lane, loadLedger, nextLaneId, slugify } from "../ledger.ts";
-import { clip } from "../letters.ts";
+import { clip } from "../../core/text.ts";
 import { type Project, configFile, detectGate, loadConfig, saveConfig } from "../project.ts";
 import { type DeskServices, defineTool } from "../services.ts";
 import { openedReply, placement, seatingKey, startLead } from "../opening.ts";

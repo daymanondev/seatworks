@@ -1,16 +1,18 @@
 import { type Kit, can, seatOf } from "../catalog/kit.ts";
-import { answerWith, questionsIn } from "../core/paseo.ts";
+import { answerWith, midTurn, questionsIn } from "../core/paseo.ts";
 import type { SeatLook, SeatView, Seats } from "../core/ports.ts";
+import type { Intents } from "./intents.ts";
 import { type Project, projectOf } from "./project.ts";
 
 export class Roster {
-  readonly pendingArchive = new Set<string>();
   private readonly kit: Kit;
   private readonly seats: Seats;
+  private readonly intents: Intents;
 
-  constructor(kit: Kit, seats: Seats) {
+  constructor(kit: Kit, seats: Seats, intents: Intents) {
     this.kit = kit;
     this.seats = seats;
+    this.intents = intents;
   }
 
   open(): Promise<SeatView[]> {
@@ -72,20 +74,31 @@ export class Roster {
     return can(seatOf(this.kit, seat.provider)?.role, capability) && projectOf(seat.cwd).slug === project.slug;
   }
 
+  /** Whether the seat is archived once its turn ends. */
+  archiving(agentId: string): boolean {
+    return this.intents.toArchive().includes(agentId);
+  }
+
   async archive(agentId: string | undefined, force = false): Promise<void> {
     if (!agentId) return;
     try {
-      if (!force) {
-        const seat = await this.seats.look(agentId);
-        if (seat.status === "running" || seat.status === "initializing") {
-          this.pendingArchive.add(agentId);
-          return;
-        }
+      if (!force && midTurn((await this.seats.look(agentId)).status)) {
+        this.intents.archiveLater(agentId);
+        return;
       }
-      this.pendingArchive.delete(agentId);
+      this.intents.archived(agentId);
       await this.seats.archive(agentId);
     } catch (error) {
       console.error(`seatworks-v2: archiving ${agentId} failed:`, error);
+    }
+  }
+
+  /** After a stop: a seat left to end its turn goes now if the listing shows that turn over, and is forgotten if it is gone. */
+  async archiveWaiting(listed: Map<string, SeatView>): Promise<void> {
+    for (const id of this.intents.toArchive()) {
+      const seat = listed.get(id);
+      if (!seat) this.intents.archived(id);
+      else if (!midTurn(seat.status)) await this.archive(id);
     }
   }
 }

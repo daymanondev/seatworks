@@ -78,7 +78,7 @@ export class Agents {
       ? Object.values(loadLedger(project.state).tasks).filter((other) => other.id !== task.id && other.slot === task.slot && other.status === "running")
       : [];
     for (const other of sharing) await this.roster.archive(other.peer);
-    const writing = [task.peer, ...sharing.map((other) => other.peer)].filter((id): id is string => typeof id === "string" && this.roster.pendingArchive.has(id));
+    const writing = [task.peer, ...sharing.map((other) => other.peer)].filter((id): id is string => typeof id === "string" && this.roster.archiving(id));
     return this.slots.putAway({ project, slot: task.slot, dropBranch: task.branch, into }, writing);
   }
 }

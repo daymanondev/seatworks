@@ -33,7 +33,7 @@ export class Patrol {
   private readonly deps: PatrolDeps;
   private readonly idleFlag = new Map<string, string>();
   private readonly goneFlag = new Set<string>();
-  private reaped = false;
+  private resumed = false;
   private round: Promise<void> | undefined;
 
   constructor(deps: PatrolDeps) {
@@ -76,14 +76,9 @@ export class Patrol {
       await this.step(project, "a copy waiting on a seat could not be put away", () => desk.reapSlots(project, new Set(seats.keys())));
       await this.step(project, "the status page could not be written", async () => this.writeStatus(project, seats, now));
     }
-    // A restart loses teardowns waiting on a turn, so the first round looks once at every project on record.
-    if (!this.reaped) {
-      this.reaped = true;
-      const live = new Set(seats.keys());
-      for (const project of this.deps.source.known()) {
-        if (desk.projects.has(project.slug)) continue;
-        await this.step(project, "a copy left behind by a restart could not be put away", () => desk.reapSlots(project, live));
-      }
+    if (!this.resumed && seats.size > 0) {
+      this.resumed = true;
+      await this.resume(seats);
     }
     const targets = new Set(outbox.letters().map((letter) => letter.to));
     for (const to of targets) {
@@ -92,6 +87,24 @@ export class Patrol {
       } catch (error) {
         console.error(`seatworks-v2: mail for ${to} could not be delivered:`, error);
       }
+    }
+  }
+
+  /**
+   * A stop loses the turns that ended and the merges that waited while the plugin was down, so the first round that sees
+   * seats takes them up once, for every project on record; an empty listing is a daemon that answered nothing.
+   */
+  private async resume(seats: SeatMap): Promise<void> {
+    const { desk } = this.deps;
+    try {
+      await desk.resume(seats);
+    } catch (error) {
+      console.error("seatworks-v2: what waited on a turn when the plugin stopped could not be taken up:", error);
+    }
+    const live = new Set(seats.keys());
+    for (const project of this.deps.source.known()) {
+      await this.step(project, "the merges queued when the plugin stopped could not be taken up", () => desk.resumeMerges(project));
+      if (!desk.projects.has(project.slug)) await this.step(project, "a copy left behind by a restart could not be put away", () => desk.reapSlots(project, live));
     }
   }
 

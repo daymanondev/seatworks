@@ -56,6 +56,10 @@ export function outboxPath(homeDir = home()): string {
   return join(stateRoot(homeDir), "outbox.json");
 }
 
+export function intentsPath(homeDir = home()): string {
+  return join(stateRoot(homeDir), "intents.json");
+}
+
 export function pluginDir(configPath = paseoConfigPath()): string | undefined {
   if (process.env.SEATWORKS_PLUGIN_DIR) return process.env.SEATWORKS_PLUGIN_DIR;
   try {

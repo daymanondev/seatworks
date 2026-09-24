@@ -2,7 +2,8 @@ import { trackedFiles } from "../core/git.ts";
 import { serialPaths } from "../core/scope.ts";
 import { type Issue, fetchIssue } from "./issue.ts";
 import type { Lane } from "./ledger.ts";
-import { letters, list, outside } from "./letters.ts";
+import { outside } from "../core/text.ts";
+import { letters, list } from "./letters.ts";
 import type { Kit } from "../catalog/kit.ts";
 import { type Project, conceptFile, loadConfig, serialOnlyOf } from "./project.ts";
 

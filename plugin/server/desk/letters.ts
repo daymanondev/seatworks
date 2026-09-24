@@ -1,5 +1,6 @@
 import { TEAM_SERVER } from "../catalog/kit.ts";
 import type { Counts } from "../core/git.ts";
+import { clip, outside } from "../core/text.ts";
 import { type PendingPermission, questionsIn } from "../core/paseo.ts";
 import { IN_QUEUE } from "../domain/task.ts";
 import type { Incident } from "./incidents.ts";
@@ -7,29 +8,6 @@ import type { Amendment, Ask, Lane, Task } from "./ledger.ts";
 
 export const list = (items: string[] | undefined, empty = "none") => (items && items.length > 0 ? items.map((item) => `- ${item}`).join("\n") : empty);
 const firstLine = (text: string) => text.split(/\r?\n/).find((line) => line.trim())?.trim() ?? "";
-
-/** Text from outside the team, fenced so it cannot speak as the desk: the words inside must not be able to close the fence. */
-export function outside(tag: string, text: string, limit: number): string {
-  // One pass, cutting a fence as its last character arrives: a removal can join a new fence, and repeated sweeps go quadratic.
-  const open = `<${tag}>`.toLowerCase();
-  const close = `</${tag}>`.toLowerCase();
-  const kept: string[] = [];
-  const ends = (token: string) => {
-    if (kept.length < token.length) return false;
-    for (let at = 0; at < token.length; at++) if (kept[kept.length - token.length + at]!.toLowerCase() !== token[at]) return false;
-    return true;
-  };
-  for (let at = 0; at < text.length; at++) {
-    kept.push(text[at]!);
-    const fence = ends(close) ? close : ends(open) ? open : undefined;
-    if (fence) kept.length -= fence.length;
-  }
-  return clip(kept.join(""), limit);
-}
-
-export function clip(text: string, limit: number): string {
-  return text.length <= limit ? text : `${text.slice(0, limit).trimEnd()}\n[… ${text.length - limit} more characters]`;
-}
 
 const line = (text: string, limit: number) => clip(text.replace(/\s+/g, " ").trim(), limit);
 
@@ -84,6 +62,10 @@ export const letters = {
   /** The answer to a call that ran longer than the seat that made it could wait for. */
   later(tool: string, reply: { ok: boolean; text: string }): string {
     return [`ANSWER to your ${tool} call, which ran longer than a tool call can wait.`, "", reply.ok ? reply.text : `It was refused: ${reply.text}`].join("\n");
+  },
+
+  unanswered(tool: string): string {
+    return `NO ANSWER to your ${tool} call: the desk stopped before it finished, so the answer it said would come as mail will not. Call ${tool} again if it still needs doing.`;
   },
 
   handback(task: Task, file: string, body: string, peer: string): string {

@@ -135,7 +135,9 @@ change goes through one per-project lock. A ledger it can't read is refused, nev
 - **Lane mode**, the default. The task shares the lane's copy and branch. `accept` marks it merged
   in place.
 - **Parallel mode.** The task gets its own slot and `task/…` branch. `accept` queues it, and one merge
-  queue per project merges branches into their lane, one at a time.
+  queue per project merges branches into their lane, one at a time. The queue is the tasks' status in
+  the ledger, so a restart picks it up: a merge cut off midway is undone and run again, and one git had
+  already made is only recorded.
 
 **Landing.** `close_lane` with `land` does three things in a fixed order:
 
@@ -148,7 +150,8 @@ A seat mid-turn, a conflict or a red gate refuses the call and leaves the lane o
 can be overridden, with `overGate`, and the override is written to `events.log`.
 
 **Teardown** waits for seats that are still mid-turn. The pending release is recorded in the ledger,
-so a daemon restart doesn't lose it. Your checkout goes back to base. A landed lane's branch is
+and a seat waiting to be archived in `intents.json`, so a daemon restart loses neither: the first
+round after it treats every turn that ended meanwhile as ending then. Your checkout goes back to base. A landed lane's branch is
 deleted, and one closed without landing is kept for you.
 
 **The first gate.** The first `open_lane` of a project with no recorded gate detects one from the
@@ -160,7 +163,9 @@ project's files, for example `npm test` or `cargo test`. `set_project` changes i
 
 **In.** A seat calls a desk tool. `team.mjs` writes the call as a file under `spool/requests/`.
 The daemon drains the spool every 500 ms, checks the arguments, runs the verb and writes a reply.
-A call still running after 240 s is answered with "the answer arrives as mail".
+A call still running after 240 s is answered with "the answer arrives as mail". That promise is
+kept in `intents.json` until the letter is posted; if the plugin stops first, the seat is told NO
+ANSWER when it starts again.
 
 **Out.** Every letter goes into one `outbox.json`. Mail to a seat is pumped when a letter is
 posted, when a turn ends, and after each patrol round. Everything waiting for one seat goes out as

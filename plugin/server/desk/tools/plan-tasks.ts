@@ -3,7 +3,7 @@ import { trackedFiles } from "../../core/git.ts";
 import { serialPaths } from "../../core/scope.ts";
 import { no, ok } from "../context.ts";
 import { laneOfLead, loadLedger } from "../ledger.ts";
-import { clip } from "../letters.ts";
+import { clip } from "../../core/text.ts";
 import { planFindings, readPlan } from "../plan.ts";
 import { serialOnlyOf } from "../project.ts";
 import { defineTool } from "../services.ts";

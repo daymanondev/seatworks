@@ -6,7 +6,8 @@ import { firstOverlap, serialHits, serialPaths, serialReach } from "../core/scop
 import { HOLDS_COPY, TASK } from "../domain/task.ts";
 import type { Issue } from "./issue.ts";
 import { type Lane, type Ledger, type Task, activeTasks, loadLedger, ownCopyHolder } from "./ledger.ts";
-import { letters, outside } from "./letters.ts";
+import { outside } from "../core/text.ts";
+import { letters } from "./letters.ts";
 import { directiveFor } from "./directive.ts";
 import { type Project, loadConfig, serialOnlyOf } from "./project.ts";
 import type { DeskServices } from "./services.ts";

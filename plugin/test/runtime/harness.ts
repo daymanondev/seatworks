@@ -180,11 +180,20 @@ export function harness() {
   mkdirSync(state, { recursive: true });
   writeFileSync(join(state, "settings.json"), JSON.stringify({ mcp: { "intellij-index": { enabled: true }, "code-search": { enabled: true }, context7: { enabled: true } } }));
   const { paseo, agents, add, workspaces, workspaceNames, workspaceProjects, archivedWorkspaces, timelineOf } = fakePaseo();
-  const runtime = new Runtime(kit, new PaseoHost(paseo), { codeIndex: (proxy: { id: string; gitExclude?: string[] }) => ({ ...ide, id: proxy.id, gitExclude: proxy.gitExclude ?? [] }), reloadDaemon: async () => true });
-  made.push(runtime);
   const project = projectOf(root);
-  // Paseo seats a project's agents through the create hook, which records the project; the seats added here skip it.
-  (runtime as unknown as { remember(project: Project): void }).remember(project);
+  const start = () => {
+    const next = new Runtime(kit, new PaseoHost(paseo), { codeIndex: (proxy: { id: string; gitExclude?: string[] }) => ({ ...ide, id: proxy.id, gitExclude: proxy.gitExclude ?? [] }), reloadDaemon: async () => true });
+    made.push(next);
+    // Paseo seats a project's agents through the create hook, which records the project; the seats added here skip it.
+    (next as unknown as { remember(project: Project): void }).remember(project);
+    return next;
+  };
+  let runtime = start();
+  // The plugin starting again on the same machine: the daemon, its agents and what is on disk stay, the plugin's memory does not.
+  const restart = () => {
+    runtime.dispose();
+    runtime = start();
+  };
   let n = 0;
   // `where` is the calling working copy, since several desk keys turned out shared between projects.
   const call = async (agent: string, role: string, tool: string, args: Record<string, unknown>, where = root) =>
@@ -213,7 +222,31 @@ export function harness() {
     return runtime.turnEnded({ agent: agentOf(id), turnId: `t-${id}-${Date.now()}`, outcome: { kind: "completed" }, timeline: [...timeline] });
   };
   const permission = (id: string, request: Pending) => runtime.permissionRequested({ agent: agentOf(id), request });
-  return { root, git, paseo, agents, add, workspaces, workspaceNames, workspaceProjects, archivedWorkspaces, runtime, project, call, idle, commit, ledger, endTurn, tick, beginTurn, permission, timelineOf };
+  return {
+    root,
+    git,
+    paseo,
+    agents,
+    add,
+    workspaces,
+    workspaceNames,
+    workspaceProjects,
+    archivedWorkspaces,
+    get runtime() {
+      return runtime;
+    },
+    project,
+    call,
+    idle,
+    commit,
+    ledger,
+    endTurn,
+    tick,
+    beginTurn,
+    permission,
+    timelineOf,
+    restart,
+  };
 }
 
 export async function laneWithPeer(settings?: Record<string, unknown>) {

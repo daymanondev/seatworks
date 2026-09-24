@@ -7,7 +7,8 @@ import { IN_QUEUE, SETTLED, TASK } from "../../domain/task.ts";
 import { type Args, type Caller, type ToolReply, hash, no, ok, str } from "../context.ts";
 import { taskGate } from "../gates.ts";
 import { type Task, loadLedger, taskOfPeer } from "../ledger.ts";
-import { clip, letters } from "../letters.ts";
+import { clip } from "../../core/text.ts";
+import { letters } from "../letters.ts";
 import { type DeskServices, defineTool } from "../services.ts";
 
 function handbackBody(task: Task, args: Args, commit: string | undefined, uncommitted: boolean): { outcome: string; body: string } {

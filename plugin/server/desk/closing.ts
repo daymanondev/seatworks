@@ -1,4 +1,5 @@
 import { headSha, isAncestor, landLane, landedRef, mergeBranch } from "../core/git.ts";
+import { midTurn } from "../core/paseo.ts";
 import { LANE } from "../domain/lane.ts";
 import { TASK } from "../domain/task.ts";
 import { keepRun } from "./checkpoints.ts";
@@ -29,7 +30,7 @@ async function bringBaseIn(roster: Roster, ledger: Ledger, lane: Lane): Promise<
       if (typeof id !== "string") return false;
       try {
         const seat = await roster.look(id);
-        return !seat.archivedAt && (seat.status === "running" || seat.status === "initializing");
+        return !seat.archivedAt && midTurn(seat.status);
       } catch {
         return true;
       }
@@ -190,7 +191,7 @@ async function retire(desk: DeskServices, project: Project, lane: Lane, args: Cl
   await roster.archive(lane.lead);
   // Mid-turn seats are still writing in the lane's copy; it goes when their turn ends, not under them.
   const writers = [lane.lead, ...retired.filter((task) => task.mode !== "parallel").map((task) => task.peer)].filter(
-    (id): id is string => typeof id === "string" && roster.pendingArchive.has(id),
+    (id): id is string => typeof id === "string" && roster.archiving(id),
   );
   // A branch carried on is the Human's: nothing switches the copy off it or deletes it.
   if (!lane.onBranch) {

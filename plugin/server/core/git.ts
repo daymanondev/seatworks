@@ -106,6 +106,16 @@ export async function mergeBranch(cwd: string, branch: string, message: string):
   return { ok: false, conflicts, message: (run.stdout + run.stderr).trim().slice(-1500) };
 }
 
+/** HEAD as the merge that brought `branch` in, if it is one: a merge a stop cut off after git made it. */
+export async function mergeOf(cwd: string, branch: string): Promise<{ before: string; after: string } | undefined> {
+  const sha = async (ref: string) => {
+    const run = await git(cwd, ["rev-parse", "--verify", "-q", ref]);
+    return run.code === 0 ? run.stdout.trim() : undefined;
+  };
+  const [after, before, merged, tip] = await Promise.all(["HEAD", "HEAD^1", "HEAD^2", branch].map(sha));
+  return after && before && merged && merged === tip ? { before, after } : undefined;
+}
+
 export async function resetHard(cwd: string, sha: string): Promise<boolean> {
   return (await git(cwd, ["reset", "--hard", sha])).code === 0;
 }

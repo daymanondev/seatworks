@@ -6,7 +6,7 @@ import type { Workspace, Workspaces } from "../core/ports.ts";
 import { worktreeRoot } from "../core/paths.ts";
 import type { DeskContext } from "./context.ts";
 import { type Ledger, type Slot, loadLedger, nextSlotId } from "./ledger.ts";
-import { clip } from "./letters.ts";
+import { clip } from "../core/text.ts";
 import type { Project } from "./project.ts";
 import { errorText } from "../core/errors.ts";
 
@@ -154,11 +154,9 @@ export class Slots {
     return undefined;
   }
 
-  /** Finishes what a seat's own turn was holding up, once nothing else is writing in that copy. */
-  async stopped(agentId: string): Promise<void> {
-    for (const project of this.ctx.projects.values()) {
-      await this.finish(project, (id) => id === agentId);
-    }
+  /** Finishes what the seats' own turns were holding up, once nothing else is writing in that copy. */
+  async stopped(ended: (agentId: string) => boolean): Promise<void> {
+    for (const project of this.ctx.projects.values()) await this.finish(project, ended);
   }
 
   /** A writer that is no longer a seat has stopped for good: after an archive, crash or restart its turn-end never comes. */

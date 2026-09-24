@@ -2,14 +2,18 @@ import type { Team } from "../catalog/team.ts";
 import { type Kit, schemaOf, seatOf } from "../catalog/kit.ts";
 import type { Finding } from "../domain/incident.ts";
 import type { TaskMove, TaskStatus } from "../domain/task.ts";
-import type { Seats, Workspaces } from "../core/ports.ts";
+import { intentsPath } from "../core/paths.ts";
+import { midTurn } from "../core/paseo.ts";
+import type { SeatView, Seats, Workspaces } from "../core/ports.ts";
 import { Agents } from "./agents.ts";
 import { argsProblems, shapeOf, withoutNulls } from "./args.ts";
 import { sortKeys } from "../core/store.ts";
 import { type Args, type Caller, type CodeIndex, DeskContext, type Mailer, type Posted, type ToolReply, type ToolRequest, hash, no, ok } from "./context.ts";
 import { errorText } from "../core/errors.ts";
 import { type Ledger, type Task, loadLedger } from "./ledger.ts";
-import { clip, letters } from "./letters.ts";
+import { clip } from "../core/text.ts";
+import { letters } from "./letters.ts";
+import { Intents } from "./intents.ts";
 import { tidyRecords } from "./records.ts";
 import { decideLand } from "./closing.ts";
 import { fileRecords, keepArchived, takeFinished } from "./archive.ts";
@@ -38,8 +42,8 @@ const ANSWER_WITHIN_MS = 240_000;
 
 export class Desk {
   readonly projects: Map<string, Project>;
-  readonly pendingArchive: Set<string>;
   private readonly services: DeskServices;
+  private readonly intents: Intents;
   private readonly tools: ToolDef[];
   /** Whether a call from this seat is still being worked on — which is not silence. */
   inFlight(agentId: string): boolean {
@@ -57,13 +61,13 @@ export class Desk {
       teamFor: options.teamFor,
       indexesFor: options.indexesFor ?? (() => []),
     });
-    const roster = new Roster(options.kit, options.seats);
+    this.intents = new Intents(intentsPath());
+    const roster = new Roster(options.kit, options.seats, this.intents);
     const slots = new Slots(ctx, options.workspaces);
     const agents = new Agents(ctx, roster, slots, options.workspaces);
     this.services = { ctx, roster, slots, agents, merges: new MergeQueue(ctx, agents) };
     this.tools = options.tools;
     this.projects = ctx.projects;
-    this.pendingArchive = roster.pendingArchive;
   }
 
   ledger<T>(project: Project, change: (ledger: Ledger) => T | Promise<T>): Promise<T> {
@@ -106,14 +110,41 @@ export class Desk {
     return this.services.roster.archive(agentId, force);
   }
 
+  archiving(agentId: string): boolean {
+    return this.services.roster.archiving(agentId);
+  }
+
   /** A seat's turn ended: finish the teardown its own writing was holding up. */
-  async stopped(agentId: string): Promise<void> {
-    await this.services.slots.stopped(agentId);
+  stopped(agentId: string): Promise<void> {
+    return this.turnsEnded((id) => id === agentId);
+  }
+
+  /**
+   * The first round that sees seats after a start. The turns that ended while the plugin was down end now, so what
+   * waited on them goes on, and an answer promised as mail that the stop lost is owned up to.
+   */
+  async resume(listed: Map<string, SeatView>): Promise<void> {
+    await this.services.roster.archiveWaiting(listed);
+    await this.turnsEnded((id) => !midTurn(listed.get(id)?.status));
+    for (const promised of this.intents.promised()) {
+      const { agent, tool, started } = promised;
+      if (listed.has(agent)) await this.services.ctx.post(agent, `unanswered:${hash(agent, tool, String(started))}`, letters.unanswered(tool));
+      this.intents.kept(promised);
+    }
+  }
+
+  /** The first round after a start: what the merge queue held when the plugin stopped goes through. */
+  resumeMerges(project: Project): Promise<void> {
+    return this.services.merges.resume(project);
+  }
+
+  private async turnsEnded(ended: (agentId: string) => boolean): Promise<void> {
+    await this.services.slots.stopped(ended);
     const { ctx } = this.services;
     for (const project of ctx.projects.values()) {
-      const waiting = Object.values(loadLedger(project.state).lanes).filter((lane) => lane.status === "open" && lane.landing?.writers.includes(agentId));
+      const waiting = Object.values(loadLedger(project.state).lanes).filter((lane) => lane.status === "open" && lane.landing?.writers.some(ended));
       for (const lane of waiting) {
-        const left = lane.landing!.writers.filter((id) => id !== agentId);
+        const left = lane.landing!.writers.filter((id) => !ended(id));
         await ctx.ledger(project, (ledger) => {
           const entry = ledger.lanes[lane.id];
           if (!entry?.landing) return;
@@ -197,8 +228,13 @@ export class Desk {
               : `The desk is still working on ${request.tool} — a gate can take as long as the project allows it. The answer arrives as mail. End your turn now; do not call ${request.tool} again.`,
           ),
         );
-        // One letter for one run, whichever of its callers gave up waiting first.
-        void reply.then((done) => this.services.ctx.post(request.agent, `later:${hash(request.agent, request.tool, String(started))}`, letters.later(request.tool, done)));
+        // One letter for one run, whichever of its callers gave up waiting first; kept on disk until it is posted.
+        const promised = { agent: request.agent, tool: request.tool, started };
+        this.intents.promise(promised);
+        void reply.then(async (done) => {
+          await this.services.ctx.post(request.agent, `later:${hash(request.agent, request.tool, String(started))}`, letters.later(request.tool, done));
+          this.intents.kept(promised);
+        });
       }, within);
       timer.unref?.();
       void reply.then((done) => {

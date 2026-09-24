@@ -26,9 +26,10 @@ function reached<S extends string>(life: Lifecycle<S, string>, recorded: S[]): S
 test("only the Lead's accept puts a task in its lane: the desk merges what the Lead queued and nothing else", () => {
   const into = (status: TaskStatus) => steps(TASK).filter((step) => step.to === status && !step.from.includes(status)).map((step) => step.move);
   assert.deepEqual(into("merged"), ["accept", "merged"]);
-  assert.deepEqual(into("queued"), ["queue"]);
+  assert.deepEqual(into("queued"), ["queue", "requeue"]);
   assert.deepEqual(into("merging"), ["merge"]);
   assert.deepEqual(TASK.moves.merge.from, ["queued"]);
+  assert.deepEqual(TASK.moves.requeue.from, ["merging"], "a merge a stop cut off goes back to where the Lead's accept put it");
   assert.deepEqual(TASK.moves.merged.from, ["merging"]);
 });
 

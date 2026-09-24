@@ -1,3 +1,4 @@
+import { midTurn } from "../core/paseo.ts";
 import type { SeatLook, Seats } from "../core/ports.ts";
 import { readJson, writeJson } from "../core/store.ts";
 
@@ -15,10 +16,6 @@ const KEEP_MS = 7 * 24 * 3_600_000;
 const DUPLICATE_MS = 30 * 60_000;
 const GRACE_MS = 10 * 60_000;
 const SETTLE_MS = 60_000;
-
-function busy(status: string | null | undefined): boolean {
-  return status === "running" || status === "initializing";
-}
 
 export class Outbox {
   private readonly file: string;
@@ -121,7 +118,7 @@ export class Outbox {
       // A turn this desk never saw start — one running across a restart — is not known to be settled.
       const began = this.started.get(to);
       const steer = seat.status === "running" && began !== undefined && Date.now() - began >= SETTLE_MS && this.steers(seat) && !this.calling(to);
-      if (!steer && (busy(seat.status) || waiting)) return new Set<string>();
+      if (!steer && (midTurn(seat.status) || waiting)) return new Set<string>();
       const text = await this.compose(to, mine);
       await this.seats.send(to, text, steer, [...new Set(mine.map((letter) => letter.key.split(":")[0]!))]);
       const now = Date.now();

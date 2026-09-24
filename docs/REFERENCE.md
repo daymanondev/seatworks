@@ -83,9 +83,10 @@ All of them are written in `desk/letters.ts`.
 | Between seats | MESSAGE, RECONCILE, ASK, ANSWER to your ask, ANSWERED FOR YOU, STILL OPEN, UNANSWERED |
 | Work moving | HANDBACK, REWORK, STOP, MERGED, MERGE FAILED, MERGE CONFLICT, REPORT, CAN LAND, CLEARED |
 | The desk noticing | SILENT, FAILED, WAITING FOR PERMISSION, LANE IDLE, INCIDENT, the bare nudge |
-| Answering late | ANSWER to your `<tool>` call |
+| Answering late | ANSWER to your `<tool>` call, NO ANSWER to your `<tool>` call |
 
-CAN LAND tells whoever tried to land a lane under a seat mid-turn that the turn has ended.
+CAN LAND tells whoever tried to land a lane under a seat mid-turn that the turn has ended. NO ANSWER
+tells a seat that the plugin stopped before the call it was told to wait for by mail had finished.
 RECONCILE tells a Lead what the Supervisor sent its Peer. ANSWERED FOR YOU tells a seat that someone
 else answered an ask addressed to it.
 
@@ -295,6 +296,7 @@ project keeps its ledger and logs, and is refused while a lane is open or a work
   own/                                    your own copies, kept over the shipped ones
   models.json                             each agent's models as Paseo lists them
   outbox.json                             waiting letters, all projects
+  intents.json                            seats to archive when their turn ends; answers promised as mail
   spool/requests/  spool/replies/         seat tool calls
   content/<name>-<hash>/                  copies of the guides and skills seats read; safe to delete
   guides -> content/guides-<hash>

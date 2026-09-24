@@ -282,7 +282,7 @@ export class Runtime implements HostHooks {
     // Wrapped: a throw here left the seat's mail waiting until some unrelated event pumped it.
     try {
       // A Critic is one look: it goes when its turn ends, whether or not it handed its findings in.
-      const archiving = this.desk.pendingArchive.has(event.agent.id) || can(seatOf(this.kit, event.agent.provider)?.role, "critique");
+      const archiving = this.desk.archiving(event.agent.id) || can(seatOf(this.kit, event.agent.provider)?.role, "critique");
       if (archiving) await this.desk.archive(event.agent.id, true);
       await this.desk.stopped(event.agent.id);
       if (archiving) return;

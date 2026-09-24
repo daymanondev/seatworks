@@ -12,6 +12,7 @@ const MOVES = {
   accept: { from: IN_HAND, to: "merged" },
   queue: { from: IN_HAND, to: "queued" },
   merge: { from: ["queued"], to: "merging" },
+  requeue: { from: ["merging"], to: "queued" },
   merged: { from: ["merging"], to: "merged" },
   unmerged: { from: ["merging"], to: "done" },
   conflict: { from: ["merging"], to: "rework" },
@@ -19,7 +20,6 @@ const MOVES = {
   stall: { from: ["running", "rework", "failed"], to: "stalled" },
   lose: { from: ["running", "rework"], to: "stalled" },
   resume: { from: ["stalled"], to: "running" },
-  // Merging too: a restart loses the merge queue, and cutting is the Lead's only way out of it.
   cut: { from: ["waiting", ...IN_HAND, "queued", "merging"], to: "cut" },
   drop: { from: ["waiting", ...IN_HAND, "queued"], to: "cut" },
 } satisfies Moves<TaskStatus>;
