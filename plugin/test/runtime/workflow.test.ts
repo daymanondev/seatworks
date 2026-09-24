@@ -1989,7 +1989,7 @@ test("a fact a Watcher vetoed and that is seen again is read to it again, once, 
   h.runtime.dispose();
 });
 
-test("a Watcher is told when what it raises was marked noise, and cannot raise about a seat that has gone", async () => {
+test("a Watcher is told when what it raises was marked noise, and cannot raise about a seat gone with its lane", async () => {
   const { h, sup, peer, timeline } = await laneWithPeer("outbox-raise-noise.json", bySeat({ watch: true }));
   const [watcher] = watchersOf(h);
   await h.idle(watcher!.id);
@@ -2007,7 +2007,9 @@ test("a Watcher is told when what it raises was marked noise, and cannot raise a
   const again = await raise("R1.S1");
   assert.match(again.text, /^Not raised: missing_mechanism on the Peer on L1-T1 \(Clean build\) in these words was marked noise before\.$/, "not told it was counted into I2, which it was not");
 
-  h.agents.get(peer)!.archivedAt = new Date().toISOString();
+  h.agents.get(peer)!.status = "idle";
+  assert.equal((await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false })).ok, true);
+  assert.notEqual(h.agents.get(peer)!.archivedAt, null);
   const gone = await raise("R1.S2");
   assert.equal(gone.ok, false);
   assert.match(gone.text, /has gone/);
@@ -2661,5 +2663,28 @@ test("a patrol round files finished lanes past the newest few into the archive, 
   const filed = gunzipSync(readFileSync(join(h.project.state, "archive", "L1.json.gz"))).toString("utf-8");
   assert.match(filed, /"id":"L1"/);
   assert.match(filed, /what L1 handed back/);
+  h.runtime.dispose();
+});
+
+test("a Watcher's finding on a Peer whose work was accepted while it read still reaches the Lead, while the lane is open", async () => {
+  const { h, lane, peer, timeline } = await laneWithPeer("outbox-raise-gone.json", bySeat({ watch: true }));
+  const [watcher] = watchersOf(h);
+  await h.idle(watcher!.id);
+  timeline.beat("turn_started", "t1");
+  timeline.add({ type: "user_message", text: "Clean the build" }, "t1");
+  timeline.add({ type: "reasoning", text: "The caller still wants the old shape, so a small adapter will keep it compiling." }, "t1");
+  timeline.add({ type: "tool_call", callId: "c1", name: "Write", status: "completed", detail: { type: "write", filePath: "src/legacy-adapter.ts", content: "export const old = () => fresh();\n" } }, "t1");
+  timeline.beat("turn_completed", "t1");
+  await read(h, watcher!.id);
+  // As seen live: the Lead accepts and the Peer is let go a minute before the Watcher's reading of its last turn is done.
+  assert.equal((await h.call(peer, "peer", "done", { outcome: "complete", summary: "done", checks: "none run" })).ok, true);
+  h.agents.get(peer)!.status = "idle";
+  const accepted = await h.call(lane.lead!, "lead", "accept", { task: "L1-T1" });
+  assert.equal(accepted.ok, true, accepted.text);
+  assert.notEqual(h.agents.get(peer)!.archivedAt, null);
+  const raised = await h.call(watcher!.id, "watcher", "raise", { kind: "missing_mechanism", step: "R1.S1", why: "a shim" });
+  assert.equal(raised.ok, true, raised.text);
+  await h.idle(lane.lead!);
+  assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /INCIDENT I1 \(missing_mechanism, attend\) on the Peer on L1-T1/);
   h.runtime.dispose();
 });
