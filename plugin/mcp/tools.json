@@ -296,8 +296,8 @@
       }
     },
     {
-      "name": "ack",
-      "description": "Mark an incident once you have looked at the agent's record: useful if what it names happened and its brief neither asked for it nor needs it, noise if not, unknown only if the record can neither show it nor rule it out. It closes the incident; the desk's readings are measured against useful and noise. What the code measured happened unless the record contradicts it; what a reader of the work raised or confirmed needs the record to show it. Decide from the record alone: whether you acted, knew already, what the agent said when asked, or how it turned out never decides one.",
+      "name": "mark_incident",
+      "description": "Close an incident once you have looked at the agent's record: useful if what it names happened and its brief neither asked for it nor needs it, noise if not, unknown only if the record can neither show it nor rule it out. Noise also silences the same words on that seat and kind from now on, and the desk's readings are measured against useful and noise. What the code measured happened unless the record contradicts it; what a reader of the work raised or confirmed needs the record to show it. Decide from the record alone: whether you acted, knew already, what the agent said when asked, or how it turned out never decides one.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -727,8 +727,8 @@
       }
     },
     {
-      "name": "ack",
-      "description": "Mark an incident once you have looked at the agent's record: useful if what it names happened and its brief neither asked for it nor needs it, noise if not, unknown only if the record can neither show it nor rule it out. It closes the incident; the desk's readings are measured against useful and noise. What the code measured happened unless the record contradicts it; what a reader of the work raised or confirmed needs the record to show it. Decide from the record alone: whether you acted, knew already, what the agent said when asked, or how it turned out never decides one.",
+      "name": "mark_incident",
+      "description": "Close an incident once you have looked at the agent's record: useful if what it names happened and its brief neither asked for it nor needs it, noise if not, unknown only if the record can neither show it nor rule it out. Noise also silences the same words on that seat and kind from now on, and the desk's readings are measured against useful and noise. What the code measured happened unless the record contradicts it; what a reader of the work raised or confirmed needs the record to show it. Decide from the record alone: whether you acted, knew already, what the agent said when asked, or how it turned out never decides one.",
       "inputSchema": {
         "type": "object",
         "properties": {

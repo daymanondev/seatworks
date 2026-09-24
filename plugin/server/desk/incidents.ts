@@ -74,7 +74,7 @@ export function saidBefore(incidents: Incidents, seat: string, kind: string, quo
 }
 
 /**
- * Already settled as noise on this seat in these exact words: counts the sighting and answers true. `ack` closes
+ * Already settled as noise on this seat in these exact words: counts the sighting and answers true. `mark_incident` closes
  * an incident, so a standing condition would reopen after every mark. Only at `attend`, only for `noise`.
  */
 export function settledAsNoise(incidents: Incidents, sighting: Sighting, now: number): boolean {

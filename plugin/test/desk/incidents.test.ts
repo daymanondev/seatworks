@@ -11,7 +11,7 @@ import { loadIncidents } from "../../server/desk/incidents.ts";
 import { emptyLedger, saveLedger } from "../../server/desk/ledger.ts";
 import { closeIncidentsOf, notice, retell } from "../../server/desk/notice.ts";
 import type { DeskServices } from "../../server/desk/services.ts";
-import { ack } from "../../server/desk/tools/ack.ts";
+import { markIncident } from "../../server/desk/tools/mark-incident.ts";
 import { incidents } from "../../server/desk/tools/incidents.ts";
 import { decide } from "../../server/runtime/watch/findings.ts";
 
@@ -58,8 +58,8 @@ test("a mark goes on the incident named and closes it, and a sighting of somethi
   const { project, services, supervisor } = desk();
   await notice(services, project, { id: "peer-1", provider: "sw2-peer-claude/claude-opus-5" }, [stuck]);
   await notice(services, project, { id: "peer-2", provider: "sw2-peer-claude/claude-opus-5" }, [stuck]);
-  assert.equal((await ack.handle(services, supervisor, { id: "I9", verdict: "useful" })).ok, false);
-  const reply = await ack.handle(services, supervisor, { id: "I2", verdict: "noise", note: "expected: a normal retry of `curl -H 'Authorization: Bearer 9f8e7d6c5b4a39281706'`" });
+  assert.equal((await markIncident.handle(services, supervisor, { id: "I9", verdict: "useful" })).ok, false);
+  const reply = await markIncident.handle(services, supervisor, { id: "I2", verdict: "noise", note: "expected: a normal retry of `curl -H 'Authorization: Bearer 9f8e7d6c5b4a39281706'`" });
   assert.equal(reply.ok, true, reply.text);
   const held = loadIncidents(project.state).items;
   assert.equal(held.I2!.label, "noise");
@@ -112,7 +112,7 @@ test("an incident closed because its seat went away still waits to be marked", a
   await closeIncidentsOf(services, project, "peer-1");
   const listed = await incidents.handle(services, supervisor, {});
   assert.match(listed.text, /I1 \[attend, closed, not sent: shadow, not marked\]/);
-  assert.equal((await ack.handle(services, supervisor, { id: "I1", verdict: "useful" })).ok, true);
+  assert.equal((await markIncident.handle(services, supervisor, { id: "I1", verdict: "useful" })).ok, true);
   assert.match((await incidents.handle(services, supervisor, {})).text, /Nothing waiting to be marked/);
 });
 
@@ -126,7 +126,7 @@ test("what was held for nobody is told by the round once somebody sits down, and
   assert.match(posted[0]!.text, /rm -rf src/);
   assert.deepEqual(await retell(services, project), [], "told once");
   await notice(services, project, peer, [{ kind: "destructive", level: "page", quote: "git push --force origin main", facts: ["destructive"] }]);
-  const acked = await ack.handle(services, supervisor, { id: "I1", verdict: "useful" });
+  const acked = await markIncident.handle(services, supervisor, { id: "I1", verdict: "useful" });
   assert.match(acked.text, /after you were told: git push --force origin main/);
   assert.equal(loadIncidents(project.state).items.I1!.quote, "rm -rf src");
 });
@@ -138,7 +138,7 @@ test("a condition the Supervisor marked noise is counted, not raised again, unle
   // A standing condition, seen in the same words on every sighting.
   const absent = [{ kind: "stuck", level: "attend" as const, quote: "npm run build failed 3 times: src/pointer.js does not exist yet", facts: ["stuck"] }];
   await notice(services, project, peer, absent);
-  assert.equal((await ack.handle(services, supervisor, { id: "I1", verdict: "noise", note: "expected: it is being written in parallel by L1-T1" })).ok, true);
+  assert.equal((await markIncident.handle(services, supervisor, { id: "I1", verdict: "noise", note: "expected: it is being written in parallel by L1-T1" })).ok, true);
 
   const again = await notice(services, project, peer, absent);
   assert.deepEqual(again.opened, [], "the same words, already marked noise on this seat: nothing new is opened");
@@ -150,7 +150,7 @@ test("a condition the Supervisor marked noise is counted, not raised again, unle
   // Different words are a different thing, and an irreversible act pages however often it is excused.
   await notice(services, project, peer, [{ ...absent[0]!, quote: "npm run build failed 3 times: src/patch.js does not exist yet" }]);
   await notice(services, project, peer, [{ kind: "destructive", level: "page", quote: "rm -rf /tmp/verify-t1", facts: [] }]);
-  assert.equal((await ack.handle(services, supervisor, { id: "I3", verdict: "noise", note: "expected: its own scratch directory" })).ok, true);
+  assert.equal((await markIncident.handle(services, supervisor, { id: "I3", verdict: "noise", note: "expected: its own scratch directory" })).ok, true);
   await notice(services, project, peer, [{ kind: "destructive", level: "page", quote: "rm -rf /tmp/verify-t1", facts: [] }]);
   assert.deepEqual(Object.keys(loadIncidents(project.state).items), ["I1", "I2", "I3", "I4"], "a page is never settled away");
 });

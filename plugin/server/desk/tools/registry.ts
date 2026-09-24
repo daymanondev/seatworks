@@ -1,7 +1,7 @@
 import { findings } from "../critique.ts";
 import type { ToolDef } from "../services.ts";
 import { accept } from "./accept.ts";
-import { ack } from "./ack.ts";
+import { markIncident } from "./mark-incident.ts";
 import { amendLane } from "./amend-lane.ts";
 import { amendTask } from "./amend-task.ts";
 import { answer } from "./answer.ts";
@@ -43,6 +43,6 @@ export const TOOLS: ToolDef[] = [
   answer,
   status,
   incidents,
-  ack,
+  markIncident,
   findings,
 ];

@@ -212,7 +212,7 @@ The full list is in [the reference](REFERENCE.md#facts).
 Until it is sent, it may be held: in **shadow** (mailing is off, the default), over the day's
 **budget**, or with **nobody** to tell.
 
-**Marking.** Whoever gets an incident marks it with `ack`, as `useful`, `noise` or `unknown`, after
+**Marking.** Whoever gets an incident marks it with `mark_incident`, as `useful`, `noise` or `unknown`, after
 checking the agent's own record.
 
 ## The concept and the team block

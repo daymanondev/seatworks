@@ -1612,10 +1612,10 @@ test("an incident about a Peer whose Lead is gone goes to whoever supervises, an
   assert.equal(listed.ok, true, listed.text);
   assert.match(listed.text, /I1 \[attend/);
   assert.doesNotMatch(listed.text, /I2/, "never one about itself");
-  const own = await h.call(lead, "lead", "ack", { id: "I2", verdict: "noise", note: "expected" });
+  const own = await h.call(lead, "lead", "mark_incident", { id: "I2", verdict: "noise", note: "expected" });
   assert.equal(own.ok, false, "nor may it mark one");
   assert.match(own.text, /no incident I2 here for you/);
-  const marked = await h.call(lead, "lead", "ack", { id: "I1", verdict: "useful", note: "it was going round" });
+  const marked = await h.call(lead, "lead", "mark_incident", { id: "I1", verdict: "useful", note: "it was going round" });
   assert.equal(marked.ok, true, marked.text);
   assert.match((await h.call(sup, "supervisor", "incidents", { closed: true })).text, /I1 \[attend, closed, told [^\]]*, marked useful\]/, "whoever supervises sees what the Lead marked");
 
@@ -1720,7 +1720,7 @@ test("a task the Lead keeps sending back is an incident about the Lead, raised o
   assert.match(told, /What was seen: L1-T1 \(Clean build\) has been sent back 3 times/);
 
   // Three sendings-back stay three forever, so once marked the unchanged record must not raise again.
-  const marked = await h.call(sup, "supervisor", "ack", { id: "I1", verdict: "noise", note: "expected: the brief changed under it" });
+  const marked = await h.call(sup, "supervisor", "mark_incident", { id: "I1", verdict: "noise", note: "expected: the brief changed under it" });
   assert.equal(marked.ok, true, marked.text);
   await h.tick();
   await h.tick();

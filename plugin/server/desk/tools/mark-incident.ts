@@ -7,8 +7,8 @@ import { mask } from "../../core/mask.ts";
 import { defineTool } from "../services.ts";
 import { at, mine } from "./incidents.ts";
 
-export const ack = defineTool({
-  name: "ack",
+export const markIncident = defineTool({
+  name: "mark_incident",
   input: z.strictObject({ id: z.string(), verdict: z.enum(["useful", "noise", "unknown"]), note: z.string().optional() }),
   async handle({ ctx }, caller, args) {
     const id = str(args.id);

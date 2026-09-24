@@ -17,8 +17,8 @@ schema. A call that doesn't fit is refused, with what is wrong.
 <!-- drawn from the code: verbs -->
 | Role | Tools |
 |---|---|
-| Supervisor | `open_lane` `message` `answer` `close_lane` `amend_lane` `replace_lead` `set_project` `status` `incidents` `ack` |
-| Lead | `plan_tasks` `start_task` `start_review` `message` `answer` `accept` `rework` `amend_task` `cut` `ask` `report` `status` `incidents` `ack` |
+| Supervisor | `open_lane` `message` `answer` `close_lane` `amend_lane` `replace_lead` `set_project` `status` `incidents` `mark_incident` |
+| Lead | `plan_tasks` `start_task` `start_review` `message` `answer` `accept` `rework` `amend_task` `cut` `ask` `report` `status` `incidents` `mark_incident` |
 | Peer, Reviewer | `done` `ask` |
 | Critic | `findings` |
 <!-- end -->
@@ -43,7 +43,7 @@ schema. A call that doesn't fit is refused, with what is wrong.
 | `message` | The Supervisor messages a lane or a task, and a Lead messages a task in its own lane. A seat stopped on a question takes it as the answer |
 | `answer` | Closes an open ask. The Supervisor may answer any ask, others only their own |
 | `incidents` | Lists the 50 most recent open or unmarked incidents, with each one's brief. With `closed`, it adds the 20 most recently marked. A Lead sees only its own lane's |
-| `ack` | Marks an incident `useful`, `noise` or `unknown`, with an optional note, and closes it |
+| `mark_incident` | Marks an incident `useful`, `noise` or `unknown`, with an optional note, and closes it. Noise also silences the same words on that seat and kind from then on |
 | `status` | Lanes, tasks, working copies and open asks. A Lead sees its own lane |
 | `findings` | The Critic hands in where the Human's words and the lane may not agree, each quote checked against what it read. The Supervisor gets them, and the Critic is archived |
 

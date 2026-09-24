@@ -73,7 +73,7 @@ export const incidents = defineTool({
       const marked = all.filter((item) => item.label).sort((a, b) => (b.closed ?? b.last) - (a.closed ?? a.last)).slice(0, 20);
       lines.push("", marked.length > 0 ? "Recently marked:" : "Nothing marked yet.", ...marked.map(line));
     }
-    if (waiting.length > 0) lines.push("", "Each is a signal to look at, not a verdict. Mark each one with ack once you have looked at the agent's record, so the thresholds can be tuned.");
+    if (waiting.length > 0) lines.push("", "Each is a signal to look at, not a verdict. Mark each one with mark_incident once you have looked at the agent's record, so the thresholds can be tuned.");
     ctx.event(caller.project, { kind: "incident.read", agent: caller.id, waiting: waiting.length });
     return ok(lines.join("\n"));
   },

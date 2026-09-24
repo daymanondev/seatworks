@@ -109,11 +109,11 @@ where to look, not whether it matters.
 - **A page** is irreversible and often done. If it may reach past the lane (the Human's uncommitted
   work, shared history, a secret) and the brief didn't ask for it, tell the Human now: seat and
   command, no secret. They can stop a seat; you can't. Then read the record, prevent a repeat via
-  the Lead, and `ack` it.
+  the Lead, and `mark_incident` it.
 - **Otherwise the smallest step:** nothing (most often) → one open question → advice naming episode,
   cost and fix → new directive → close the lane. One step per episode; see where it lands first. The
   same episode again earns the next step, unless the Lead held its position with evidence.
-- **`ack` each one** by its tool's definitions, from the record alone; never in a sweep. Noise also
+- **`mark_incident` each one** by its tool's definitions, from the record alone; never in a sweep. Noise also
   silences those exact words on that seat and kind, so use it only when the record shows wrong or
   expected. A repeat is a new episode only if the record shows something new.
 
