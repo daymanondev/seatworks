@@ -51,6 +51,7 @@ export class DeskContext {
   readonly kit: Kit;
   readonly projects = new Map<string, Project>();
   readonly seating = new Set<string>();
+  readonly closing = new Set<string>();
   private readonly deps: DeskDeps;
 
   constructor(deps: DeskDeps) {

@@ -248,3 +248,14 @@ test("a landing held only for a missing READY lands once the Lead reports, with 
   assert.ok(onMain("a.txt"));
   assert.deepEqual(runs(h.project.state).map((run) => run.decision), ["ask", "pass"]);
 });
+
+test("a landing the Human approves twice at once lands once, and the second approval hears there is nothing left to approve", async () => {
+  const { h, land } = await laneWith(risky, { checkpoints: { land: "on" } });
+  await land();
+  const decide = () => h.runtime.control.decideLand(h.project.slug, "L1", true, "fine") as Promise<{ decided?: string; error?: string }>;
+  const [first, second] = await Promise.all([decide(), decide()]);
+  assert.deepEqual([first.decided !== undefined, second.decided !== undefined].sort(), [false, true]);
+  assert.match((first.decided ? second : first).error ?? "", /has no landing waiting for your approval/);
+  const events = readFileSync(join(h.project.state, "events.log"), "utf-8").split("\n").filter((line) => line.includes('"lane.closed"'));
+  assert.equal(events.length, 1, "closed once");
+});

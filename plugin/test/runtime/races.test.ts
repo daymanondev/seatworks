@@ -118,3 +118,10 @@ test("a landing two seats were in the way of can go once both turns end, however
   await h.idle(sup);
   assert.equal(h.agents.get(sup)!.sent.join("\n").split("CAN LAND L1").length - 1, 1);
 });
+
+test("a lane closed twice at once is closed once, and the second call is told it is already being closed", async () => {
+  const { h, sup } = await laneWithPeer();
+  const [first, second] = await Promise.all([h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false }), h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false })]);
+  assert.deepEqual([first.ok, second.ok].sort(), [false, true], `${first.text}\n${second.text}`);
+  assert.match((first.ok ? second : first).text, /L1 is (already being closed|already closed)/);
+});
