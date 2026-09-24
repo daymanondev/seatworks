@@ -26,11 +26,11 @@ export const startTask = defineTool({
     const workRole = workRoleFor(ctx, project, args);
     if (typeof workRole === "string") return no(workRole);
     if (pending.length > 0) {
-      const task = await recordTask(desk, project, lane, args, parallel, undefined, { after, role: workRole.role });
+      const task = recordTask(desk, project, lane, args, parallel, undefined, { after, role: workRole.role });
       ctx.event(project, { kind: "task.waiting", task: task.id, after });
       return ok(`${task.id} waits for ${pending.map((entry) => `${entry.id} (${entry.status})`).join(", ")}. It starts by itself once they have all been accepted, checked again against the tasks running then; if it cannot, or one is cut, you get a letter. Cut it to drop it.`);
     }
-    const task = await recordTask(desk, project, lane, args, parallel, parallel ? undefined : await headSha(lane.worktree));
+    const task = recordTask(desk, project, lane, args, parallel, parallel ? undefined : await headSha(lane.worktree));
     const started = await startPeer(desk, project, lane, task, { role: workRole.role, parent: caller.id, failed: "cut" });
     if (typeof started === "string") return no(started);
     return ok(`Started ${task.id} ${started.where} with Peer ${started.peer}. Its hand-back arrives as mail; there is nothing to wait for in this turn.`);

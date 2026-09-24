@@ -91,7 +91,7 @@ export async function startLead(desk: DeskServices, project: Project, lane: Lane
   const { ctx } = desk;
   try {
     const started = await seatLead(desk, project, lane, how);
-    if (typeof started === "string") await ctx.moveLane(project, lane.id, how.failed);
+    if (typeof started === "string") ctx.moveLane(project, lane.id, how.failed);
     return started;
   } finally {
     ctx.seating.delete(seatingKey(project, lane.id));
@@ -123,7 +123,7 @@ async function seatLead(desk: DeskServices, project: Project, lane: Lane, how: S
       prompt: await directiveFor(ctx.kit, project, lane, slot.path, how.issue),
       labels: { "seatworks.lane": lane.id, "seatworks.role": leadRole.role },
     });
-    await ctx.ledger(project, (ledger) => {
+    ctx.transact(project, (ledger) => {
       const entry = ledger.lanes[lane.id];
       if (entry) Object.assign(entry, { lead, worktree: slot.path, slot: slot.id, workspaceId: slot.workspaceId });
       ledger.agents[lead] = { id: lead, role: leadRole.role, lane: lane.id };
@@ -176,7 +176,7 @@ export async function startPeer(desk: DeskServices, project: Project, lane: Lane
     let slot: { id?: string; path: string; workspaceId?: string };
     if (parallel) {
       slot = await slots.acquire(project, task.branch!, lane.branch, { task: task.id });
-      await ctx.setTask(project, task.id, (entry) => Object.assign(entry, { slot: slot.id, worktree: slot.path }));
+      ctx.setTask(project, task.id, (entry) => Object.assign(entry, { slot: slot.id, worktree: slot.path }));
     } else {
       slot = lane.slot ? loadLedger(project.state).slots[lane.slot]! : { path: lane.worktree!, workspaceId: lane.workspaceId };
     }
@@ -186,17 +186,17 @@ export async function startPeer(desk: DeskServices, project: Project, lane: Lane
       prompt: letters.brief(task, lane),
       labels: { "seatworks.lane": lane.id, "seatworks.task": task.id, "seatworks.role": how.role },
     });
-    await ctx.setTask(project, task.id, (entry) => {
+    ctx.setTask(project, task.id, (entry) => {
       entry.peer = peer;
     });
-    await ctx.ledger(project, (current) => {
+    ctx.transact(project, (current) => {
       current.agents[peer] = { id: peer, role: how.role, lane: lane.id, task: task.id };
     });
     ctx.event(project, { kind: "task.started", task: task.id, peer, mode: task.mode, slot: slot.id ?? "in place" });
     return { peer, where: parallel ? `in its own working copy ${slot.id} on ${task.branch}` : `in the lane's working copy on ${lane.branch}` };
   } catch (error) {
     const taken = loadLedger(project.state).tasks[task.id]?.slot;
-    await ctx.setTask(project, task.id, (entry) => {
+    ctx.setTask(project, task.id, (entry) => {
       TASK.move(entry, how.failed);
       if (parallel) {
         delete entry.slot;

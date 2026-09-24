@@ -75,7 +75,7 @@ async function checkLanding(desk: DeskServices, project: Project, lane: Lane, ga
   if (!approved || fresh.length > 0) keepRun(project, { checkpoint: "land", mode, lane: lane.id, by, decision: asks ? "ask" : "pass", findings: signals });
   if (mode === "on" && (approved ? fresh.length > 0 : asks)) {
     const head = (await headSha(project.root, lane.branch)) ?? "";
-    await ctx.ledger(project, (current) => {
+    ctx.transact(project, (current) => {
       const entry = current.lanes[lane.id];
       if (entry) entry.landApproval = { since: Date.now(), head, signals, evidence, overGate };
     });
@@ -99,7 +99,7 @@ export async function close(desk: DeskServices, project: Project, by: string, ar
   if (!lane) return no(`There is no lane ${str(args.lane)}.`);
   if (lane.status === "waiting") {
     if (args.land === true) return no(`Lane ${lane.id} never opened, so there is nothing to land; close it with land false to drop it.`);
-    await ctx.moveLane(project, lane.id, "drop");
+    ctx.moveLane(project, lane.id, "drop");
     ctx.event(project, { kind: "lane.closed", lane: lane.id, land: false, landing: "dropped while waiting", reason: str(args.reason), writers: [] });
     return ok(`Lane ${lane.id} was waiting and is dropped; nothing had started for it.`);
   }
@@ -117,7 +117,7 @@ async function stillHeld(desk: DeskServices, project: Project, ledger: Ledger, l
   const checks = ctx.team(project).checkpoints;
   const now = await landCheck(ctx.kit, project, ledger, lane, { set: Boolean(loadConfig(project.state).gate), ok: !held.signals.includes(GATE_FAILED) }, checks);
   if (checks.land !== "on" || (now.signals.length === 0 && checks.landApprove !== "every")) return undefined;
-  await ctx.ledger(project, (current) => {
+  ctx.transact(project, (current) => {
     const entry = current.lanes[lane.id]?.landApproval;
     if (entry && !entry.approved) Object.assign(entry, now);
   });
@@ -136,7 +136,7 @@ async function land(desk: DeskServices, project: Project, ledger: Ledger, lane: 
   // Land before closing: a closed lane cannot be closed again, so a landing that cannot happen is refused while open.
   const synced = await bringBaseIn(roster, ledger, lane);
   if (synced?.writers) {
-    await ctx.ledger(project, (current) => {
+    ctx.transact(project, (current) => {
       const entry = current.lanes[lane.id];
       if (entry) entry.landing = { by, writers: synced.writers! };
     });
@@ -145,7 +145,7 @@ async function land(desk: DeskServices, project: Project, ledger: Ledger, lane: 
   const merged = approved ? await headSha(project.root, lane.branch) : tip;
   // Base merged in by the desk itself is not the lane changing under an approval.
   if (approved && merged && merged !== tip) {
-    await ctx.ledger(project, (current) => {
+    ctx.transact(project, (current) => {
       const entry = current.lanes[lane.id]?.landApproval;
       if (entry) entry.head = merged;
     });
@@ -172,7 +172,7 @@ async function land(desk: DeskServices, project: Project, ledger: Ledger, lane: 
 /** Closes the lane on record, cuts what it still had going, and puts away its seats and copy, each once nothing is writing there. */
 async function retire(desk: DeskServices, project: Project, lane: Lane, args: Closing, landed: { how: string; note: string }): Promise<Closed> {
   const { ctx, roster, slots, agents } = desk;
-  const retired = await ctx.ledger(project, (current) => {
+  const retired = ctx.transact(project, (current) => {
     const entry = current.lanes[lane.id];
     if (entry && LANE.move(entry, "close")) entry.landed = args.land === true || undefined;
     delete entry?.landApproval;
@@ -226,23 +226,23 @@ export async function decideLand(desk: DeskServices, project: Project, laneId: s
   const supervisor = await desk.roster.supervisorFor(project, lane.opener);
   const tell = (how: Parameters<typeof letters.landDecided>[1], text: string) => ctx.post(supervisor, `land:${laneId}:${how}:${Date.now()}`, letters.landDecided(lane, how, text));
   const drop = () =>
-    ctx.ledger(project, (current) => {
+    ctx.transact(project, (current) => {
       delete current.lanes[laneId]?.landApproval;
     });
   if ((await headSha(project.root, lane.branch)) !== held.head) {
-    await drop();
+    drop();
     await tell("changed", "");
     return ok(`Lane ${laneId} changed after it was held, so this approval is not for what it holds now. It is checked again when the Supervisor lands it.`);
   }
   keepRun(project, { checkpoint: "land", mode: "on", lane: laneId, by: "human", decision: approve ? "approved" : "sent back", findings: note ? [note] : [], waitedMs: Date.now() - held.since });
   ctx.event(project, { kind: approve ? "land.approved" : "land.sentBack", lane: laneId });
   if (!approve) {
-    await drop();
+    drop();
     await ctx.post(lane.lead, `landback:${laneId}:${held.head}`, letters.landSentBack(lane, note));
     await tell("sent back", note);
     return ok(`Lane ${laneId} is sent back to its Lead with your note; it stays open.`);
   }
-  await ctx.ledger(project, (current) => {
+  ctx.transact(project, (current) => {
     const entry = current.lanes[laneId]?.landApproval;
     if (entry) entry.approved = { at: Date.now(), note };
   });

@@ -37,7 +37,7 @@ export async function notice(services: DeskServices, project: Project, seat: Not
   for (const finding of findings) {
     ctx.event(project, { kind: "watch.finding", agent: seat.id, finding: finding.kind, level: finding.level, quote: finding.quote, facts: finding.facts });
   }
-  const { opened, sending } = await ctx.incidents(project, (incidents) => {
+  const { opened, sending } = ctx.incidents(project, (incidents) => {
     const opened: Incident[] = [];
     const sending: Incident[] = [];
     for (const finding of findings) {
@@ -87,7 +87,7 @@ async function deliver(services: DeskServices, project: Project, seat: Noticed, 
     }
     const { to, as } = reader;
     if (!to) {
-      await ctx.incidents(project, (incidents) => {
+      ctx.incidents(project, (incidents) => {
         for (const sent of batch) {
           const incident = incidents.items[sent.id];
           if (incident?.told === now) unheard(incident);
@@ -96,7 +96,7 @@ async function deliver(services: DeskServices, project: Project, seat: Noticed, 
       for (const sent of batch) ctx.event(project, { kind: "incident.held", id: sent.id, held: "nobody" });
       continue;
     }
-    await ctx.incidents(project, (incidents) => {
+    ctx.incidents(project, (incidents) => {
       for (const sent of batch) {
         const incident = incidents.items[sent.id];
         if (incident?.told === now) incident.toldTo = as;
@@ -119,7 +119,7 @@ export async function retell(services: DeskServices, project: Project, now = Dat
   const { ctx } = services;
   if (!ctx.team(project).attention.watch) return [];
   const told: string[] = [];
-  const nobody = await ctx.incidents(project, (incidents) => Object.values(incidents.items).filter((item) => item.open && item.held === "nobody" && item.told === undefined).map((item) => ({ ...item })));
+  const nobody = ctx.incidents(project, (incidents) => Object.values(incidents.items).filter((item) => item.open && item.held === "nobody" && item.told === undefined).map((item) => ({ ...item })));
   for (const seat of [...new Set(nobody.map((item) => item.seat))]) {
     const noticed = { id: seat, provider: nobody.find((item) => item.seat === seat)!.provider ?? "" };
     const place = placeOf(project, noticed);
@@ -133,7 +133,7 @@ export async function retell(services: DeskServices, project: Project, now = Dat
       } catch {}
     }
     if (mine.length === 0) continue;
-    const sending = await ctx.incidents(project, (incidents) => {
+    const sending = ctx.incidents(project, (incidents) => {
       const taken: Incident[] = [];
       for (const item of mine) {
         const incident = incidents.items[item.id];
@@ -146,6 +146,6 @@ export async function retell(services: DeskServices, project: Project, now = Dat
   return told;
 }
 
-export function closeIncidentsOf(services: DeskServices, project: Project, seat: string, now = Date.now()): Promise<string[]> {
+export function closeIncidentsOf(services: DeskServices, project: Project, seat: string, now = Date.now()): string[] {
   return services.ctx.incidents(project, (incidents) => closeSeat(incidents, seat, now));
 }

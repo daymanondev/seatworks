@@ -38,7 +38,7 @@ export function taskWaitsFor(ledger: Ledger, lane: string, after: string[]): Tas
 /** Keeps why a lane or task still waits, and tells whoever asked for it, once per reason. */
 async function hold(desk: DeskServices, project: Project, entry: Lane | Task, held: NonNullable<Lane["held"]>): Promise<void> {
   const task = "lane" in entry;
-  const told = await desk.ctx.ledger(project, (current) => {
+  const told = desk.ctx.transact(project, (current) => {
     const kept = task ? current.tasks[entry.id] : current.lanes[entry.id];
     if (!kept || kept.status !== "waiting" || kept.held?.why === held.why) return false;
     kept.held = held;
@@ -84,7 +84,7 @@ async function releaseTask(desk: DeskServices, project: Project, lane: Lane, tas
   const problem = await taskPlacement(desk.ctx.kit, project, loadLedger(project.state), lane, task.owned, task.mode === "parallel");
   if (problem) return { why: `${problem.why} It starts by itself once that clears; amend it, or cut it to drop it.` };
   const startSha = task.mode === "parallel" ? undefined : await headSha(lane.worktree!);
-  const claimed = await desk.ctx.ledger(project, (ledger) => {
+  const claimed = desk.ctx.transact(project, (ledger) => {
     const entry = ledger.tasks[task.id];
     if (!entry || !TASK.move(entry, "start")) return undefined;
     Object.assign(entry, { startSha, updatedAt: Date.now() });
@@ -94,7 +94,7 @@ async function releaseTask(desk: DeskServices, project: Project, lane: Lane, tas
   if (!claimed) return undefined;
   const started = await startPeer(desk, project, lane, claimed, { role: claimed.opening!.role, parent: lane.lead, failed: "wait" });
   if (typeof started === "string") return { why: `${started} It is tried again when a task is accepted or cut; cut it to drop it.`, tried: true };
-  await desk.ctx.setTask(project, task.id, (entry) => {
+  desk.ctx.setTask(project, task.id, (entry) => {
     delete entry.held;
   });
   await desk.ctx.post(lane.lead, `started:${task.id}`, letters.waited(claimed, `Started ${task.id} ${started.where} with Peer ${started.peer}. Its hand-back arrives as mail.`));
@@ -110,7 +110,7 @@ async function release(desk: DeskServices, project: Project, lane: Lane): Promis
       ? `its base branch ${lane.base} no longer exists.`
       : await placement(desk.ctx.kit, project, lane, lane.opening?.isolate === true, lane.id);
   if (typeof placed === "string" || "why" in placed) return { why: `${typeof placed === "string" ? placed : placed.why} It opens by itself once that clears; amend it, or close it to drop it.` };
-  const claimed = await desk.ctx.ledger(project, (ledger) => {
+  const claimed = desk.ctx.transact(project, (ledger) => {
     const entry = ledger.lanes[lane.id];
     if (!entry || !LANE.move(entry, "open")) return undefined;
     desk.ctx.seating.add(seatingKey(project, lane.id));
@@ -121,7 +121,7 @@ async function release(desk: DeskServices, project: Project, lane: Lane): Promis
   const issue = fetched && !("error" in fetched) ? fetched : undefined;
   const started = await startLead(desk, project, claimed, { ownCopy: placed.ownCopy, failed: "wait", role: claimed.opening?.role, parent: claimed.opener, issue });
   if (typeof started === "string") return { why: `${started} It is tried again when a lane closes; close it to drop it.`, tried: true };
-  await desk.ctx.ledger(project, (ledger) => {
+  desk.ctx.transact(project, (ledger) => {
     const entry = ledger.lanes[lane.id];
     if (entry) delete entry.held;
   });
@@ -140,7 +140,7 @@ async function putBackHalfStarted(desk: DeskServices, project: Project): Promise
   const seats = await roster.open();
   // An empty listing is a daemon that answered nothing, not word that no Peer was started.
   if (seats.length === 0) return;
-  const stopped = await ctx.ledger(project, (ledger) =>
+  const stopped = ctx.transact(project, (ledger) =>
     halfStarted(ledger).flatMap((task) => {
       const seat = seats.find((entry) => !entry.archivedAt && entry.labels?.["seatworks.project"] === project.slug && entry.labels["seatworks.task"] === task.id);
       if (seat) {
@@ -175,7 +175,7 @@ async function putBackHalfOpen(desk: DeskServices, project: Project): Promise<vo
   const seats = await roster.open();
   // An empty listing is a daemon that answered nothing, not word that no Lead was started.
   if (seats.length === 0) return;
-  const stopped = await ctx.ledger(project, (ledger) =>
+  const stopped = ctx.transact(project, (ledger) =>
     halfOpen(ledger).map((lane) => {
       const slot = Object.values(ledger.slots).find((entry) => entry.lane === lane.id);
       const lead = leadSeatOf(seats, project, lane.id);

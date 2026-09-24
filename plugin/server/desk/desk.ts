@@ -8,7 +8,7 @@ import type { SeatView, Seats, Workspaces } from "../core/ports.ts";
 import { Agents } from "./agents.ts";
 import { argsProblems, shapeOf, withoutNulls } from "./args.ts";
 import { sortKeys } from "../core/store.ts";
-import { type Args, type Caller, type CodeIndex, DeskContext, type Mailer, type Posted, type ToolReply, type ToolRequest, hash, no, ok } from "./context.ts";
+import { type Args, type Caller, type CodeIndex, DeskContext, type Mailer, type Posted, type Sync, type ToolReply, type ToolRequest, hash, no, ok } from "./context.ts";
 import { errorText } from "../core/errors.ts";
 import { type Ledger, type Task, loadLedger } from "./ledger.ts";
 import { clip } from "../core/text.ts";
@@ -70,8 +70,8 @@ export class Desk {
     this.projects = ctx.projects;
   }
 
-  ledger<T>(project: Project, change: (ledger: Ledger) => T | Promise<T>): Promise<T> {
-    return this.services.ctx.ledger(project, change);
+  transact<T>(project: Project, decide: (ledger: Ledger) => Sync<T>): T {
+    return this.services.ctx.transact(project, decide);
   }
 
   settled(project: Project): Promise<unknown> {
@@ -90,7 +90,7 @@ export class Desk {
     return retell(this.services, project);
   }
 
-  closeIncidents(project: Project, seat: string): Promise<string[]> {
+  closeIncidents(project: Project, seat: string): string[] {
     return closeIncidentsOf(this.services, project, seat);
   }
 
@@ -145,7 +145,7 @@ export class Desk {
       const waiting = Object.values(loadLedger(project.state).lanes).filter((lane) => lane.status === "open" && lane.landing?.writers.some(ended));
       for (const lane of waiting) {
         const left = lane.landing!.writers.filter((id) => !ended(id));
-        await ctx.ledger(project, (ledger) => {
+        ctx.transact(project, (ledger) => {
           const entry = ledger.lanes[lane.id];
           if (!entry?.landing) return;
           if (left.length > 0) entry.landing.writers = left;
@@ -161,11 +161,11 @@ export class Desk {
     return this.services.slots.reap(project, live);
   }
 
-  setTask(project: Project, taskId: string, change: (task: Task) => void): Promise<Task | undefined> {
+  setTask(project: Project, taskId: string, change: (task: Task) => void): Task | undefined {
     return this.services.ctx.setTask(project, taskId, change);
   }
 
-  moveTask(project: Project, taskId: string, move: TaskMove, change?: (task: Task) => void): Promise<Task | TaskStatus | undefined> {
+  moveTask(project: Project, taskId: string, move: TaskMove, change?: (task: Task) => void): Task | TaskStatus | undefined {
     return this.services.ctx.moveTask(project, taskId, move, change);
   }
 
@@ -178,7 +178,7 @@ export class Desk {
   /** Checked on a plain read first, so a round with nothing to archive does not rewrite the ledger; records follow once it is saved. */
   async archiveFinished(project: Project, gone: (agentId: string) => boolean): Promise<void> {
     const taken = takeFinished(loadLedger(project.state), gone)
-      ? await this.services.ctx.ledger(project, (ledger) => {
+      ? this.services.ctx.transact(project, (ledger) => {
           const found = takeFinished(ledger, gone);
           if (found) keepArchived(project.state, found);
           return found;
@@ -269,7 +269,7 @@ export class Desk {
     if (reply.ok) {
       // Noting that the seat was heard from must not turn a reply it has earned into a crash.
       try {
-        await ctx.ledger(caller.project, (ledger) => {
+        ctx.transact(caller.project, (ledger) => {
           const ref = ledger.agents[caller.id] ?? { id: caller.id, role: caller.role.role };
           ref.recordedAt = Date.now();
           if (SPEAKS.includes(request.tool)) ref.spokeAt = ref.recordedAt;

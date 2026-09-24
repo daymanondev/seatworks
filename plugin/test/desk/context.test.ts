@@ -9,7 +9,7 @@ import { tempDir } from "../tempdir.ts";
 
 const kit = makeKit();
 
-test("two moves racing on one task: the lock lets the first through, and the second changes nothing and hears what stopped it", async () => {
+test("of two moves on one task the first goes through, and the second changes nothing and hears the status that stopped it", () => {
   const ctx = new DeskContext({ kit, outbox: { post: async () => "sent" }, log: () => {}, teamFor: () => resolveTeam(kit, {}), indexesFor: () => [] });
   const project: Project = { root: tempDir("sw2-context-"), slug: "p", state: tempDir("sw2-context-state-") };
   const ledger = emptyLedger();
@@ -17,11 +17,12 @@ test("two moves racing on one task: the lock lets the first through, and the sec
   ledger.tasks[task.id] = task;
   saveLedger(project.state, ledger);
 
-  const [accepted, cut] = await Promise.all([ctx.moveTask(project, task.id, "accept"), ctx.moveTask(project, task.id, "cut", (entry) => (entry.silent = 9))]);
+  const accepted = ctx.moveTask(project, task.id, "accept");
+  const cut = ctx.moveTask(project, task.id, "cut", (entry) => (entry.silent = 9));
   assert.equal(typeof accepted === "object" && accepted.status, "merged");
   assert.equal(cut, "merged");
   const kept = loadLedger(project.state).tasks[task.id]!;
   assert.equal(kept.status, "merged");
   assert.equal(kept.silent, 0, "what went with the refused move was not applied");
-  assert.equal(await ctx.moveTask(project, "L1-T9", "cut"), undefined);
+  assert.equal(ctx.moveTask(project, "L1-T9", "cut"), undefined);
 });

@@ -22,7 +22,7 @@ export const amendTask = defineTool({
       const problem = await parallelProblem(ctx.kit, caller.project, ledger, current.lane, changes.owned as string[], current.task.id);
       if (problem) return no(`${problem.why} Leave those paths out of ${current.task.id}.`);
     }
-    const done = await ctx.ledger(caller.project, (ledger) => {
+    const done = ctx.transact(caller.project, (ledger) => {
       const found = laneTask(ledger, caller, str(args.task));
       if (typeof found === "string") return found;
       const { task } = found;

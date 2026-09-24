@@ -13,7 +13,7 @@ export const report = defineTool({
     const lane = laneOfLead(loadLedger(caller.project.state), caller.id);
     if (!lane) return no("You have no open lane.");
     const gate = args.ready === true ? await laneGate(ctx, caller.project, lane) : undefined;
-    await ctx.ledger(caller.project, (current) => {
+    ctx.transact(caller.project, (current) => {
       const entry = current.lanes[lane.id];
       if (!entry) return;
       if (args.ready === true) entry.ready = { at: Date.now() };

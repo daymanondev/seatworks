@@ -14,7 +14,7 @@ export const askOwner = defineTool({
     if (!lane) return no("You have no open lane.");
     const to = await roster.supervisorFor(caller.project, lane.opener);
     if (!to) return no("Nobody above you is running to answer; keep working on your default and report when the lane is ready.");
-    const entry = await ctx.ledger(caller.project, (ledger) => {
+    const entry = ctx.transact(caller.project, (ledger) => {
       const created: Ask = {
         id: nextAskId(ledger),
         from: caller.id,
@@ -51,7 +51,7 @@ export const askLead = defineTool({
     const to = (await roster.seated(lane.lead)) ? lane.lead : await roster.supervisorFor(project, lane.opener);
     if (!to) return no("Your lead is not there and nobody above it is either, so nobody can answer now. Carry on with your default where you can, and end your turn with the question.");
     const tried = str(args.tried);
-    const entry = await ctx.ledger(project, (current) => {
+    const entry = ctx.transact(project, (current) => {
       const created: Ask = {
         id: nextAskId(current),
         from: caller.id,

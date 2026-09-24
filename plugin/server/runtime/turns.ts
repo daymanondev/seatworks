@@ -77,16 +77,16 @@ export class TurnRules {
     const lane = ledger.lanes[task.lane];
     if (recorded || task.status === "done") {
       // Heard from, so the quiet count restarts; left standing it was a lifetime tally.
-      if (spoke && task.silent > 0) await desk.setTask(project, task.id, (entry) => { entry.silent = 0; });
+      if (spoke && task.silent > 0) desk.setTask(project, task.id, (entry) => { entry.silent = 0; });
       // Nothing else sets a stalled task back to running once its Peer works again.
-      if (recorded && task.status === "stalled") await desk.moveTask(project, task.id, "resume", (entry) => { delete entry.peerGone; });
+      if (recorded && task.status === "stalled") desk.moveTask(project, task.id, "resume", (entry) => { delete entry.peerGone; });
       return;
     }
     // A call still in flight is not silence: a nudge here started a second gate beside the first.
     if (desk.inFlight(agent.id)) return;
     const denied = deniedCall(timeline, this.deps.kit.ecosystem.watch.refused);
     desk.event(project, { kind: "turn.silent", task: task.id, denied: denied?.what ?? null, refused: denied?.refused ?? false, lastCall: JSON.stringify(lastToolCall(timeline) ?? null).slice(0, 600) });
-    const updated = await desk.setTask(project, task.id, (entry) => {
+    const updated = desk.setTask(project, task.id, (entry) => {
       entry.silent += 1;
       if (entry.silent >= 2 || denied) TASK.move(entry, "stall");
     });

@@ -52,7 +52,7 @@ These are mostly absences, so the code won't show them to you.
   shown, before any verb runs. Each tool's zod input, which a test holds equal to that schema, types
   what its handler reads; a tool set picks among tools of one name by the schema it shows.
 - **One table per lifecycle.** A task, lane, ask or incident changes status only through its table
-  in `server/domain/`, checked under the ledger's lock against the status it has then.
+  in `server/domain/`, checked inside the ledger transaction against the status it has then.
 - **One file writes letters.** Everything the desk says to a seat is in `desk/letters.ts`; a Lead's
   directive, what it starts from, is in `desk/directive.ts`.
 - **One writer per working copy.** A lane-mode task holds the lane's copy from start until it is
@@ -122,7 +122,9 @@ What each agent's seat directory holds is in [the reference](REFERENCE.md#seat-d
 ![A lane, end to end](images/lane-lifecycle.svg)
 
 The **ledger** (`ledger.json`, one per project) holds lanes, tasks, asks, agents and slots. Every
-change goes through one per-project lock. A ledger it can't read is refused, never treated as empty.
+change is one synchronous transaction: the ledger is read, decided on and saved with nothing awaited
+in between, so no other change can land in the middle. A ledger it can't read is refused, never
+treated as empty.
 
 **Where a lane works.**
 

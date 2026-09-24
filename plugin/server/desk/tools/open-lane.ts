@@ -20,9 +20,9 @@ async function readIssue(args: Args, project: Project): Promise<{ issue?: Issue;
   return "error" in fetched ? { unread: `${ref} could not be read: ${fetched.error}` } : { issue: fetched };
 }
 
-function recordLane(desk: DeskServices, caller: Caller, args: Args, place: { base: string; onBranch: boolean; branch?: string }, issue: Issue | undefined, after?: string[]): Promise<Lane> {
+function recordLane(desk: DeskServices, caller: Caller, args: Args, place: { base: string; onBranch: boolean; branch?: string }, issue: Issue | undefined, after?: string[]): Lane {
   const title = str(args.title);
-  return desk.ctx.ledger(caller.project, (ledger) => {
+  return desk.ctx.transact(caller.project, (ledger) => {
     const id = nextLaneId(ledger);
     const lane: Lane = {
       id,
@@ -82,7 +82,7 @@ export const openLane = defineTool({
     const place = { base, onBranch, branch: onBranch ? base : undefined };
     if (pending.length > 0) {
       const { issue } = await readIssue(args, project);
-      const lane = await recordLane(desk, caller, args, place, issue, after);
+      const lane = recordLane(desk, caller, args, place, issue, after);
       desk.ctx.event(project, { kind: "lane.waiting", lane: lane.id, after });
       await seatCritic(desk, project, lane);
       return ok(`Lane ${lane.id} waits for ${pending.map((entry) => `${entry.id} (${entry.status})`).join(", ")}. It opens by itself once they have all landed, checked again against the lanes open then; if it cannot, or one closes without landing, you get a letter. Close it to drop it.`);
@@ -90,7 +90,7 @@ export const openLane = defineTool({
     const placed = await placement(desk.ctx.kit, project, { onBranch, writeSet: strs(args.writeSet), contracts: strs(args.contracts), detourOf: str(args.detourOf).trim().toUpperCase() || undefined }, args.isolate === true);
     if ("why" in placed) return no(`${placed.why} ${placed.instead}`.trim());
     const { issue, unread } = await readIssue(args, project);
-    const lane = await recordLane(desk, caller, args, place, issue);
+    const lane = recordLane(desk, caller, args, place, issue);
     const started = await startLead(desk, project, lane, { ownCopy: placed.ownCopy, failed: "close", from: newBranch ? here : undefined, role: str(args.role), parent: caller.id, issue });
     if (typeof started === "string") return no(started);
     await seatCritic(desk, project, lane);

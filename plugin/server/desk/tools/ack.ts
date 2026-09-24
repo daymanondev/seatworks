@@ -18,7 +18,7 @@ export const ack = defineTool({
     const now = Date.now();
     const allowed = mine(caller);
     if (typeof allowed === "string") return no(allowed);
-    const done = await ctx.incidents(caller.project, (held) => {
+    const done = ctx.incidents(caller.project, (held) => {
       const item = held.items[id];
       if (!item || !allowed(item)) return undefined;
       item.label = verdict;

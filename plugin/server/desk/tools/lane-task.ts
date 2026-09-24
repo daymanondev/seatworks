@@ -15,9 +15,9 @@ export function laneTask(ledger: Ledger, caller: Caller, id: string): { lane: La
   return { lane, task };
 }
 
-export function recordTask(desk: DeskServices, project: Project, lane: Lane, args: Args, parallel: boolean, startSha: string | undefined, waiting?: { after: string[]; role: string }): Promise<Task> {
+export function recordTask(desk: DeskServices, project: Project, lane: Lane, args: Args, parallel: boolean, startSha: string | undefined, waiting?: { after: string[]; role: string }): Task {
   const title = str(args.title);
-  return desk.ctx.ledger(project, (current) => {
+  return desk.ctx.transact(project, (current) => {
     const id = nextTaskId(current.lanes[lane.id]!, "code");
     const now = Date.now();
     const task: Task = {

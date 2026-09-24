@@ -164,7 +164,7 @@ export class Patrol {
       const gone = `${project.slug}:${task.id}`;
       if (seats.has(task.peer!) || this.goneFlag.has(gone)) continue;
       this.goneFlag.add(gone);
-      const lost = await desk.moveTask(project, task.id, "lose", (entry) => {
+      const lost = desk.moveTask(project, task.id, "lose", (entry) => {
         entry.peerGone = true;
       });
       if (typeof lost !== "object") continue;
@@ -194,7 +194,7 @@ export class Patrol {
       if (!seats.has(ask.to)) {
         const to = await desk.supervisorFor(project, lane?.opener);
         if (!to || to === ask.to) continue;
-        const moved = await desk.ledger(project, (current) => {
+        const moved = desk.transact(project, (current) => {
           const entry = current.asks[ask.id];
           if (!entry || entry.status !== "open" || entry.to !== ask.to) return undefined;
           entry.to = to;
@@ -216,7 +216,7 @@ export class Patrol {
         if ((await desk.post(to, `escalate:${project.slug}:${ask.id}`, letters.escalated(ask, age, ask.lane ?? "the project"))) === "nobody") continue;
       } else continue;
       // Pinned to this round's count so overlapping rounds cannot push it past the owner's maximum.
-      await desk.ledger(project, (current) => {
+      desk.transact(project, (current) => {
         const entry = current.asks[ask.id];
         if (!entry || entry.reminders !== ask.reminders) return;
         if (reminding) entry.reminders += 1;

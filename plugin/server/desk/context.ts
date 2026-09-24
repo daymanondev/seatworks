@@ -36,6 +36,9 @@ export type Posted = "sent" | "held" | "duplicate";
 
 export type Mailer = { post(letter: { to: string; key: string; text: string }): Promise<Posted> };
 
+/** What a transaction returns: never a promise, since awaiting inside one would let another change in between its read and its write. */
+export type Sync<T> = T extends PromiseLike<unknown> ? never : T;
+
 type DeskDeps = {
   kit: Kit;
   outbox: Mailer;
@@ -49,7 +52,6 @@ export class DeskContext {
   readonly projects = new Map<string, Project>();
   readonly seating = new Set<string>();
   private readonly deps: DeskDeps;
-  private readonly locks = new Map<string, Promise<unknown>>();
 
   constructor(deps: DeskDeps) {
     this.deps = deps;
@@ -68,45 +70,32 @@ export class DeskContext {
     this.deps.log(project, line);
   }
 
-  /** The one place project work queues behind running work: two writers stay off one ledger only by naming the same key here. */
-  private under<T>(key: string, run: () => T | Promise<T>): Promise<T> {
-    const waiting = this.locks.get(key) ?? Promise.resolve();
-    const next = waiting.then(() => run());
-    this.locks.set(key, next.then(() => undefined, () => undefined));
-    return next;
-  }
-
-  ledger<T>(project: Project, change: (ledger: Ledger) => T | Promise<T>): Promise<T> {
+  /** The one way the ledger changes: read, decided on and saved with nothing awaited in between, so no other change can land in the middle. */
+  transact<T>(project: Project, decide: (ledger: Ledger) => Sync<T>): T {
     this.projects.set(project.slug, project);
-    return this.under(project.slug, async () => {
-      const fault = ledgerFault(project.state);
-      if (fault) throw new Error(`${fault}. Nothing was written over it. Only the Human can repair it or move it aside — no seat may write the desk's own files — and what the desk has on record is in that file.`);
-      const ledger = loadLedger(project.state);
-      const result = await change(ledger);
-      saveLedger(project.state, ledger);
-      return result;
-    });
+    const fault = ledgerFault(project.state);
+    if (fault) throw new Error(`${fault}. Nothing was written over it. Only the Human can repair it or move it aside — no seat may write the desk's own files — and what the desk has on record is in that file.`);
+    const ledger = loadLedger(project.state);
+    const result = decide(ledger);
+    saveLedger(project.state, ledger);
+    return result;
   }
 
-  /** Read the ledger in turn with its writers, writing nothing back. An unreadable ledger still refuses: read as empty, every copy would look stray. */
-  read<T>(project: Project, look: (ledger: Ledger) => T): Promise<T> {
-    return this.under(project.slug, () => {
-      const fault = ledgerFault(project.state);
-      if (fault) throw new Error(`${fault}. Nothing was read from it as if it were empty.`);
-      return look(loadLedger(project.state));
-    });
+  /** The ledger as it stands. An unreadable one still refuses: read as empty, every copy would look stray. */
+  read<T>(project: Project, look: (ledger: Ledger) => T): T {
+    const fault = ledgerFault(project.state);
+    if (fault) throw new Error(`${fault}. Nothing was read from it as if it were empty.`);
+    return look(loadLedger(project.state));
   }
 
-  incidents<T>(project: Project, change: (incidents: Incidents) => T): Promise<T> {
+  incidents<T>(project: Project, change: (incidents: Incidents) => Sync<T>): T {
     this.projects.set(project.slug, project);
-    return this.under(`${project.slug}:incidents`, () => {
-      const fault = incidentsFault(project.state);
-      if (fault) throw new Error(`${fault}. Nothing was written over it. Only the Human can repair it or move it aside.`);
-      const incidents = loadIncidents(project.state);
-      const result = change(incidents);
-      saveIncidents(project.state, incidents);
-      return result;
-    });
+    const fault = incidentsFault(project.state);
+    if (fault) throw new Error(`${fault}. Nothing was written over it. Only the Human can repair it or move it aside.`);
+    const incidents = loadIncidents(project.state);
+    const result = change(incidents);
+    saveIncidents(project.state, incidents);
+    return result;
   }
 
   event(project: Project, data: Record<string, unknown>): void {
@@ -122,8 +111,8 @@ export class DeskContext {
     return this.deps.outbox.post({ to, key, text });
   }
 
-  setTask(project: Project, taskId: string, change: (task: Task) => void): Promise<Task | undefined> {
-    return this.ledger(project, (ledger) => {
+  setTask(project: Project, taskId: string, change: (task: Task) => void): Task | undefined {
+    return this.transact(project, (ledger) => {
       const task = ledger.tasks[taskId];
       if (!task) return undefined;
       change(task);
@@ -133,8 +122,8 @@ export class DeskContext {
   }
 
   /** Moves a task by its lifecycle under the lock, `change` alongside; a move the table refuses changes nothing and comes back as the status that stopped it. */
-  moveTask(project: Project, taskId: string, move: TaskMove, change?: (task: Task) => void): Promise<Task | TaskStatus | undefined> {
-    return this.ledger(project, (ledger) => {
+  moveTask(project: Project, taskId: string, move: TaskMove, change?: (task: Task) => void): Task | TaskStatus | undefined {
+    return this.transact(project, (ledger) => {
       const task = ledger.tasks[taskId];
       if (!task) return undefined;
       if (!TASK.move(task, move)) return task.status;
@@ -145,8 +134,8 @@ export class DeskContext {
   }
 
   /** As `moveTask`, for a lane: a move its table refuses leaves it as it was. */
-  moveLane(project: Project, laneId: string, move: LaneMove): Promise<void> {
-    return this.ledger(project, (ledger) => {
+  moveLane(project: Project, laneId: string, move: LaneMove): void {
+    this.transact(project, (ledger) => {
       const lane = ledger.lanes[laneId];
       if (lane) LANE.move(lane, move);
     });

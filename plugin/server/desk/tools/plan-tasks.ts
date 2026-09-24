@@ -32,7 +32,7 @@ export const planTasks = defineTool({
     const ids = new Map<string, string>();
     for (const task of plan) {
       const after = task.after.map((id) => ids.get(id) ?? id);
-      const recorded = await recordTask(desk, project, lane, task.args, task.parallel, undefined, { after, role: roles.get(task.key)! });
+      const recorded = recordTask(desk, project, lane, task.args, task.parallel, undefined, { after, role: roles.get(task.key)! });
       ids.set(task.key, recorded.id);
     }
     ctx.event(project, { kind: "plan.recorded", lane: lane.id, tasks: [...ids.values()], findings: findings.length });

@@ -21,8 +21,8 @@ async function changeOf(project: Project, target: Task, lane: Lane, inOwnCopy: b
 }
 
 /** A review is a task of the lane that owns nothing, recorded running and marked seating like any other. */
-function recordReview(ctx: DeskContext, project: Project, lane: Lane, target: Task | undefined, title: string, focus: string, slot: { id?: string; path: string }): Promise<Task> {
-  return ctx.ledger(project, (current) => {
+function recordReview(ctx: DeskContext, project: Project, lane: Lane, target: Task | undefined, title: string, focus: string, slot: { id?: string; path: string }): Task {
+  return ctx.transact(project, (current) => {
     const id = nextTaskId(current.lanes[lane.id]!, "review");
     const now = Date.now();
     const created: Task = {
@@ -74,7 +74,7 @@ export const startReview = defineTool({
     const lens = str(args.role);
     const reviewRole = roleThatCan(ctx.kit, "review", lens || undefined);
     if (!reviewRole) return no(namedOrNot(ctx.kit, "review", lens, "review, so there is nobody to ask a read-only question of"));
-    const review = await recordReview(ctx, project, lane, target, str(args.title), focus, slot);
+    const review = recordReview(ctx, project, lane, target, str(args.title), focus, slot);
     try {
       const reviewer = await agents.start(project, slot, reviewRole.role, {
         parent: caller.id,
@@ -82,16 +82,16 @@ export const startReview = defineTool({
         prompt: letters.reviewBrief(review, target, focus, lane.branch, change),
         labels: { "seatworks.lane": lane.id, "seatworks.task": review.id, "seatworks.role": reviewRole.role },
       });
-      await ctx.setTask(project, review.id, (entry) => {
+      ctx.setTask(project, review.id, (entry) => {
         entry.peer = reviewer;
       });
-      await ctx.ledger(project, (current) => {
+      ctx.transact(project, (current) => {
         current.agents[reviewer] = { id: reviewer, role: reviewRole.role, lane: lane.id, task: review.id };
       });
       ctx.event(project, { kind: "review.started", task: review.id, of: target?.id ?? null, reviewer });
       return ok(`Started ${review.id}${target ? ` on ${target.id}` : ""} with reviewer ${reviewer}. The verdict arrives as mail.`);
     } catch (error) {
-      await ctx.moveTask(project, review.id, "cut");
+      ctx.moveTask(project, review.id, "cut");
       return no(`The reviewer could not start: ${errorText(error)}`);
     } finally {
       ctx.seating.delete(seatingKey(project, review.id));

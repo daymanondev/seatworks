@@ -41,7 +41,7 @@ export const replaceLead = defineTool({
     if (seats.length === 0) return no("Paseo listed no agents just now, so whether the lane's Lead is still seated cannot be told; try again.");
     if (seats.some((seat) => seat.id === lane.lead)) return no(`Lane ${lane.id}'s Lead ${lane.lead} is still seated; message it instead.`);
     const key = seatingKey(project, lane.id);
-    const claimed = await ctx.ledger(project, (ledger) => {
+    const claimed = ctx.transact(project, (ledger) => {
       const entry = ledger.lanes[lane.id];
       if (entry?.status !== "open" || entry.lead !== lane.lead || ctx.seating.has(key)) return false;
       ctx.seating.add(key);
@@ -53,7 +53,7 @@ export const replaceLead = defineTool({
       const seated = started ? { lead: started.id, role: started.labels?.["seatworks.role"] ?? "lead" } : await takeOver(desk, caller, lane, str(args.role));
       if (typeof seated === "string") return no(seated);
       const { lead, role } = seated;
-      const moved = await ctx.ledger(project, (ledger) => {
+      const moved = ctx.transact(project, (ledger) => {
         ledger.lanes[lane.id]!.lead = lead;
         ledger.agents[lead] = { id: lead, role, lane: lane.id };
         const asks = Object.values(ledger.asks).filter((ask) => ask.status === "open" && ask.to === lane.lead);

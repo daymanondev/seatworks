@@ -30,7 +30,7 @@ export class MergeQueue {
     void this.after(project, () =>
       this.merge(project, taskId).catch(async (error) => {
         this.ctx.log(project, `merge ${taskId} crashed: ${errorText(error)}`);
-        await this.ctx.moveTask(project, taskId, "fail");
+        this.ctx.moveTask(project, taskId, "fail");
       }),
     );
   }
@@ -70,12 +70,12 @@ export class MergeQueue {
     }
     // Undone rather than finished: git stopped halfway leaves the copy dirty, and merging reads that as another writer there.
     if (cwd) await git(cwd, ["merge", "--abort"]);
-    await this.ctx.moveTask(project, task.id, "requeue");
+    this.ctx.moveTask(project, task.id, "requeue");
     return false;
   }
 
   private async merge(project: Project, taskId: string): Promise<void> {
-    const picked = await this.ctx.ledger(project, (ledger) => {
+    const picked = this.ctx.transact(project, (ledger) => {
       const task = ledger.tasks[taskId];
       const lane = task ? ledger.lanes[task.lane] : undefined;
       if (!task || !lane || !TASK.move(task, "merge")) return undefined;
@@ -112,7 +112,7 @@ export class MergeQueue {
     const counts = await diffCounts(cwd, merged.before, merged.after, fileKinds(this.ctx.kit));
     // No gate here: the Lead accepted with the verdict in hand, and undoing the merge on red would take that decision back.
     const gate = gateNote(project, task);
-    await this.ctx.setTask(project, task.id, (entry) => {
+    this.ctx.setTask(project, task.id, (entry) => {
       entry.mergeSha = merged.after;
     });
     await this.finish(project, task, lane, "merged", letters.merged(task, counts, outsideOwned(counts?.files ?? [], task.owned), gate));
@@ -120,7 +120,7 @@ export class MergeQueue {
 
   /** The record follows what the merge did, and its Lead is told. */
   private async finish(project: Project, task: Task, lane: Lane, move: Outcome, text: string): Promise<void> {
-    const moved = await this.ctx.moveTask(project, task.id, move);
+    const moved = this.ctx.moveTask(project, task.id, move);
     if (typeof moved !== "object") return;
     await this.ctx.post(lane.lead, `merge:${task.id}:${moved.status}:${Date.now()}`, text);
     this.ctx.event(project, { kind: `merge.${moved.status}`, task: task.id });

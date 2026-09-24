@@ -22,7 +22,7 @@ export const amendLane = defineTool({
       const problem = await overlap(ctx.kit, project, others, (changes.writeSet ?? lane.writeSet) as string[], (changes.contracts ?? lane.contracts) as string[]);
       if (problem) return no(`${problem.why} Leave those paths out of this lane, or ask for that work in a lane that waits for the other.`);
     }
-    const done = await ctx.ledger(project, (current) => {
+    const done = ctx.transact(project, (current) => {
       const entry = current.lanes[lane.id];
       const amendment = entry && entry.status !== "closed" ? amend(entry, changes, caller.id, str(args.why)) : undefined;
       if (amendment) delete entry!.ready;

@@ -64,7 +64,7 @@ async function handBack({ ctx, roster }: DeskServices, caller: Caller, args: Par
   mkdirSync(join(project.state, "handbacks"), { recursive: true });
   writeFileSync(file, `# ${task.id} ${task.title}\n\n${body}\n`);
   // Decided under the lock: an accept or cut can land during the gate, and `done` over `queued` made the merge queue skip it.
-  const already = await ctx.ledger(project, (current) => {
+  const already = ctx.transact(project, (current) => {
     const entry = current.tasks[task.id];
     if (!entry) return "gone";
     if (!TASK.move(entry, "handBack")) return entry.status;

@@ -26,7 +26,7 @@ export class Slots {
   }
 
   async acquire(project: Project, branch: string, base: string, holder: Holder): Promise<Slot> {
-    const picked = await this.reserve(project, holder);
+    const picked = this.reserve(project, holder);
     try {
       const reused = await this.checkOut(project, picked, branch, base);
       const workspaceId = picked.workspaceId ?? (await this.createWorkspace(project, picked));
@@ -34,7 +34,7 @@ export class Slots {
       this.index(project, picked, reused);
       return { ...picked, workspaceId };
     } catch (error) {
-      await this.free(project, picked.id);
+      this.free(project, picked.id);
       throw error;
     }
   }
@@ -140,12 +140,12 @@ export class Slots {
     const waiting = [...new Set(writers)];
     if (waiting.length === 0 || (!teardown.slot && !teardown.restore)) return this.run(teardown);
     if (teardown.slot) {
-      await this.ctx.ledger(teardown.project, (ledger) => {
+      this.ctx.transact(teardown.project, (ledger) => {
         const slot = ledger.slots[teardown.slot!];
         if (slot) slot.releasing = { writers: waiting, dropBranch: teardown.dropBranch, into: teardown.into };
       });
     } else if (teardown.lane) {
-      await this.ctx.ledger(teardown.project, (ledger) => {
+      this.ctx.transact(teardown.project, (ledger) => {
         const lane = ledger.lanes[teardown.lane!];
         if (lane) lane.restoring = { writers: waiting, base: teardown.restore!, branch: teardown.branch ?? lane.branch, ...(teardown.dropBranch ? { landed: true } : {}) };
       });
@@ -172,7 +172,7 @@ export class Slots {
       // A record with nobody left to wait for is a restore that did not happen, retried each time.
       if (waiting.length > 0 && left.length === waiting.length) continue;
       if (left.length > 0) {
-        await this.ctx.ledger(project, (ledger) => {
+        this.ctx.transact(project, (ledger) => {
           const entry = ledger.lanes[lane.id];
           if (entry?.restoring) entry.restoring.writers = left;
         });
@@ -181,7 +181,7 @@ export class Slots {
       // The record goes only once the copy is really back: it is the only token a later round can retry from.
       if (!(await this.restore(project, lane.restoring!.base, lane.restoring!.branch))) continue;
       if (lane.restoring!.landed) await this.dropLanded(project, lane.restoring!.branch, landedRef(lane.id));
-      await this.ctx.ledger(project, (ledger) => {
+      this.ctx.transact(project, (ledger) => {
         const entry = ledger.lanes[lane.id];
         if (entry) delete entry.restoring;
       });
@@ -191,7 +191,7 @@ export class Slots {
       const left = waiting.filter((id) => !stopped(id));
       if (waiting.length === 0 || left.length === waiting.length) continue;
       if (left.length > 0) {
-        await this.ctx.ledger(project, (ledger) => {
+        this.ctx.transact(project, (ledger) => {
           const entry = ledger.slots[slot.id];
           if (entry?.releasing) entry.releasing.writers = left;
         });
@@ -208,7 +208,7 @@ export class Slots {
       return this.restore(teardown.project, teardown.restore, teardown.branch).then(async (back) => {
         if (back && teardown.dropBranch && teardown.into) await this.dropLanded(teardown.project, teardown.dropBranch, teardown.into);
         if (back || !teardown.lane) return undefined;
-        await this.ctx.ledger(teardown.project, (ledger) => {
+        this.ctx.transact(teardown.project, (ledger) => {
           const lane = ledger.lanes[teardown.lane!];
           if (lane) lane.restoring = { writers: [], base: teardown.restore!, branch: teardown.branch ?? lane.branch, ...(teardown.dropBranch ? { landed: true } : {}) };
         });
@@ -245,13 +245,13 @@ export class Slots {
         }
       }
     }
-    await this.drop(project, slotId);
+    this.drop(project, slotId);
     this.ctx.event(project, { kind: "slot.released", slot: slotId, removed: Boolean(slot), kept });
     return kept;
   }
 
-  private reserve(project: Project, holder: Holder): Promise<Slot> {
-    return this.ctx.ledger(project, (ledger) => {
+  private reserve(project: Project, holder: Holder): Slot {
+    return this.ctx.transact(project, (ledger) => {
       const free = Object.values(ledger.slots)
         .filter((slot) => !slot.lane && !slot.task)
         .sort((a, b) => a.createdAt - b.createdAt)[0];
@@ -287,7 +287,7 @@ export class Slots {
     const home = await this.projectWorkspace(project);
     if (!home.project) throw new Error(`the project's workspace in Paseo names no Paseo project, so its working copy was not made: Paseo would have made it a project of its own`);
     const { id: workspaceId } = await this.workspaces.make(`${project.slug} ${slot.id}`, slot.path, home.project);
-    await this.ctx.ledger(project, (ledger) => {
+    this.ctx.transact(project, (ledger) => {
       const entry = ledger.slots[slot.id];
       if (entry) entry.workspaceId = workspaceId;
     });
@@ -304,7 +304,7 @@ export class Slots {
     };
     for (const workspace of await this.workspaces.owned(project.slug)) {
       if (busy && workspace.name === project.slug) continue;
-      if (await this.ctx.read(project, (current) => heldIds(current).has(workspace.id))) continue;
+      if (this.ctx.read(project, (current) => heldIds(current).has(workspace.id))) continue;
       try {
         await this.workspaces.archive(workspace.id);
         this.ctx.event(project, { kind: "workspace.swept", workspace: workspace.id, name: workspace.name });
@@ -316,7 +316,7 @@ export class Slots {
     if (!root.startsWith(worktreeRoot()) || !existsSync(root)) return;
     // Read and listed inside the lock; removal outside it is safe because a slot id is never handed out twice.
     const live = (current: Ledger) => new Set(Object.values(current.slots).map((slot) => slot.path));
-    const strays = await this.ctx.read(project, (current) => {
+    const strays = this.ctx.read(project, (current) => {
       const held = live(current);
       return readdirSync(root)
         .map((name) => join(root, name))
@@ -324,7 +324,7 @@ export class Slots {
     });
     for (const path of strays) {
       // Asked again just before, for a row reserved for a path from before ids stopped being reused.
-      if (await this.ctx.read(project, (current) => live(current).has(path))) continue;
+      if (this.ctx.read(project, (current) => live(current).has(path))) continue;
       await removeWorktree(project.root, path);
       try {
         rmSync(path, { recursive: true, force: true });
@@ -346,8 +346,8 @@ export class Slots {
     } catch {}
   }
 
-  private free(project: Project, slotId: string): Promise<void> {
-    return this.ctx.ledger(project, (ledger) => {
+  private free(project: Project, slotId: string): void {
+    return this.ctx.transact(project, (ledger) => {
       const entry = ledger.slots[slotId];
       if (entry) {
         delete entry.lane;
@@ -356,8 +356,8 @@ export class Slots {
     });
   }
 
-  private drop(project: Project, slotId: string): Promise<void> {
-    return this.ctx.ledger(project, (ledger) => {
+  private drop(project: Project, slotId: string): void {
+    return this.ctx.transact(project, (ledger) => {
       delete ledger.slots[slotId];
     });
   }

@@ -12,7 +12,7 @@ export const answer = defineTool({
   async handle({ ctx }, caller, args) {
     const id = str(args.ask).toUpperCase();
     const text = str(args.text);
-    const result = await ctx.ledger(caller.project, (ledger): { ask: Ask; waitingRole?: string } | string => {
+    const result = ctx.transact(caller.project, (ledger): { ask: Ask; waitingRole?: string } | string => {
       const ask = ledger.asks[id];
       if (!ask) return `There is no ask ${id}.`;
       if (!ASK.may(ask.status, "answer")) return `Ask ${id} is already answered.`;

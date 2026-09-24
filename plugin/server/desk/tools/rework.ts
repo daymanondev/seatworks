@@ -12,7 +12,7 @@ export const rework = defineTool({
   input: z.strictObject({ task: z.string(), text: z.string() }),
   async handle({ ctx, roster }, caller, args) {
     const text = str(args.text);
-    const result = await ctx.ledger(caller.project, (ledger): Task | string => {
+    const result = ctx.transact(caller.project, (ledger): Task | string => {
       const found = laneTask(ledger, caller, str(args.task));
       if (typeof found === "string") return found;
       const { lane, task } = found;

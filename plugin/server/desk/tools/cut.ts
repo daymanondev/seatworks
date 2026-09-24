@@ -16,7 +16,7 @@ export const cut = defineTool({
     const found = laneTask(ledger, caller, str(args.task));
     if (typeof found === "string") return no(found);
     const { lane, task } = found;
-    const updated = await ctx.moveTask(project, task.id, "cut");
+    const updated = ctx.moveTask(project, task.id, "cut");
     if (updated === undefined) return no(`${task.id} is gone.`);
     if (updated === "merging") return no(`${task.id} is being merged, and a cut would not stop its work landing. How the merge went arrives as mail.`);
     if (typeof updated === "string") return no(`${task.id} is already ${updated === "merged" ? "accepted" : "cut"}.`);
