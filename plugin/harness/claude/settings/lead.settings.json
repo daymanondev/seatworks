@@ -2,6 +2,9 @@
   "permissions": {
     "deny": [
       "AskUserQuestion",
+      "Edit",
+      "Write",
+      "MultiEdit",
       "Bash(git commit *)",
       "Bash(git -C * commit *)"
     ]

@@ -745,6 +745,32 @@
           "of"
         ]
       }
+    },
+    {
+      "name": "note",
+      "description": "Keep a page you would otherwise write to a file: a plan, a council verdict, a review brief or report. It goes into one of the folders your role keeps pages in under the project's state, never into the repository; a page of the same name is replaced. The reply names its path, which is how you point to it.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "The folder: one your role keeps pages in. Another is refused with the list."
+          },
+          "name": {
+            "type": "string",
+            "description": "The file name, with no folders in it, like cart-plan.md."
+          },
+          "text": {
+            "type": "string",
+            "description": "The whole page."
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "text"
+        ]
+      }
     }
   ],
   "peer": [

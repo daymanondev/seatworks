@@ -68,6 +68,9 @@ test("every role builds on every agent the kit ships, each in that agent's own t
     const dir = seatDir(kit, role, harness, home, project);
     const settings = readConfig<Record<string, any>>(join(dir, harness.settings.file), {});
     const where = `${role.role} on ${harness.id}`;
+    // The Lead coordinates and keeps its pages with note; only Codex has no way to take its file tools away.
+    const edits = !["reviewer", "critic", "lead"].includes(role.role);
+    if (harness.id === "claude") assert.equal(["Edit", "Write", "MultiEdit"].some((tool) => settings.permissions.deny.includes(tool)), !edits, `${where}: edits files only where the role may`);
     if (harness.id === "codex") {
       assert.deepEqual(settings.features, { multi_agent: false, multi_agent_v2: false }, `${where}: Paseo is the only control plane`);
       assert.equal(settings.approval_policy, "never", `${where}: nobody is there to approve`);
@@ -86,6 +89,7 @@ test("every role builds on every agent the kit ships, each in that agent's own t
       assert.equal(denied.includes("git commit*"), ["supervisor", "lead", "reviewer"].includes(role.role), `${where}: commits only where the role may`);
       assert.equal(settings.ask?.enabled, false, `${where}: nobody is there to answer a question that stops the turn`);
       assert.equal(settings.tools?.approval?.task, "deny", `${where}: Paseo is the only control plane`);
+      assert.equal(["edit", "write", "ast_edit"].every((tool) => settings.tools?.approval?.[tool] === "deny"), !edits, `${where}: edits files only where the role may`);
       assert.ok(settings.disabledProviders?.includes("claude"), `${where}: the owner's own Claude setup does not load in a seat`);
       const servers = readConfig<Record<string, any>>(join(dir, harness.mcp.file), {}).mcpServers ?? {};
       assert.equal("team" in servers, Boolean(role.tools), `${where}: the desk's tools are in the file omp reads them from`);
@@ -99,11 +103,12 @@ test("every role builds on every agent the kit ships, each in that agent's own t
         assert.equal(bash["git commit *"] === "deny", ["supervisor", "lead", "reviewer"].includes(role.role), `${where}: commits only where the role may`);
       }
       assert.deepEqual([task, question, outside], ["deny", "deny", "allow"], `${where}: no subagents, no question that stops the turn, and nothing waiting on a person`);
+      assert.equal(settings.permission?.edit === "deny", !edits, `${where}: edits files only where the role may`);
     }
     if (harness.id === "pi") {
       assert.deepEqual(settings.packages, ["npm:pi-mcp-adapter"], `${where}: the desk's tools reach Pi only through the adapter`);
       assert.equal(settings.defaultProjectTrust, "never", `${where}: the repository's own .pi does not load in a seat`);
-      const tools = { reviewer: ["read", "bash", "grep", "find", "ls"], critic: [] }[role.role as "reviewer"];
+      const tools = { reviewer: ["read", "bash", "grep", "find", "ls"], lead: ["read", "bash", "grep", "find", "ls"], critic: [] }[role.role as "reviewer"];
       assert.deepEqual(settings.defaultTools, tools, where);
       // The adapter lists an unconnected server with no tools until first called, so a fresh Peer could not find `done`.
       const desk = readConfig<Record<string, any>>(join(dir, harness.mcp.file), {}).mcpServers?.team;

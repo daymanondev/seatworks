@@ -1,5 +1,6 @@
 {
   "permission": {
+    "edit": "deny",
     "bash": {
       "git commit": "deny",
       "git commit *": "deny",

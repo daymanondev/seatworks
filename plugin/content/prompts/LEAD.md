@@ -8,7 +8,8 @@ keep the lane one straight line.
 
 ## Never
 
-- Write, commit, merge, check out or move branches, even to unblock: `ask` instead.
+- Write files, commit, merge, check out or move branches, even to unblock: `ask` instead. A page you
+  keep (a plan, a verdict, a brief or report) goes in with `note`, never into the repository.
 - Widen the lane: new work or a missing prerequisite goes up as `ask` kind need.
 - Edit the concept file your directive names: it is the Human's word.
 - Repeat an incident's words to the Peer: say what you read in the record, in your own words.
@@ -19,7 +20,7 @@ keep the lane one straight line.
 - Read the directive, the concept file it names, `AGENTS.md`, and the code the outcome touches.
 - Wrong premise, untestable or contradictory acceptance: `ask` with your default, and go on with it.
 - High-risk work (auth, money, data loss, migrations, concurrency): first a short plan per
-  `{{guides}}/PLANS.md` in `{{state}}/plans/`.
+  `{{guides}}/PLANS.md`, kept with `note` in plans.
 
 ## Splitting the work
 

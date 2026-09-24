@@ -29,6 +29,7 @@ export type DeskEvent =
   | { kind: "gate.overridden"; lane: string; by: string }
   | { kind: "restore.held"; base: string; branch: string | null; why: string }
   | { kind: "tasks.added"; lane: string; tasks: string[] }
+  | { kind: "note.written"; file: string; by: string; replaced: boolean }
   | { kind: "task.waiting"; task: string; after: string[] }
   | { kind: "task.held"; task: string; reason: string }
   | { kind: "task.started"; task: string; peer: string; mode: Task["mode"]; slot: string }
