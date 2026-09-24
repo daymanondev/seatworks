@@ -206,7 +206,7 @@ export function can(role: RoleSpec | undefined, capability: string): boolean {
   return role?.can?.includes(capability) ?? false;
 }
 
-/** `start_task` seats `write` roles and `start_review` `review` ones, so a role seated by either works a task without `work`. */
+/** `add_tasks` seats `write` roles and `start_review` `review` ones, so a role seated by either works a task without `work`. */
 export function worksTasks(role: RoleSpec | undefined): boolean {
   return ["work", "write", "review"].some((capability) => can(role, capability));
 }

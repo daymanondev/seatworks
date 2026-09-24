@@ -3,11 +3,11 @@ import { type Args, str, strs } from "./context.ts";
 import { type Lane, type Ledger, activeTasks } from "./ledger.ts";
 import { taskWaitsFor } from "./waiting.ts";
 
-/** One task of a plan: its fields as `start_task` takes them, and what it waits for, plan keys and task ids alike. */
+/** One task of a layout: its fields as `add_tasks` takes them, and what it waits for, its keys and task ids alike. */
 type Planned = { key: string; args: Args; parallel: boolean; owned: string[]; after: string[] };
 
 /**
- * The plan in an order it can run in, or why it is not one: each key once, each `after` a key of it or a task of this
+ * The tasks in an order they can run in, or why they cannot: each key once, each `after` a key of it or a task of this
  * lane that can still be accepted, and no loop. Tasks in the lane's copy then run one after another in that order.
  */
 export function readPlan(ledger: Ledger, lane: Lane, listed: Args[]): Planned[] | string {
@@ -20,7 +20,7 @@ export function readPlan(ledger: Ledger, lane: Lane, listed: Args[]): Planned[] 
   }));
   const keys = new Set<string>();
   for (const task of tasks) {
-    if (!task.key) return "Every task of a plan has a key, which the others name in after.";
+    if (!task.key) return "Every task has a key, which the others name in after.";
     if (keys.has(task.key)) return `The key ${task.key} names two tasks; give each its own.`;
     if (ledger.tasks[task.key]) return `The key ${task.key} is already a task of this project; pick keys that are not task ids.`;
     keys.add(task.key);
@@ -28,14 +28,14 @@ export function readPlan(ledger: Ledger, lane: Lane, listed: Args[]): Planned[] 
   for (const task of tasks) {
     const outside = task.after.filter((id) => !keys.has(id));
     const found = outside.length > 0 ? taskWaitsFor(ledger, lane.id, outside) : [];
-    if (typeof found === "string") return `${task.key}: ${found}`;
+    if (typeof found === "string") return `${task.key}: ${found} Take it out of after.`;
   }
   const order: Planned[] = [];
   const placed = new Set<string>();
   while (order.length < tasks.length) {
     // Listed order wherever after leaves a choice.
     const next = tasks.find((task) => !placed.has(task.key) && task.after.every((id) => !keys.has(id) || placed.has(id)));
-    if (!next) return `The plan loops: ${tasks.filter((task) => !placed.has(task.key)).map((task) => task.key).join(", ")} wait for each other, so none of them could ever start.`;
+    if (!next) return `The tasks loop: ${tasks.filter((task) => !placed.has(task.key)).map((task) => task.key).join(", ")} wait for each other, so none of them could ever start.`;
     order.push(next);
     placed.add(next.key);
   }
@@ -48,8 +48,8 @@ export function readPlan(ledger: Ledger, lane: Lane, listed: Args[]): Planned[] 
   return order;
 }
 
-/** What in the plan would collide as the desk will run it: evidence for the Lead, never a refusal on its own. */
-export function planFindings(ledger: Ledger, lane: Lane, plan: Planned[], serial: string[]): string[] {
+/** What in the layout would collide as the desk will run it: two writers on one path, or a path the lane does not own. */
+export function layoutProblems(ledger: Ledger, lane: Lane, plan: Planned[], serial: string[]): string[] {
   const findings: string[] = [];
   const before = new Map<string, Set<string>>();
   for (const task of plan) before.set(task.key, new Set(task.after.flatMap((id) => [id, ...(before.get(id) ?? [])])));

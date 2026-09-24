@@ -34,17 +34,18 @@ export function taskWaitsFor(ledger: Ledger, lane: string, after: string[]): Tas
   return awaiting(after, find, (task) => task.status === "merged", (task) => (task.status === "cut" ? `${task.id} was cut` : undefined), "task in this lane");
 }
 
-/** Keeps why a lane or task still waits, and tells whoever asked for it, once per reason. */
-async function hold(desk: DeskServices, project: Project, entry: Lane | Task, held: NonNullable<Lane["held"]>): Promise<void> {
+/** Keeps why a lane or task still waits, and tells whoever asked for it, once per reason, unless it was told already. */
+async function hold(desk: DeskServices, project: Project, entry: Lane | Task, held: NonNullable<Lane["held"]>, tell = true): Promise<void> {
   const task = "lane" in entry;
-  const told = desk.ctx.transact(project, (current) => {
+  const changed = desk.ctx.transact(project, (current) => {
     const kept = task ? current.tasks[entry.id] : current.lanes[entry.id];
     if (!kept || kept.status !== "waiting" || kept.held?.why === held.why) return false;
     kept.held = held;
     return true;
   });
-  if (!told) return;
+  if (!changed) return;
   desk.ctx.event(project, task ? { kind: "task.held", task: entry.id, reason: held.why } : { kind: "lane.held", lane: entry.id, reason: held.why });
+  if (!tell) return;
   const to = task ? loadLedger(project.state).lanes[entry.lane]?.lead : await desk.roster.supervisorFor(project, entry.opener);
   await desk.ctx.post(to, letters.held(entry, held.why));
 }
@@ -64,8 +65,11 @@ export async function openWaiting(desk: DeskServices, project: Project, retryHel
   }
 }
 
-/** The same for tasks, in open lanes: an accepted or cut task frees what held one, a round does not. */
-export async function startWaiting(desk: DeskServices, project: Project, retryHeld: boolean): Promise<void> {
+/**
+ * The same for tasks, in open lanes: an accepted or cut task frees what held one, a round does not. The tasks in
+ * `answered` belong to the call running this, whose reply already says what became of each, so no letter repeats it.
+ */
+export async function startWaiting(desk: DeskServices, project: Project, retryHeld: boolean, answered: ReadonlySet<string> = new Set()): Promise<void> {
   await putBackHalfStarted(desk, project);
   const ledger = loadLedger(project.state);
   for (const waiting of Object.values(ledger.tasks).filter((task) => task.status === "waiting" && (retryHeld || !task.held?.tried))) {
@@ -73,13 +77,14 @@ export async function startWaiting(desk: DeskServices, project: Project, retryHe
     if (lane?.status !== "open" || !lane.lead) continue;
     const pending = taskWaitsFor(ledger, lane.id, waiting.after ?? []);
     if (Array.isArray(pending) && pending.length > 0) continue;
-    const held = typeof pending === "string" ? { why: `${pending} Cut this task to drop it, or cut it and start the work again without waiting.` } : await releaseTask(desk, project, lane, waiting);
-    if (held) await hold(desk, project, waiting, held);
+    const told = !answered.has(waiting.id);
+    const held = typeof pending === "string" ? { why: `${pending} Cut this task to drop it, or cut it and start the work again without waiting.` } : await releaseTask(desk, project, lane, waiting, told);
+    if (held) await hold(desk, project, waiting, held, told);
   }
 }
 
 /** As `release`, for a task: placed and claimed in one transaction, and back to waiting if its Peer cannot start. */
-async function releaseTask(desk: DeskServices, project: Project, lane: Lane, task: Task): Promise<Task["held"]> {
+async function releaseTask(desk: DeskServices, project: Project, lane: Lane, task: Task, told: boolean): Promise<Task["held"]> {
   const parallel = task.mode === "parallel";
   const serial = parallel ? await serialIn(desk.ctx.kit, project, lane.worktree!) : [];
   const startSha = parallel ? undefined : await headSha(lane.worktree!);
@@ -101,7 +106,7 @@ async function releaseTask(desk: DeskServices, project: Project, lane: Lane, tas
   desk.ctx.setTask(project, task.id, (entry) => {
     delete entry.held;
   });
-  await desk.ctx.post(lane.lead, letters.started(claimed, `Started ${task.id} ${started.where} with Peer ${started.peer}. Its hand-back arrives as mail.`));
+  if (told) await desk.ctx.post(lane.lead, letters.started(claimed, `Started ${task.id} ${started.where} with Peer ${started.peer}. Its hand-back arrives as mail.`));
   return undefined;
 }
 

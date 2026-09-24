@@ -6,7 +6,7 @@ import { tempDir } from "../tempdir.ts";
 import { harness, laneWithPeer } from "./harness.ts";
 
 const scope = { outcome: "x", acceptance: ["a"], outOfScope: ["anything else in the repository"] };
-const work = (title: string, extra: Record<string, unknown> = {}) => ({ title, goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"], ...extra });
+const work = (title: string, extra: Record<string, unknown> = {}) => ({ tasks: [{ key: "t", title, goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"], ...extra }] });
 
 async function openLane() {
   const h = harness();
@@ -18,23 +18,23 @@ async function openLane() {
 /** Which of these tasks hold the lane's copy now: started in it and not yet decided. */
 const writing = (h: ReturnType<typeof harness>, ids: string[]) => ids.filter((id) => h.ledger().tasks[id]?.status === "running");
 
-test("two tasks started at once in a lane's copy put one writer there, and the other is told the copy is taken", async () => {
+test("two task calls at once in a lane's copy put one writer there, and the other waits for the copy", async () => {
   const { h, lead } = await openLane();
-  const [first, second] = await Promise.all([h.call(lead, "lead", "start_task", work("One")), h.call(lead, "lead", "start_task", work("Two"))]);
-  assert.deepEqual([first.ok, second.ok].sort(), [false, true]);
-  assert.match((first.ok ? second : first).text, /is still writing in the lane's working copy/);
+  const [first, second] = await Promise.all([h.call(lead, "lead", "add_tasks", work("One")), h.call(lead, "lead", "add_tasks", work("Two"))]);
+  assert.deepEqual([first.ok, second.ok], [true, true], `${first.text}\n${second.text}`);
   assert.equal(writing(h, Object.keys(h.ledger().tasks)).length, 1);
+  assert.match(`${first.text}\n${second.text}`, /held: L1-T\d is still writing in the lane's working copy/);
 });
 
 test("a waiting task released while another is started beside it puts one writer in the lane's copy", async () => {
   const { h, lead } = await openLane();
-  await h.call(lead, "lead", "start_task", work("First"));
-  await h.call(lead, "lead", "start_task", work("After", { after: ["L1-T1"] }));
+  await h.call(lead, "lead", "add_tasks", work("First"));
+  await h.call(lead, "lead", "add_tasks", work("After", { after: ["L1-T1"] }));
   // The first is accepted without its acceptance starting what waited, so the round and a new start meet.
   const ledger = h.ledger();
   ledger.tasks["L1-T1"]!.status = "merged";
   saveLedger(h.project.state, ledger);
-  const [, started] = await Promise.all([h.runtime.desk.openWaiting(h.project), h.call(lead, "lead", "start_task", work("Beside"))]);
+  const [, started] = await Promise.all([h.runtime.desk.openWaiting(h.project), h.call(lead, "lead", "add_tasks", work("Beside"))]);
   assert.equal(writing(h, ["L1-T2", "L1-T3"]).length, 1, started.text);
 });
 
@@ -71,14 +71,16 @@ test("a waiting lane released while another is opened beside it puts one lane in
 
 test("an amendment and a new task reaching for the same paths at once do not both get them", async () => {
   const { h, lead } = await openLane();
-  await h.call(lead, "lead", "start_task", work("Beside", { owned: ["b.txt"], parallel: true }));
+  await h.call(lead, "lead", "add_tasks", work("Beside", { owned: ["b.txt"], parallel: true }));
   const [amended, started] = await Promise.all([
     h.call(lead, "lead", "amend_task", { task: "L1-T1", why: "it needs c too", owned: ["b.txt", "c.txt"] }),
-    h.call(lead, "lead", "start_task", work("Other", { owned: ["c.txt"], parallel: true })),
+    h.call(lead, "lead", "add_tasks", work("Other", { owned: ["c.txt"], parallel: true })),
   ]);
-  assert.deepEqual([amended.ok, started.ok].sort(), [false, true], `${amended.text}\n${started.text}`);
+  const said = `${amended.text}\n${started.text}`;
   const owners = Object.values(h.ledger().tasks).filter((task) => task.owned.includes("c.txt") && task.status === "running");
-  assert.equal(owners.length, 1);
+  assert.equal(owners.length, 1, said);
+  // Whichever came second is refused or held, by the task it would have written beside.
+  assert.match(said, /overlap L1-T\d at c\.txt|owns c\.txt, which L1-T1 is still writing/);
 });
 
 test("two lanes amended at once to write the same path do not both get it", async () => {

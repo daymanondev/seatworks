@@ -23,7 +23,7 @@
 <text class="sub" x="822" y="193" text-anchor="middle">worktree of its own</text>
 <path class="edge" d="M226,169 L730,169" style="stroke:var(--violet)" marker-end="url(#a-violet)"/>
 <rect class="node" x="270" y="224" width="184" height="58" rx="10" style="fill:var(--blue-fill);stroke:var(--blue)"/>
-<text class="title" x="362" y="241" text-anchor="middle" style="fill:var(--blue-ink)">start_task</text>
+<text class="title" x="362" y="241" text-anchor="middle" style="fill:var(--blue-ink)">add_tasks</text>
 <text class="sub" x="362" y="260" text-anchor="middle">lane mode shares the copy;</text>
 <text class="sub" x="362" y="277" text-anchor="middle">parallel gets its own</text>
 <path class="edge" d="M134,198 L134.0,245.0 Q134,253 142.0,253.0 L270,253" style="stroke:var(--violet)" marker-end="url(#a-violet)"/>

@@ -11,7 +11,7 @@ import { harness, laneWithPeer } from "./harness.ts";
 async function handedBack() {
   const lane = await laneWithPeer();
   const { h } = lane;
-  await h.call(lane.lane.lead!, "lead", "start_task", { title: "Beside", goal: "g", acceptance: ["a"], owned: ["c.txt"], outOfScope: ["the rest"], parallel: true });
+  await h.call(lane.lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Beside", goal: "g", acceptance: ["a"], owned: ["c.txt"], outOfScope: ["the rest"], parallel: true }] });
   const task = h.ledger().tasks["L1-T2"]!;
   h.commit(task.worktree!, "c.txt", "beside\n");
   await h.call(task.peer!, "peer", "done", { outcome: "complete", summary: "c" });

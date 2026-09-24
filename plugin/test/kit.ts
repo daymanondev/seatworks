@@ -144,7 +144,7 @@ export function makeKit(): Kit {
   for (const name of ["ecosystem.json", "paseo.json"]) put(dir, `catalog/${name}`, readFileSync(new URL(`../catalog/${name}`, import.meta.url), "utf-8"));
   put(dir, "mcp/tools.json", {
     supervisor: [{ name: "open_lane" }, { name: "answer" }, { name: "status" }],
-    lead: [{ name: "start_task" }, { name: "report" }, { name: "ask" }, { name: "status" }],
+    lead: [{ name: "add_tasks" }, { name: "report" }, { name: "ask" }, { name: "status" }],
     peer: [{ name: "done" }, { name: "ask" }],
   });
   put(dir, "content/prompts/SUPERVISOR.md", "# Supervisor\n\nGuides live in {{guides}}; state in {{state}}.\n");

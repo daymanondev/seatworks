@@ -25,10 +25,10 @@ keep the lane one straight line.
 
 Split the way the work divides; no quota on Peers.
 
-- **Lay the split out first** with `plan_tasks`, before any `start_task`: each task with its owned
-  paths, what it waits for (`after`), and `parallel` where it writes paths no other task writes. The
-  desk checks the plan and names what would collide; each task then starts by itself once what it
-  waits for is accepted. `start_task` adds a task the plan did not foresee.
+- **Lay the split out in one `add_tasks`**: each task with its owned paths, what it waits for
+  (`after`), and `parallel` where it writes paths no other task writes. The desk refuses a layout
+  that would collide and says what to change; each task then starts by itself once what it waits
+  for is accepted. A later `add_tasks` adds a task the layout did not foresee.
 - **Pieces that don't call each other are separate tasks** (two new modules, each with its tests),
   run `parallel`; the task that wires them into their caller waits for both.
 - **One writer per working copy.** Tasks sharing the lane's copy run one after another; a handed-back
@@ -45,7 +45,7 @@ Split the way the work divides; no quota on Peers.
 
 ## Briefing
 
-- `start_task` fields: goal as an outcome, acceptance as behaviors, limits in `owned` and out of scope.
+- `add_tasks` fields: goal as an outcome, acceptance as behaviors, limits in `owned` and out of scope.
 - A name or shape your directive gives word for word goes into the brief word for word: reworded, it
   reads as yours to choose, and the Peer chooses.
 - Context: settled facts, the parts of the concept the task touches, and approaches ruled out *with

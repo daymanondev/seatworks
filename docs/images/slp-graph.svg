@@ -62,7 +62,7 @@
 <rect x="601.225" y="300" width="77.55000000000001" height="20" rx="6" style="fill:var(--bg)"/>
 <text class="pill-text" x="640" y="314" text-anchor="middle" style="fill:var(--blue-ink)">report · ask</text>
 <rect x="487.95" y="436" width="74.1" height="20" rx="6" style="fill:var(--bg)"/>
-<text class="pill-text" x="525" y="450" text-anchor="middle" style="fill:var(--blue-ink)">start_task</text>
+<text class="pill-text" x="525" y="450" text-anchor="middle" style="fill:var(--blue-ink)">add_tasks</text>
 <rect x="412.435" y="430" width="65.13000000000001" height="20" rx="6" style="fill:var(--bg)"/>
 <text class="pill-text" x="445" y="444" text-anchor="middle" style="fill:var(--green-ink)">done · ask</text>
 <rect x="646.395" y="436" width="87.21000000000001" height="20" rx="6" style="fill:var(--bg)"/>

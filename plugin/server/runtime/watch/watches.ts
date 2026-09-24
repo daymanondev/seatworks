@@ -122,7 +122,7 @@ export class SeatWatch {
     return undefined;
   }
 
-  /** Re-read until the ledger places the seat: a Peer's first turn starts before `start_task` writes its task. */
+  /** Re-read until the ledger places the seat: a Peer's first turn starts before the desk writes it onto its task. */
   placed(): SeatContext | undefined {
     if (!this.current?.placed) this.current = this.context();
     return this.current;

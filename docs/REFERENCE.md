@@ -18,7 +18,7 @@ schema. A call that doesn't fit is refused, with what is wrong.
 | Role | Tools |
 |---|---|
 | Supervisor | `open_lane` `message` `answer` `land_lane` `drop_lane` `amend_lane` `replace_lead` `set_project` `status` `incidents` `mark_incident` |
-| Lead | `plan_tasks` `start_task` `start_review` `message` `answer` `accept` `rework` `amend_task` `cut` `ask` `report` `status` `incidents` `mark_incident` |
+| Lead | `add_tasks` `start_review` `message` `answer` `accept` `rework` `amend_task` `cut` `ask` `report` `status` `incidents` `mark_incident` |
 | Peer, Reviewer | `done` `ask` |
 | Critic | `findings` |
 <!-- end -->
@@ -31,8 +31,7 @@ schema. A call that doesn't fit is refused, with what is wrong.
 | `amend_lane` | Changes what an open or waiting lane is asked, keeping what it was asked before and why. Its Lead is told, and a READY it reported no longer stands. A write set or `contracts` that would overlap an open lane's is refused |
 | `replace_lead` | Seats a new Lead on an open lane whose Lead is gone, where the lane stands. A Lead Paseo already started for it is taken on instead, and the asks waiting on the old Lead move to the new one |
 | `set_project` | Sets the base branch, the gate command and its timeout (30 min by default), whether the gate runs per lane or per task, and the serial-only paths. An empty gate is an answer, and the desk never detects one over it |
-| `plan_tasks` | Records the lane's tasks at once, each waiting for what it names, and starts what can start. What would collide is told as evidence, not refused |
-| `start_task` | Seats a writing role on a task. In lane mode it shares the lane's copy. In parallel mode it gets its own slot and `task/…` branch. `skills` must be ones the role has |
+| `add_tasks` | Records tasks in the lane in one call, each waiting for what it names, and starts what can start. A task in the lane's copy waits while another holds it. The whole call is refused when two tasks that may run at once own one path, a parallel task owns a one-writer path, a task owns a path outside the lane's write set, or a task takes a path a running task still writes |
 | `start_review` | Seats a read-only reviewing role. It runs where the change is now: the task's copy, the lane's copy, or the task branch |
 | `accept` | Lane mode: marks the task merged in place and retires the Peer. It is refused if the lane copy is off its branch or dirty. Parallel mode: queues the task for merging |
 | `rework` | Sends the task back with a letter. It is refused while another task holds the lane copy |

@@ -34,18 +34,20 @@ test("a lane works serially in the project's own copy and hands it back on its b
   assert.match(h.git(h.root, "rev-parse", "--git-path", "info/exclude").trim() && readFileSync(join(h.root, ".git", "info", "exclude"), "utf-8"), /^\.idea\/$/m);
   assert.equal(h.git(slot.path, "status", "--porcelain"), "");
 
-  const unbounded = await h.call(lane.lead!, "lead", "start_task", { title: "Add four", goal: "g", acceptance: ["a"], owned: ["a.txt"] });
+  const unbounded = await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Add four", goal: "g", acceptance: ["a"], owned: ["a.txt"] }] });
   assert.equal(unbounded.ok, false);
   assert.match(unbounded.text, /needs outOfScope/);
 
-  const t1 = await h.call(lane.lead!, "lead", "start_task", { title: "Add four", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] });
+  const t1 = await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Add four", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] }] });
   assert.equal(t1.ok, true, t1.text);
   const task1 = h.ledger().tasks["L1-T1"]!;
   assert.equal(h.agents.get(task1.peer!)!.cwd, slot.path);
   assert.equal(task1.branch, lane.branch);
-  const blocked = await h.call(lane.lead!, "lead", "start_task", { title: "More", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] });
-  assert.equal(blocked.ok, false);
-  assert.match(blocked.text, /one writer at a time/);
+  const blocked = await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "More", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] }] });
+  assert.equal(blocked.ok, true, blocked.text);
+  assert.match(blocked.text, /L1-T2 More: held: L1-T1 is still writing in the lane's working copy, and it holds one writer at a time/);
+  assert.equal(h.ledger().tasks["L1-T2"]!.peer, undefined, "nobody is sent into the copy beside it");
+  assert.equal((await h.call(lane.lead!, "lead", "cut", { task: "L1-T2", reason: "not now" })).ok, true);
 
   writeFileSync(join(slot.path, "a.txt"), "one\ntwo\nthree\nfour\n");
   assert.equal((await h.call(task1.peer!, "peer", "done", { outcome: "complete", summary: "four" })).ok, true);
@@ -59,20 +61,20 @@ test("a lane works serially in the project's own copy and hands it back on its b
   assert.equal(h.ledger().tasks["L1-T1"]!.status, "merged");
   assert.ok(h.agents.get(task1.peer!)!.archivedAt);
 
-  await h.call(lane.lead!, "lead", "start_task", { title: "Break it", goal: "g", acceptance: ["a"], owned: ["BROKEN"], outOfScope: ["the rest of the repository"] });
-  const task2 = h.ledger().tasks["L1-T2"]!;
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Break it", goal: "g", acceptance: ["a"], owned: ["BROKEN"], outOfScope: ["the rest of the repository"] }] });
+  const task2 = h.ledger().tasks["L1-T3"]!;
   h.commit(slot.path, "BROKEN", "x\n");
-  const cut = await h.call(lane.lead!, "lead", "cut", { task: "L1-T2", reason: "wrong" });
+  const cut = await h.call(lane.lead!, "lead", "cut", { task: "L1-T3", reason: "wrong" });
   assert.equal(cut.ok, true, cut.text);
   assert.equal(existsSync(join(slot.path, "BROKEN")), false);
   assert.ok(h.agents.get(task2.peer!)!.archivedAt);
 
-  await h.call(lane.lead!, "lead", "start_task", { title: "Late break", goal: "g", acceptance: ["a"], owned: ["BROKEN"], outOfScope: ["the rest of the repository"] });
-  const task3 = h.ledger().tasks["L1-T3"]!;
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Late break", goal: "g", acceptance: ["a"], owned: ["BROKEN"], outOfScope: ["the rest of the repository"] }] });
+  const task3 = h.ledger().tasks["L1-T4"]!;
   h.commit(slot.path, "BROKEN", "late\n");
   await h.call(task3.peer!, "peer", "done", { outcome: "complete", summary: "late" });
   h.agents.get(task3.peer!)!.status = "idle";
-  await h.call(lane.lead!, "lead", "accept", { task: "L1-T3" });
+  await h.call(lane.lead!, "lead", "accept", { task: "L1-T4" });
   // A red gate is evidence carried in the report, not a gag on the Lead: acceptance is the Lead's to claim and the Supervisor's to judge.
   const onRed = await h.call(lane.lead!, "lead", "report", { summary: "the lane is done", ready: true });
   assert.equal(onRed.ok, true, onRed.text);
@@ -93,7 +95,7 @@ test("a lane works serially in the project's own copy and hands it back on its b
   await h.endTurn(lane.lead!, "closing up");
   assert.equal(h.git(h.root, "branch", "--show-current").trim(), "main", "once the Lead stops, the project's copy is back on its base branch");
   assert.equal(h.git(h.root, "branch", "--list", lane.branch).trim(), "", "and the landed branch goes, its commits kept under the lane's ref");
-  assert.equal(h.git(h.root, "log", "-1", "--format=%B", "main").trim(), [`${lane.title} (L1)`, "", lane.outcome, "", "- L1-T1 " + h.ledger().tasks["L1-T1"]!.title, "- L1-T3 Late break"].join("\n"), "one commit, naming the tasks that went in and not the one cut");
+  assert.equal(h.git(h.root, "log", "-1", "--format=%B", "main").trim(), [`${lane.title} (L1)`, "", lane.outcome, "", "- L1-T1 " + h.ledger().tasks["L1-T1"]!.title, "- L1-T4 Late break"].join("\n"), "one commit, naming the tasks that went in and not the one cut");
 
   const reopened = await h.call(sup, "supervisor", "open_lane", { title: "Next", outcome: "b.txt changes", acceptance: ["z"], outOfScope: ["anything else in the repository"] });
   assert.equal(reopened.ok, true, reopened.text);
@@ -398,13 +400,13 @@ test("parallel work needs independent write sets and merges back from its own wo
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "open_lane", { title: "Two files", outcome: "both change", acceptance: ["a", "b"], outOfScope: ["anything else in the repository"], writeSet: ["a.txt", "b.txt"] });
   const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "A", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] });
-  const overlap = await h.call(lane.lead!, "lead", "start_task", { title: "A again", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"], parallel: true });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "A", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] }] });
+  const overlap = await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "A again", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"], parallel: true }] });
   assert.equal(overlap.ok, false);
-  assert.match(overlap.text, /overlap L1-T1/);
-  const serial = await h.call(lane.lead!, "lead", "start_task", { title: "Lock", goal: "g", acceptance: ["a"], owned: ["package-lock.json"], outOfScope: ["the rest of the repository"], parallel: true });
+  assert.match(overlap.text, /T owns a\.txt, which L1-T1 is still writing, and does not wait for it/);
+  const serial = await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Lock", goal: "g", acceptance: ["a"], owned: ["package-lock.json"], outOfScope: ["the rest of the repository"], parallel: true }] });
   assert.equal(serial.ok, false, "the lock file is really in this repository, so a parallel task may not own it");
-  const par = await h.call(lane.lead!, "lead", "start_task", { title: "B", goal: "g", acceptance: ["b"], owned: ["b.txt"], outOfScope: ["the rest of the repository"], parallel: true });
+  const par = await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "B", goal: "g", acceptance: ["b"], owned: ["b.txt"], outOfScope: ["the rest of the repository"], parallel: true }] });
   assert.equal(par.ok, true, par.text);
   const taskB = h.ledger().tasks["L1-T2"]!;
   assert.equal(taskB.slot, "S0", "the lane itself is in place, so the parallel task takes the first working copy the desk makes");
@@ -462,7 +464,7 @@ test("asks reach the level above, answers come back, and a silent Peer is nudged
   await h.idle(lane.lead!);
   assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /ANSWER to your ask A1[\s\S]*Half up/);
 
-  await h.call(lane.lead!, "lead", "start_task", { title: "Quiet one", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Quiet one", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] }] });
   const task = h.ledger().tasks["L1-T1"]!;
   await new Promise((resolve) => setTimeout(resolve, 5));
   h.agents.get(task.peer!)!.status = "idle";
@@ -486,7 +488,7 @@ test("a working Peer past the first page of agents is not read as gone", async (
 
   await h.call(sup, "supervisor", "open_lane", { title: "Busy machine", outcome: "x", acceptance: ["a"], outOfScope: ["anything else in the repository"] });
   const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "Work", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Work", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] }] });
   const task = h.ledger().tasks["L1-T1"]!;
   assert.equal(h.agents.size > 200, true, "the seats this lane needs are past the first page");
 
@@ -526,7 +528,7 @@ test("a hand-back whose gate outlasts the call is not read as a silent turn", as
   await h.call(sup, "supervisor", "set_project", { gate: "sleep 1", gateOn: "task" });
   await h.call(sup, "supervisor", "open_lane", { title: "Slow", outcome: "x", acceptance: ["a"], outOfScope: ["anything else in the repository"] });
   const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "Work", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Work", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] }] });
   const peer = h.ledger().tasks["L1-T1"]!.peer!;
   h.commit(lane.worktree!, "a.txt", "A\n");
 
@@ -550,14 +552,14 @@ test("a task stalled because its Peer is gone holds no copy, and an ask to a gon
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "open_lane", { title: "Gone", outcome: "x", acceptance: ["a"], outOfScope: ["anything else in the repository"] });
   const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "Work", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Work", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] }] });
   const peer = h.ledger().tasks["L1-T1"]!.peer!;
   Object.assign(h.agents.get(peer)!, { archivedAt: new Date().toISOString(), status: "closed" });
   await h.tick(Date.now());
   assert.equal(h.ledger().tasks["L1-T1"]!.status, "stalled");
 
   // Nobody writes in the copy any more, so the Lead must not be told to wait for a hand-back.
-  const next = await h.call(lane.lead!, "lead", "start_task", { title: "More", goal: "g", acceptance: ["b"], owned: ["b.txt"], outOfScope: ["the rest of the repository"] });
+  const next = await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "More", goal: "g", acceptance: ["b"], owned: ["b.txt"], outOfScope: ["the rest of the repository"] }] });
   assert.equal(next.ok, true, next.text);
 
   // A Lead's ask to a Supervisor that has since gone must reach the one who sits down afterwards.
@@ -575,7 +577,7 @@ test("an escalation with nobody supervising seated waits for one instead of bein
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "open_lane", { title: "Asks", outcome: "x", acceptance: ["a"], outOfScope: ["anything else in the repository"] });
   const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "Work", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Work", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] }] });
   const peer = h.ledger().tasks["L1-T1"]!.peer!;
   assert.equal((await h.call(peer, "peer", "ask", { question: "Round half up or down?", tried: "read the spec" })).ok, true);
   h.agents.get(lane.lead!)!.status = "idle";
@@ -599,7 +601,7 @@ test("a stalled task still holds its working copy, and runs again once its Peer 
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "open_lane", { title: "Quiet", outcome: "x", acceptance: ["a"], outOfScope: ["anything else in the repository"] });
   const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "Work", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Work", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] }] });
   const peer = h.ledger().tasks["L1-T1"]!.peer!;
   h.agents.get(peer)!.status = "idle";
   for (const text of ["reading", "still reading"]) {
@@ -612,8 +614,9 @@ test("a stalled task still holds its working copy, and runs again once its Peer 
   assert.match(h.agents.get(peer)!.prompt ?? "", /Your task started from [0-9a-f]{40}/, "the brief names where the task began, which is BASE for its checks");
 
   // Its Peer is still seated in the lane's copy, so a stalled task still holds it.
-  const second = await h.call(lane.lead!, "lead", "start_task", { title: "More", goal: "g", acceptance: ["b"], owned: ["b.txt"], outOfScope: ["the rest of the repository"] });
-  assert.equal(second.ok, false, second.text);
+  const second = await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "More", goal: "g", acceptance: ["b"], owned: ["b.txt"], outOfScope: ["the rest of the repository"] }] });
+  assert.match(second.text, /L1-T2 More: held: L1-T1 is still writing/);
+  assert.equal(h.ledger().tasks["L1-T2"]!.peer, undefined);
 
   // Working again, it is running, so the patrol's gone-Peer and idle-lane checks see it.
   h.runtime.outbox.turnEnded(peer);
@@ -629,7 +632,7 @@ test("a Peer that asked is not stalled on its next quiet turn, and a repeated re
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "open_lane", { title: "Quiet", outcome: "x", acceptance: ["a"], outOfScope: ["anything else in the repository"] });
   const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "Work", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Work", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] }] });
   const task = h.ledger().tasks["L1-T1"]!;
   const peer = task.peer!;
 
@@ -672,7 +675,7 @@ test("each project gets the agent and model its own settings choose, and the mac
   await h.call(sup, "supervisor", "set_project", { gate: "true" });
   await h.call(sup, "supervisor", "open_lane", { title: "Defaults", outcome: "a.txt changes", acceptance: ["one"], outOfScope: ["anything else in the repository"] });
   const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "Default peer", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Default peer", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] }] });
   const onDefaults = h.agents.get(h.ledger().tasks["L1-T1"]!.peer!)!.provider;
   assert.equal(onDefaults, "sw2-peer-claude/claude-opus-5");
   assert.equal(h.agents.get(lane.lead!)!.provider, "sw2-lead-claude/claude-opus-5");
@@ -681,7 +684,7 @@ test("each project gets the agent and model its own settings choose, and the mac
   await h.call(h.ledger().tasks["L1-T1"]!.peer!, "peer", "done", { outcome: "complete", summary: "done" });
   h.commit(h.root, "a.txt", "one\n");
   await h.call(lane.lead!, "lead", "accept", { task: "L1-T1" });
-  await h.call(lane.lead!, "lead", "start_task", { title: "Pi peer", goal: "g", acceptance: ["a"], owned: ["b.txt"], outOfScope: ["the rest of the repository"] });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Pi peer", goal: "g", acceptance: ["a"], owned: ["b.txt"], outOfScope: ["the rest of the repository"] }] });
   const switched = h.agents.get(h.ledger().tasks["L1-T2"]!.peer!)!.provider;
   assert.equal(switched, "sw2-peer-pi/glm-5");
   assert.equal(h.agents.get(lane.lead!)!.provider, "sw2-lead-claude/claude-opus-5");
@@ -980,7 +983,7 @@ test("a copy two seats are writing in is put away by the last of them to stop, n
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "open_lane", { title: "Both in here", outcome: "x", acceptance: ["a"], outOfScope: ["anything else in the repository"], isolate: true });
   const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "In the lane's copy", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "In the lane's copy", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] }] });
   const task = h.ledger().tasks["L1-T1"]!;
   assert.equal(h.agents.get(task.peer!)!.cwd, lane.worktree, "a lane-mode Peer writes in the lane's own copy, beside its Lead");
   writeFileSync(join(lane.worktree!, "half-written.txt"), "the Peer is mid-sentence\n");
@@ -1008,7 +1011,7 @@ test("with gateOn task, the gate really runs on a lane-mode task and the Lead is
   await h.call(sup, "supervisor", "open_lane", { title: "Numbers", outcome: "a.txt gains words", acceptance: ["four"], outOfScope: ["anything else"] });
   const lane = h.ledger().lanes.L1!;
 
-  await h.call(lane.lead!, "lead", "start_task", { title: "Add four", goal: "g", acceptance: ["a"], owned: ["a.txt"], ...scope });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Add four", goal: "g", acceptance: ["a"], owned: ["a.txt"], ...scope }] });
   const peer = h.ledger().tasks["L1-T1"]!.peer!;
   h.commit(lane.worktree!, "a.txt", "one\ntwo\nthree\nfour\n");
   await h.call(peer, "peer", "done", { outcome: "complete", summary: "four" });
@@ -1029,7 +1032,7 @@ test("a red task gate reaches the Lead with the hand-back, and landing it anyway
   await h.call(sup, "supervisor", "set_project", { gate: "echo red; exit 1", gateOn: "task" });
   await h.call(sup, "supervisor", "open_lane", { title: "Bee", outcome: "b.txt changes", acceptance: ["b"], outOfScope: ["anything else in the repository"], writeSet: ["b.txt"] });
   const lane = h.ledger().lanes.L1!;
-  const started = await h.call(lane.lead!, "lead", "start_task", { title: "B", goal: "g", acceptance: ["b"], owned: ["b.txt"], outOfScope: ["the rest of the repository"], parallel: true });
+  const started = await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "B", goal: "g", acceptance: ["b"], owned: ["b.txt"], outOfScope: ["the rest of the repository"], parallel: true }] });
   assert.equal(started.ok, true, started.text);
   const task = h.ledger().tasks["L1-T1"]!;
   h.commit(task.worktree!, "b.txt", "B\n");
@@ -1053,7 +1056,7 @@ test("a commit made while the lane's copy is off its branch is not accepted as l
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "open_lane", { title: "Regression", outcome: "the bug goes", acceptance: ["a"], outOfScope: ["anything else in the repository"] });
   const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "Find it", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Find it", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] }] });
   const task = h.ledger().tasks["L1-T1"]!;
 
   // What a bisect leaves behind: a clean copy, on no branch, with the fix committed into nothing.
@@ -1079,13 +1082,13 @@ test("a task cannot be told to open a skill its Peer does not have", async () =>
   const scope = { goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] };
 
   // Nothing in a Lead's context lists the Peer's skills, so a guessed one must be refused.
-  const guessed = await h.call(lane.lead!, "lead", "start_task", { title: "Guessed", ...scope, skills: ["tdd"] });
+  const guessed = await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Guessed", ...scope, skills: ["tdd"] }] });
   assert.equal(guessed.ok, false);
   assert.match(guessed.text, /no skill called tdd/);
   assert.match(guessed.text, /They have: /, "and the refusal is where the Lead finds out what there is");
 
   const real = guessed.text.split("They have: ")[1]!.replace(/\.$/, "").split(", ")[0]!;
-  const named = await h.call(lane.lead!, "lead", "start_task", { title: "Named", ...scope, skills: [real] });
+  const named = await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Named", ...scope, skills: [real] }] });
   assert.equal(named.ok, true, named.text);
   const started = Object.values(h.ledger().tasks).find((task) => task.title === "Named")!;
   assert.match(h.agents.get(started.peer!)!.prompt!, new RegExp(`Skills to open: ${real}`));
@@ -1098,28 +1101,26 @@ test("a hand-back the Lead has not accepted still holds the lane's copy, so noth
   const scope = { outOfScope: ["the rest of the repository"] };
   await h.call(sup, "supervisor", "open_lane", { title: "Two in a row", outcome: "a and b change", acceptance: ["a"], outOfScope: ["anything else in the repository"] });
   const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "A", goal: "g", acceptance: ["a"], owned: ["a.txt"], ...scope });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "A", goal: "g", acceptance: ["a"], owned: ["a.txt"], ...scope }] });
   const first = h.ledger().tasks["L1-T1"]!;
   h.commit(lane.worktree!, "a.txt", "A\n");
   await h.call(first.peer!, "peer", "done", { outcome: "complete", summary: "a" });
   h.agents.get(first.peer!)!.status = "idle";
 
   // Its Peer is still seated and rework would wake it in that directory, so the copy is not free yet.
-  const second = await h.call(lane.lead!, "lead", "start_task", { title: "B", goal: "g", acceptance: ["b"], owned: ["b.txt"], ...scope });
-  assert.equal(second.ok, false);
-  assert.match(second.text, /L1-T1 has handed back and is waiting on you/);
-  assert.match(second.text, /Accept or cut it first/, "and the way out is named");
+  const second = await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "B", goal: "g", acceptance: ["b"], owned: ["b.txt"], ...scope }] });
+  assert.match(second.text, /L1-T2 B: held: L1-T1 has handed back and is waiting on you/);
+  assert.equal(h.ledger().tasks["L1-T2"]!.peer, undefined, "nobody is sent into the copy beside it");
 
-  // With the second task never started, the copy is clean and the first accepts as it always did.
+  // With the second task never started, the copy is clean and the first accepts as it always did; the second then starts.
   assert.equal((await h.call(lane.lead!, "lead", "accept", { task: "L1-T1" })).ok, true);
-  const now = await h.call(lane.lead!, "lead", "start_task", { title: "B", goal: "g", acceptance: ["b"], owned: ["b.txt"], ...scope });
-  assert.equal(now.ok, true, now.text);
+  assert.equal(h.ledger().tasks["L1-T2"]!.status, "running");
 
   // And a rework that would wake a Peer into another task's writing is refused, not prescribed.
   const back = await h.call(lane.lead!, "lead", "rework", { task: "L1-T1", text: "commit it" });
   assert.equal(back.ok, false);
   assert.match(back.text, /is merged/, "an accepted task has nothing to rework");
-  await h.call(lane.lead!, "lead", "start_task", { title: "C", goal: "g", acceptance: ["c"], owned: ["c.txt"], ...scope, parallel: true });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "C", goal: "g", acceptance: ["c"], owned: ["c.txt"], ...scope, parallel: true }] });
   const par = Object.values(h.ledger().tasks).find((task) => task.title === "C")!;
   writeFileSync(join(lane.worktree!, "b.txt"), "half\n");
   const reworkPar = await h.call(lane.lead!, "lead", "rework", { task: par.id, text: "again" });
@@ -1131,7 +1132,7 @@ test("a task whose honest answer is that nothing needed changing can be accepted
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "open_lane", { title: "Audit", outcome: "the parser is checked", acceptance: ["a"], outOfScope: ["anything else"] });
   const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "Check the parser", goal: "find out whether it drops input", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"] });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Check the parser", goal: "find out whether it drops input", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"] }] });
   const peer = h.ledger().tasks["L1-T1"]!.peer!;
 
   // The Peer investigates, finds the code already correct, and commits nothing. That is a real outcome.
@@ -1150,7 +1151,7 @@ test("a seat reaches only the tools its own role holds, whatever it asks for", a
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "open_lane", { title: "Work", outcome: "a.txt changes", acceptance: ["a"], outOfScope: ["anything else"] });
   const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "Edit", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"] });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Edit", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"] }] });
   const peer = h.ledger().tasks["L1-T1"]!.peer!;
 
   // The tool exists on the desk, and this seat's role is not given it.
@@ -1160,7 +1161,7 @@ test("a seat reaches only the tools its own role holds, whatever it asks for", a
   assert.equal(Object.keys(h.ledger().lanes).length, 1, "nothing was opened");
 
   // And a seat cannot borrow another role's name to get at them either.
-  const borrowed = await h.call(peer, "lead", "start_task", { title: "Mine", goal: "g", acceptance: ["a"], owned: ["b.txt"], outOfScope: ["z"] });
+  const borrowed = await h.call(peer, "lead", "add_tasks", { tasks: [{ key: "t", title: "Mine", goal: "g", acceptance: ["a"], owned: ["b.txt"], outOfScope: ["z"] }] });
   assert.equal(borrowed.ok, false);
   assert.match(borrowed.text, /lead tools are not available to it/);
 });
@@ -1194,7 +1195,7 @@ test("reaching a Peer directly tells its Lead what reached it, and is refused wh
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "open_lane", { title: "Pricing", outcome: "discounts round correctly", acceptance: ["a"], outOfScope: ["anything else"] });
   const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "Round", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"] });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Round", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"] }] });
   const task = h.ledger().tasks["L1-T1"]!;
 
   const reached = await h.call(sup, "supervisor", "message", { to: "L1-T1", text: "Use banker's rounding, not half-up." });
@@ -1239,7 +1240,7 @@ test("an ask answered by the owner over a Lead's head is told to that Lead, not 
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "open_lane", { title: "Columns", outcome: "the column goes", acceptance: ["a"], outOfScope: ["anything else in the repository"] });
   const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "Drop it", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Drop it", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] }] });
   const task = h.ledger().tasks["L1-T1"]!;
 
   // Unanswered asks escalate to the owner, so the owner answering one is the design.
@@ -1298,7 +1299,7 @@ test("the team's block left uncommitted in the project's own copy does not hold 
   assert.equal((await h.call(sup, "supervisor", "open_lane", { title: "Numbers", outcome: "x", acceptance: ["y"], outOfScope: ["z"] })).ok, true);
   const lane = h.ledger().lanes.L1!;
   assert.deepEqual(Object.keys(h.ledger().slots), [], "the lane works in the project's own copy, where the block is");
-  await h.call(lane.lead!, "lead", "start_task", { title: "Add four", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"] });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Add four", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"] }] });
   const task = h.ledger().tasks["L1-T1"]!;
   writeFileSync(join(h.root, "a.txt"), "four\n");
   h.git(h.root, "commit", "-qam", "add four");
@@ -1339,7 +1340,7 @@ test("a review hands back a verdict and its findings, and the Lead is told both"
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "open_lane", { title: "Rounding", outcome: "money rounds correctly", acceptance: ["a"], outOfScope: ["anything else"] });
   const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "Round", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"] });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Round", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"] }] });
   h.commit(lane.worktree!, "a.txt", "rounded\n");
   const peer = h.ledger().tasks["L1-T1"]!.peer!;
   await h.call(peer, "peer", "done", { outcome: "complete", summary: "rounded" });
@@ -1369,9 +1370,9 @@ test("a copy a reviewer is reading is not taken away when the task it reviews is
   const h = harness();
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   const scope = { outOfScope: ["the rest of the repository"] };
-  await h.call(sup, "supervisor", "open_lane", { title: "Reviewed", outcome: "a changes", acceptance: ["a"], outOfScope: ["anything else in the repository"], writeSet: ["a.txt"] });
+  await h.call(sup, "supervisor", "open_lane", { title: "Reviewed", outcome: "a and b change", acceptance: ["a"], outOfScope: ["anything else in the repository"], writeSet: ["a.txt", "b.txt"] });
   const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "A", goal: "g", acceptance: ["a"], owned: ["a.txt"], ...scope, parallel: true });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "A", goal: "g", acceptance: ["a"], owned: ["a.txt"], ...scope, parallel: true }] });
   const task = h.ledger().tasks["L1-T1"]!;
   h.commit(task.worktree!, "a.txt", "A\n");
   await h.call(task.peer!, "peer", "done", { outcome: "complete", summary: "a" });
@@ -1392,7 +1393,7 @@ test("a copy a reviewer is reading is not taken away when the task it reviews is
   assert.equal(existsSync(review.worktree!), false, "once it stops, the copy goes as it always did");
 
   // A copy already marked for teardown goes when the task's Peer ends its turn, so no review is seated in it.
-  await h.call(lane.lead!, "lead", "start_task", { title: "B", goal: "g", acceptance: ["b"], owned: ["b.txt"], ...scope, parallel: true });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "B", goal: "g", acceptance: ["b"], owned: ["b.txt"], ...scope, parallel: true }] });
   const second = Object.values(h.ledger().tasks).find((entry) => entry.title === "B")!;
   h.commit(second.worktree!, "b.txt", "B\n");
   await h.call(second.peer!, "peer", "done", { outcome: "complete", summary: "b" });
@@ -1412,7 +1413,7 @@ test("a review of a parallel task whose copy went back is pointed at the merge t
   const scope = { outOfScope: ["the rest of the repository"] };
   await h.call(sup, "supervisor", "open_lane", { title: "Two files", outcome: "both change", acceptance: ["a"], outOfScope: ["anything else in the repository"], writeSet: ["a.txt", "b.txt"] });
   const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "A", goal: "g", acceptance: ["a"], owned: ["a.txt"], ...scope, parallel: true });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "A", goal: "g", acceptance: ["a"], owned: ["a.txt"], ...scope, parallel: true }] });
   const task = h.ledger().tasks["L1-T1"]!;
   h.commit(task.worktree!, "a.txt", "A\n");
   await h.call(task.peer!, "peer", "done", { outcome: "complete", summary: "a" });
@@ -1432,7 +1433,7 @@ test("a review of a parallel task whose copy went back is pointed at the merge t
   assert.equal(h.git(lane.worktree!, "diff", "--name-only", `${merge}^1..${merge}`).trim(), "a.txt", "and the range really shows the task's work");
 
   // A task cut before it committed leaves neither a copy nor a branch, and there is nothing to read.
-  await h.call(lane.lead!, "lead", "start_task", { title: "B", goal: "g", acceptance: ["b"], owned: ["b.txt"], ...scope, parallel: true });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "B", goal: "g", acceptance: ["b"], owned: ["b.txt"], ...scope, parallel: true }] });
   const empty = Object.values(h.ledger().tasks).find((entry) => entry.title === "B")!;
   const cutReply = await h.call(lane.lead!, "lead", "cut", { task: empty.id, reason: "wrong shape" });
   assert.equal(cutReply.ok, true, cutReply.text);
@@ -1449,7 +1450,7 @@ test("a task branch is dropped once its work is in the lane's, whichever branch 
   await h.call(sup, "supervisor", "open_lane", { title: "Apart", outcome: "a.txt changes", acceptance: ["a"], outOfScope: ["anything else in the repository"], isolate: true });
   const lane = h.ledger().lanes.L1!;
   assert.equal(h.git(h.root, "branch", "--show-current").trim(), "main");
-  await h.call(lane.lead!, "lead", "start_task", { title: "A", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"], parallel: true });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "A", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"], parallel: true }] });
   const task = h.ledger().tasks["L1-T1"]!;
   h.commit(task.worktree!, "a.txt", "A\n");
   await h.call(task.peer!, "peer", "done", { outcome: "complete", summary: "a" });
@@ -1469,7 +1470,7 @@ test("a task goes to a role that writes, and a review to one that reads, and nei
   const lane = h.ledger().lanes.L1!;
 
   // The preset's Reviewer holds `work` for routing but is denied every write, so it is no second kind of Peer.
-  const readOnly = await h.call(lane.lead!, "lead", "start_task", { title: "Add four", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"], role: "reviewer" });
+  const readOnly = await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Add four", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"], role: "reviewer" }] });
   assert.equal(readOnly.ok, false, "a role that only reads cannot be given a task to write");
   assert.match(readOnly.text, /no reviewer that can take a task/i);
   assert.match(readOnly.text, /peer/, "and the refusal names who can, rather than recommending the one that cannot");
@@ -1480,7 +1481,7 @@ test("a task goes to a role that writes, and a review to one that reads, and nei
   assert.match(wrongLens.text, /no peer that can review/i);
   assert.match(wrongLens.text, /reviewer/, "the refusal names what there is to choose from");
 
-  const byDefault = await h.call(lane.lead!, "lead", "start_task", { title: "Add five", goal: "g", acceptance: ["a"], owned: ["b.txt"], outOfScope: ["the rest"] });
+  const byDefault = await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Add five", goal: "g", acceptance: ["a"], owned: ["b.txt"], outOfScope: ["the rest"] }] });
   assert.equal(byDefault.ok, true, byDefault.text);
   const seated = Object.values(h.ledger().tasks).find((task) => task.title === "Add five")!;
   assert.match(h.agents.get(seated.peer!)!.provider, /peer/, "left out, it is the preset's own default");
@@ -1495,7 +1496,7 @@ test("two projects on one daemon both name their first task L1-T1, and both Lead
     const sup = h.add("sw2-supervisor-claude/claude-opus-5", where, name);
     await h.call(sup, "supervisor", "open_lane", { title: "Numbers", outcome: "a.txt gains words", acceptance: ["four"], outOfScope: ["the rest"] }, where);
     const lane = h.ledger(where === h.root ? undefined : other).lanes.L1!;
-    await h.call(lane.lead!, "lead", "start_task", { title: "Add four", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"] }, where);
+    await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Add four", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"] }] }, where);
     return lane;
   };
   const here = await open(h.root, "sup-a");
@@ -1520,7 +1521,7 @@ test("a Peer stopped on a question is answered by its Lead's message, and one st
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "open_lane", { title: "Colours", outcome: "the button is coloured", acceptance: ["a"], outOfScope: ["anything else"] });
   const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "Colour", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"] });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Colour", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"] }] });
   const peer = h.ledger().tasks["L1-T1"]!.peer!;
   const question: Pending = {
     id: "permission-1",
@@ -1568,7 +1569,7 @@ test("mail reaches a running seat inside its turn where its harness can take it 
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "open_lane", { title: "Pricing", outcome: "discounts round correctly", acceptance: ["a"], outOfScope: ["anything else"] });
   const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "start_task", { title: "Round", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"] });
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Round", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"] }] });
   const peer = h.ledger().tasks["L1-T1"]!.peer!;
   assert.equal(h.agents.get(lane.lead!)!.status, "running");
   assert.equal(h.agents.get(peer)!.status, "running");
@@ -1801,31 +1802,4 @@ test("a patrol round files finished lanes past the newest few into the archive, 
   const filed = gunzipSync(readFileSync(join(h.project.state, "archive", "L1.json.gz"))).toString("utf-8");
   assert.match(filed, /"id":"L1"/);
   assert.match(filed, /what L1 handed back/);
-});
-
-test("mail a call brings about is not steered into the caller's turn until the caller has taken the call's answer", async () => {
-  const h = harness();
-  const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
-  await h.call(sup, "supervisor", "open_lane", { title: "Build", outcome: "a.txt changes", acceptance: ["a"], outOfScope: ["anything else in the repository"] });
-  const lead = h.ledger().lanes.L1!.lead!;
-  const seat = h.agents.get(lead)!;
-  // As seen live: a Lead well into a long turn lays its plan out, and the plan's first task starts at once.
-  seat.status = "running";
-  h.runtime.outbox.turnStarted(lead, Date.now() - 2 * 60_000);
-  const spool = (h.runtime as unknown as { spool: string }).spool;
-  const replyFile = join(spool, "replies", "call-1.json");
-  mkdirSync(join(spool, "requests"), { recursive: true });
-  const task = { key: "build", title: "Clean build", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] };
-  writeFileSync(join(spool, "requests", "call-1.json"), JSON.stringify({ id: "call-1", agent: lead, role: "lead", tool: "plan_tasks", args: { tasks: [task] }, cwd: h.root, at: Date.now() }));
-  (h.runtime as unknown as { serveSpool(): void }).serveSpool();
-  for (let i = 0; i < 100 && !existsSync(replyFile); i++) await new Promise((resolve) => setTimeout(resolve, 20));
-  assert.match(readFileSync(replyFile, "utf-8"), /The plan is recorded/);
-  assert.equal(h.ledger().tasks["L1-T1"]?.status, "running");
-  assert.deepEqual([...seat.steered, ...seat.sent].filter((text) => /L1-T1/.test(text)), [], "a text arriving while a call waits is taken as the call being cut short");
-  await h.tick();
-  assert.deepEqual(seat.steered.filter((text) => /L1-T1/.test(text)), [], "answered is not taken: the bridge has not read it yet");
-  // The bridge takes the answer, and the next round delivers what waited.
-  rmSync(replyFile);
-  await h.tick();
-  assert.match(seat.steered.join("\n"), /L1-T1/);
 });
