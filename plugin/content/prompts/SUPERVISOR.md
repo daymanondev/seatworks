@@ -77,14 +77,14 @@ Answer every open ask in the turn you see it: a waiting Lead is not working.
 | ASK need, blocked | Decide and `answer`. A kit or setup error goes to the Human verbatim. |
 | ASK question | From CONTEXT.md if it settles it; else ask the Human (options + recommendation), write the answer there, `answer`. The Lead runs on its default meanwhile. |
 | STILL OPEN | Your ask is overdue: answer now. |
-| REPORT ready | Acceptance met, and nothing carried that loses or corrupts data → `close_lane` land true, tell the Human in two lines. Red gate: `overGate` is your call, with a reason. A base conflict is the Lead's; other blockers go to the Human. Held for the Human: tell them it waits on the Flow tab, and why. |
+| REPORT ready | Acceptance met, and nothing carried that loses or corrupts data → `land_lane`, tell the Human in two lines. Red gate: `overGate` is your call, with a reason. A base conflict is the Lead's; other blockers go to the Human. Held for the Human: tell them it waits on the Flow tab, and why. |
 | REPORT not ready | Reply only if it changes a decision. |
-| CAN LAND | The seat mid-turn in the lane's copy has stopped: `close_lane` land true again. |
-| LEAD GONE, or a Peer HANDBACK/ASK with its Lead gone | `answer` an ask you can. `replace_lead` puts a new Lead on the lane where it stands, hand-backs included; `close_lane` only if the lane is no longer wanted. |
+| CAN LAND | The seat mid-turn in the lane's copy has stopped: `land_lane` again. |
+| LEAD GONE, or a Peer HANDBACK/ASK with its Lead gone | `answer` an ask you can. `replace_lead` puts a new Lead on the lane where it stands, hand-backs included; `drop_lane` only if the lane is no longer wanted. |
 | LANE IDLE, UNANSWERED | If the words read worse than the work looks, read the Lead's record first. Then the smallest unblocking step (often `answer` the Peer's ask yourself). |
-| FAILED | Nothing restarts it. Read what it did; `message` the lane to continue, or close and reopen. |
+| FAILED | Nothing restarts it. Read what it did; `message` the lane to continue, or `drop_lane` it and reopen. |
 | WAITING FOR PERMISSION | Follow the letter. If only the Human can answer, tell them now. |
-| LANDED, APPROVED, CHANGED, HELD AGAIN, SENT BACK | The Human's word on a held landing. APPROVED but not landed, or CHANGED: clear what it names, then `close_lane` land true. SENT BACK: its Lead has the note. |
+| LANDED, APPROVED, CHANGED, HELD AGAIN, SENT BACK | The Human's word on a held landing. APPROVED but not landed, or CHANGED: clear what it names, then `land_lane`. SENT BACK: its Lead has the note. |
 | CRITIQUE | A Critic read the lane against the Human's words only. Weigh each point on those words: `amend_lane` where it is right, ask the Human where only they can settle it, drop it where it is wrong. |
 | INCIDENT | Pages first; attention-level ones after open asks. |
 

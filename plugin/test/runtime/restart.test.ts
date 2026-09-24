@@ -79,7 +79,7 @@ test("the merges a stop left wait behind one accepted since the start, rather th
 test("a seat waiting for its turn to end to be archived when the plugin stopped is archived once that turn is over", async () => {
   const { h, sup, lane, peer } = await laneWithPeer();
   // The Lead and its Peer are mid-turn, so closing the lane leaves them, and the copy they write in, until their turns end.
-  assert.equal((await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false })).ok, true);
+  assert.equal((await h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "no longer wanted" })).ok, true);
   assert.ok(!h.agents.get(lane.lead!)!.archivedAt, "not while it is mid-turn");
   h.restart();
   // Their turns ended while the plugin was down, so no hook will say so.
@@ -109,7 +109,7 @@ test("a landing waiting on a turn when the plugin stopped can go once that turn 
   h.git(side, "commit", "-qm", "moved", "--allow-empty");
   h.git(h.root, "branch", "-f", "main", "side");
   h.git(h.root, "worktree", "remove", "--force", side);
-  assert.match((await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true })).text, /a seat is mid-turn there/);
+  assert.match((await h.call(sup, "supervisor", "land_lane", { lane: "L1" })).text, /a seat is mid-turn there/);
   h.restart();
   // The Lead's turn ended while the plugin was down, so no hook will say so.
   h.agents.get(lead)!.status = "idle";

@@ -134,28 +134,45 @@
       }
     },
     {
-      "name": "close_lane",
-      "description": "Close a lane and archive its agents. With land true the desk first merges the base branch into the lane in the lane's own copy when the base has moved, runs the project's gate there, then lands it on the base as the project lands lanes (landAs in set_project). If any of that cannot happen the lane stays open and the reason comes back; a conflict with the base is its Lead's to settle in the lane. A landed lane branch is deleted once its copy is put away; one closed without landing is kept. A lane opened with onBranch is not merged or switched away from: landing it runs the gate and closes it, and its branch stays as it is. A red gate stops the landing unless you land over it with overGate true — the verdict is evidence, and landing over it is your call. When the project checks landings, the reply carries the evidence, and a landing the check flags waits for the Human's approval on the panel instead: the lane stays open, and LANDED or SENT BACK comes as mail.",
+      "name": "land_lane",
+      "description": "Land a lane its Lead reported ready. The desk first merges the base branch into the lane in the lane's own copy when the base has moved, runs the project's gate there, then lands it on the base as the project lands lanes (landAs in set_project) and archives the lane's agents. If any of that cannot happen the lane stays open and the reason comes back; a conflict with the base is its Lead's to settle in the lane. A landed lane branch is deleted once its copy is put away. A lane opened with onBranch is not merged or switched away from: landing it runs the gate and closes it, and its branch stays as it is. A red gate stops the landing unless you land over it with overGate true and say why in reason: the verdict is evidence, and landing over it is your call. When the project checks landings, the reply carries the evidence, and a landing the check flags waits for the Human's approval on the panel instead: the lane stays open, and LANDED or SENT BACK comes as mail.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "lane": {
             "type": "string"
           },
-          "land": {
-            "type": "boolean"
-          },
-          "reason": {
-            "type": "string"
-          },
           "overGate": {
             "type": "boolean",
-            "description": "Land even though the gate is red. The verdict still comes back in the reply."
+            "description": "Land even though the gate is red; say why in reason. The verdict still comes back in the reply."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why, kept with the landing. Required with overGate."
+          }
+        },
+        "required": [
+          "lane"
+        ]
+      }
+    },
+    {
+      "name": "drop_lane",
+      "description": "Close a lane without landing, when the Human no longer wants it or it cannot go on: its agents are archived, its copy is put away, and its branch is kept for the Human. A lane still waiting is dropped before anything starts for it.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "lane": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why the lane is dropped, kept with it."
           }
         },
         "required": [
           "lane",
-          "land"
+          "reason"
         ]
       }
     },

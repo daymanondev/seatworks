@@ -6,11 +6,12 @@ import { amendLane } from "./amend-lane.ts";
 import { amendTask } from "./amend-task.ts";
 import { answer } from "./answer.ts";
 import { askLead, askOwner } from "./ask.ts";
-import { closeLane } from "./close-lane.ts";
+import { dropLane } from "./drop-lane.ts";
 import { cut } from "./cut.ts";
 import { done, doneReview } from "./done.ts";
 import { incidents } from "./incidents.ts";
 import { message } from "./message.ts";
+import { landLane } from "./land-lane.ts";
 import { openLane } from "./open-lane.ts";
 import { planTasks } from "./plan-tasks.ts";
 import { replaceLead } from "./replace-lead.ts";
@@ -23,7 +24,8 @@ import { status } from "./status.ts";
 
 export const TOOLS: ToolDef[] = [
   openLane,
-  closeLane,
+  landLane,
+  dropLane,
   amendLane,
   replaceLead,
   setProject,

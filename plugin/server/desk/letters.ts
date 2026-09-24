@@ -234,7 +234,7 @@ export const letters = {
   },
 
   canLand(lane: Lane): Letter {
-    return mail("canland", [lane.id, Date.now()], `CAN LAND ${lane.id} (${lane.title}): the turn that was in the way has ended. close_lane it again with land true.`);
+    return mail("canland", [lane.id, Date.now()], `CAN LAND ${lane.id} (${lane.title}): the turn that was in the way has ended. land_lane it again.`);
   },
 
   /** The way back out of a DETOUR: the lane that waited is told, since it cannot see the other one. */
@@ -274,8 +274,8 @@ export const letters = {
     const told = (said: string) => mail("land", [lane.id, how, Date.now()], said);
     if (how === "landed") return told(`LANDED ${lane.id} (${lane.title}) after the Human approved it: ${text}`);
     if (how === "again") return told(`HELD AGAIN ${lane.id} (${lane.title}): the Human approved it, but landing it turned up more. ${text}`);
-    if (how === "changed") return told(`CHANGED ${lane.id} (${lane.title}) after its landing was held, so the Human's approval did not count. close_lane it with land true to have it checked as it is now.`);
-    if (how === "blocked") return told(`APPROVED ${lane.id} (${lane.title}) for landing by the Human, but it could not land yet: ${text}. The approval stands while the lane does not change: once that is cleared, close_lane with land true lands it without asking again.`);
+    if (how === "changed") return told(`CHANGED ${lane.id} (${lane.title}) after its landing was held, so the Human's approval did not count. land_lane it to have it checked as it is now.`);
+    if (how === "blocked") return told(`APPROVED ${lane.id} (${lane.title}) for landing by the Human, but it could not land yet: ${text}. The approval stands while the lane does not change: once that is cleared, land_lane lands it without asking again.`);
     return told(`SENT BACK ${lane.id} (${lane.title}) by the Human: ${ended(text || "no reason was given")} The lane stays open, and its Lead has the note.`);
   },
 
@@ -284,7 +284,7 @@ export const letters = {
   },
 
   leadGone(lane: Lane): Letter {
-    return mail("leadgone", [lane.id, lane.lead ?? ""], `LEAD GONE ${lane.id} (${lane.title}): its Lead ${lane.lead} is no longer seated, so nothing on the lane moves. replace_lead puts a new Lead on it where it stands; close_lane ends it.`);
+    return mail("leadgone", [lane.id, lane.lead ?? ""], `LEAD GONE ${lane.id} (${lane.title}): its Lead ${lane.lead} is no longer seated, so nothing on the lane moves. replace_lead puts a new Lead on it where it stands; drop_lane ends it.`);
   },
 
   halfOpen(lane: Lane): Letter {

@@ -84,7 +84,7 @@ test("a lane works serially in the project's own copy and hands it back on its b
   assert.match(reports, /Gate: .*failed with exit/, "the red gate has to reach the Supervisor, not stop the Lead from speaking");
   assert.match(reports, /Gate: .*passed on the lane branch/);
 
-  const closed = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true });
+  const closed = await h.call(sup, "supervisor", "land_lane", { lane: "L1" });
   assert.equal(closed.ok, true, closed.text);
   assert.equal(h.git(h.root, "show", "main:a.txt"), "one\ntwo\nthree\nfour\n");
   assert.equal(h.git(h.root, "branch", "--show-current").trim(), lane.branch, "the Lead is mid-turn, and switching the copy under it would put its next commit on main");
@@ -113,7 +113,7 @@ test("a copy the desk opened in the index is closed there when the copy goes, an
   assert.deepEqual(ideCalls.filter((call) => call.path === copy).map((call) => call.kind), ["open"]);
 
   h.agents.get(lane.lead!)!.status = "idle";
-  const closed = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false, reason: "done" });
+  const closed = await h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "done" });
   assert.equal(closed.ok, true, closed.text);
   // Every copy the IDE was handed stayed open in a window of its own, one per lane that ever ran.
   assert.deepEqual(ideCalls.filter((call) => call.path === copy).map((call) => call.kind), ["open", "close"], "the window goes with the copy");
@@ -213,7 +213,7 @@ test("a lane asked to carry on the Human's branch works on it where it is, keeps
   assert.match(second.text, /L1/);
 
   h.commit(h.root, "b.txt", "bee, done\n");
-  const closed = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true });
+  const closed = await h.call(sup, "supervisor", "land_lane", { lane: "L1" });
   assert.equal(closed.ok, true, closed.text);
   assert.match(closed.text, /the work stays on fix\/login, the branch it carried on; nothing was merged anywhere/);
   assert.equal(h.git(h.root, "rev-parse", "main").trim(), main, "nothing was merged into main");
@@ -283,7 +283,7 @@ test("a new branch the Human agreed to starts where their copy is, takes their u
   assert.equal(readFileSync(join(h.root, "b.txt"), "utf-8"), "bee, half done\n");
   assert.equal(h.git(h.root, "rev-parse", "fix/login").trim(), h.git(h.root, "rev-parse", "fix/login-2").trim(), "the branch it left is where it was");
 
-  const closed = await h.call(sup, "supervisor", "close_lane", { lane: lane.id, land: false });
+  const closed = await h.call(sup, "supervisor", "drop_lane", { lane: lane.id, reason: "no longer wanted" });
   assert.equal(closed.ok, true, closed.text);
   assert.equal(h.ledger().lanes[lane.id]!.restoring, undefined, "nothing is left to put back, so no round retries it");
   assert.equal(h.git(h.root, "branch", "--show-current").trim(), "fix/login-2");
@@ -329,7 +329,7 @@ test("a lane in the project's own copy whose base moved waits for a seat mid-tur
 
   // Nothing is merged under a Lead mid-turn in that copy.
   const head = h.git(h.root, "rev-parse", "HEAD");
-  const reports = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true });
+  const reports = await h.call(sup, "supervisor", "land_lane", { lane: "L1" });
   assert.equal(reports.ok, false, reports.text);
   assert.match(reports.text, /a seat is mid-turn there/);
   assert.equal(h.git(h.root, "rev-parse", "HEAD"), head, "the copy under a running seat is left as the seat has it");
@@ -341,7 +341,7 @@ test("a lane in the project's own copy whose base moved waits for a seat mid-tur
   assert.doesNotMatch(h.agents.get(sup)!.sent.join("\n"), /CAN LAND/);
   await h.endTurn(lane.lead!, "reported");
   assert.match(h.agents.get(sup)!.sent.join("\n"), /CAN LAND L1/, "the end of the turn that was in the way is mail for whoever tried to land");
-  const landed = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true });
+  const landed = await h.call(sup, "supervisor", "land_lane", { lane: "L1" });
   assert.equal(landed.ok, true, landed.text);
   assert.match(h.git(h.root, "show", "main:a.txt"), /four/);
 });
@@ -364,7 +364,7 @@ test("a lane in the project's own copy lands after its base moved, once nobody i
 
   // With the Lead stopped, main is merged into the lane where it stands and lands on main as one commit.
   h.agents.get(lane.lead!)!.status = "idle";
-  const closed = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true });
+  const closed = await h.call(sup, "supervisor", "land_lane", { lane: "L1" });
   assert.equal(closed.ok, true, closed.text);
   assert.match(h.git(h.root, "show", "main:a.txt"), /four/);
   assert.equal(h.git(h.root, "rev-parse", "main^").trim(), moved);
@@ -387,7 +387,7 @@ test("a project set to land by merge commit keeps the lane's commits on main und
   h.git(h.project.root, "commit", "-qam", "four");
   const tip = h.git(h.root, "rev-parse", "HEAD").trim();
   h.agents.get(lane.lead!)!.status = "idle";
-  const closed = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true });
+  const closed = await h.call(sup, "supervisor", "land_lane", { lane: "L1" });
   assert.equal(closed.ok, true, closed.text);
   assert.match(closed.text, /merged lane\/l1-numbers into main/);
   assert.deepEqual(h.git(h.root, "log", "-1", "--format=%P", "main").trim().split(" "), [before, tip]);
@@ -715,7 +715,7 @@ test("one workspace carries a whole project, and the desk puts it away when the 
     [...h.workspaceNames.entries()].filter(([id, name]) => (name === h.project.slug || name.startsWith(`${h.project.slug} `)) && !h.archivedWorkspaces.has(id));
   assert.equal(live().length, 1, "a lane takes the project's one working copy rather than opening one of its own");
 
-  await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false, reason: "done" });
+  await h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "done" });
   h.agents.get(lane.lead!)!.archivedAt = new Date().toISOString();
   h.agents.get(sup)!.archivedAt = new Date().toISOString();
   for (const agent of h.agents.values()) if (agent.provider.startsWith("sw2-critic-")) agent.archivedAt = new Date().toISOString();
@@ -831,7 +831,7 @@ test("a detour hands back to the lane that was waiting on it, and cannot be open
   assert.equal(lane.detourOf, "L1");
   assert.match(h.agents.get(lane.lead!)!.prompt!, /clears the way for L1/, "the detour's Lead is told to do that and no more");
 
-  assert.equal((await h.call(sup, "supervisor", "close_lane", { lane: "L2", land: false, reason: "done" })).ok, true);
+  assert.equal((await h.call(sup, "supervisor", "drop_lane", { lane: "L2", reason: "done" })).ok, true);
   await h.idle(waiting.lead!);
   assert.match(h.agents.get(waiting.lead!)!.sent.join("\n"), /CLEARED L2[\s\S]*ask if your work needs it there/, "the lane that waited cannot see the other one, so it has to be told");
 });
@@ -843,7 +843,7 @@ test("a lane closed while its Lead is still writing keeps the working copy until
   const lane = h.ledger().lanes.L1!;
   writeFileSync(join(lane.worktree!, "half-written.txt"), "not committed yet\n");
 
-  const closed = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false, reason: "the outcome was wrong" });
+  const closed = await h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "the outcome was wrong" });
   assert.equal(closed.ok, true, closed.text);
   assert.equal(existsSync(join(lane.worktree!, "half-written.txt")), true, "the Lead is mid-turn, and removing its copy --force would take what it has not committed");
   assert.ok(h.ledger().slots[lane.slot!], "and the copy still belongs to the lane, so nothing else is sent into it");
@@ -884,10 +884,10 @@ test("a lane lands after another lane moved main, even while a third holds the p
   work(lanes.L2!, "b/b.txt");
   work(lanes.L3!, "c/c.txt");
 
-  const third = await h.call(sup, "supervisor", "close_lane", { lane: "L3", land: true });
+  const third = await h.call(sup, "supervisor", "land_lane", { lane: "L3" });
   assert.equal(third.ok, true, third.text);
   // main moved on and the only copy on it carries L1, yet L2 must still be landed, not closed unlanded.
-  const second = await h.call(sup, "supervisor", "close_lane", { lane: "L2", land: true });
+  const second = await h.call(sup, "supervisor", "land_lane", { lane: "L2" });
   assert.equal(second.ok, true, second.text);
   assert.doesNotMatch(second.text, /not landed/);
   assert.equal(h.git(h.root, "show", "main:b/b.txt"), "b/b.txt\n");
@@ -901,8 +901,8 @@ test("the gate that lets a lane land runs on the lane with main's newer work in 
   const { h, sup, lanes, work } = await threeLanes("test ! -f b/b.txt || test -f c/c.txt");
   work(lanes.L2!, "b/b.txt");
   work(lanes.L3!, "c/c.txt");
-  assert.equal((await h.call(sup, "supervisor", "close_lane", { lane: "L3", land: true })).ok, true);
-  const second = await h.call(sup, "supervisor", "close_lane", { lane: "L2", land: true });
+  assert.equal((await h.call(sup, "supervisor", "land_lane", { lane: "L3" })).ok, true);
+  const second = await h.call(sup, "supervisor", "land_lane", { lane: "L2" });
   assert.equal(second.ok, true, second.text);
   assert.equal(h.git(h.root, "show", "main:b/b.txt"), "b/b.txt\n");
 });
@@ -911,9 +911,9 @@ test("a lane main cannot be merged into is refused and stays open, its copy as i
   const { h, sup, lanes, work } = await threeLanes("true");
   work(lanes.L2!, "shared.txt", "b side\n");
   work(lanes.L3!, "shared.txt", "c side\n");
-  assert.equal((await h.call(sup, "supervisor", "close_lane", { lane: "L3", land: true })).ok, true);
+  assert.equal((await h.call(sup, "supervisor", "land_lane", { lane: "L3" })).ok, true);
   const before = h.git(lanes.L2!.worktree!, "rev-parse", "HEAD");
-  const second = await h.call(sup, "supervisor", "close_lane", { lane: "L2", land: true });
+  const second = await h.call(sup, "supervisor", "land_lane", { lane: "L2" });
   assert.equal(second.ok, false, second.text);
   assert.match(second.text, /shared\.txt/);
   assert.equal(h.ledger().lanes.L2!.status, "open", "refused before anything was closed, so it can still land");
@@ -930,7 +930,7 @@ test("a lane closed in the project's own copy keeps that copy until its Lead sto
   assert.equal(h.git(h.root, "branch", "--show-current").trim(), first.branch);
 
   // Closed while its Lead is mid-turn, so putting the branch back waits for that Lead.
-  const closed = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false, reason: "wrong outcome" });
+  const closed = await h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "wrong outcome" });
   assert.equal(closed.ok, true, closed.text);
   assert.deepEqual(h.ledger().lanes.L1!.restoring!.writers, [first.lead!], "and the wait is on the record, not in memory");
 
@@ -952,7 +952,7 @@ test("a lane closed in the project's own copy keeps that copy until its Lead sto
   assert.equal(h.git(h.root, "log", "-1", "--format=%s", second.branch).trim(), "edit a.txt", "and L2's commits are on L2's branch");
 
   // And a Lead that never comes back at all: the round finishes what its turn was holding up.
-  assert.equal((await h.call(sup, "supervisor", "close_lane", { lane: "L2", land: false, reason: "done" })).ok, true);
+  assert.equal((await h.call(sup, "supervisor", "drop_lane", { lane: "L2", reason: "done" })).ok, true);
   h.agents.get(second.lead!)!.archivedAt = new Date().toISOString();
   await h.tick(Date.now());
   assert.deepEqual(Object.keys(h.ledger().slots), [], "its copy is put away, not left behind for good");
@@ -963,7 +963,7 @@ test("a copy waiting on a seat that never ends its turn is put away in the round
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "open_lane", { title: "Abandoned", outcome: "x", acceptance: ["a"], outOfScope: ["anything else in the repository"], isolate: true });
   const lane = h.ledger().lanes.L1!;
-  await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false, reason: "the outcome was wrong" });
+  await h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "the outcome was wrong" });
   assert.equal(existsSync(lane.worktree!), true, "the Lead is mid-turn, so the copy waits for it");
   assert.deepEqual(h.ledger().slots[lane.slot!]!.releasing!.writers, [lane.lead!], "and what it is waiting on is on the record, not only in memory");
 
@@ -985,7 +985,7 @@ test("a copy two seats are writing in is put away by the last of them to stop, n
   assert.equal(h.agents.get(task.peer!)!.cwd, lane.worktree, "a lane-mode Peer writes in the lane's own copy, beside its Lead");
   writeFileSync(join(lane.worktree!, "half-written.txt"), "the Peer is mid-sentence\n");
 
-  const closed = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false, reason: "the outcome was wrong" });
+  const closed = await h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "the outcome was wrong" });
   assert.equal(closed.ok, true, closed.text);
   assert.match(closed.text, new RegExp(`${lane.lead} and ${task.peer}`), "both are named, because both are still writing there");
 
@@ -1228,7 +1228,7 @@ test("reaching a Peer directly tells its Lead what reached it, and is refused wh
   assert.match(orphaned.text, /no running Lead/);
 
   // A task already cut has no Peer left to steer.
-  await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false });
+  await h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "no longer wanted" });
   const cut = await h.call(sup, "supervisor", "message", { to: "L1-T1", text: "One more thing." });
   assert.equal(cut.ok, false);
   assert.match(cut.text, /L1-T1 is cut/);
@@ -1276,9 +1276,9 @@ test("a seat opening in a project writes the team's block there, and the first l
   const own = await h.call(sup, "supervisor", "open_lane", { title: "Own", outcome: "x", acceptance: ["y"], outOfScope: ["z"], isolate: true });
   assert.equal(own.ok, true, own.text);
   assert.match(own.text, /team block in AGENTS\.md and CLAUDE\.md is not committed/);
-  await h.call(sup, "supervisor", "close_lane", { lane: "L2", land: false, reason: "done" });
+  await h.call(sup, "supervisor", "drop_lane", { lane: "L2", reason: "done" });
   const lead = h.ledger().lanes.L1!.lead!;
-  await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false, reason: "done" });
+  await h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "done" });
   h.agents.get(lead)!.status = "idle";
   await h.endTurn(lead, "done");
 

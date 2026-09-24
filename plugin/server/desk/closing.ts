@@ -23,7 +23,7 @@ type Closing = { lane: string; land: boolean; reason?: string; overGate?: boolea
  * `why` is what stops it, for anyone; `then` is what the Supervisor can do about it.
  */
 async function bringBaseIn(roster: Roster, ledger: Ledger, lane: Lane): Promise<{ why: string; then: string; writers?: string[] } | undefined> {
-  if (!lane.worktree) return { why: `it has no working copy on record to merge ${lane.base} into`, then: "Close it with land false." };
+  if (!lane.worktree) return { why: `it has no working copy on record to merge ${lane.base} into`, then: "Drop it with drop_lane." };
   if (await isAncestor(lane.worktree, lane.base, lane.branch)) return undefined;
   const writers = [lane.lead, ...tasksOf(ledger, lane.id).filter((task) => task.mode !== "parallel").map((task) => task.peer)];
   const writing = await Promise.all(
@@ -41,14 +41,14 @@ async function bringBaseIn(roster: Roster, ledger: Ledger, lane: Lane): Promise<
   if (busy.length > 0) {
     return {
       why: `${lane.base} has moved on, so landing it starts with merging ${lane.base} into ${lane.branch} in its copy, and a seat is mid-turn there`,
-      then: "CAN LAND comes as mail when that turn ends; close it again then, or close it with land false.",
+      then: "CAN LAND comes as mail when that turn ends; land_lane it again then, or drop_lane it.",
       writers: busy,
     };
   }
   const merged = await mergeBranch(lane.worktree, lane.base, `Bring ${lane.base} into ${lane.branch}`);
   if (merged.ok) return undefined;
   const why = merged.conflicts.length > 0 ? `conflicts in ${merged.conflicts.join(", ")}` : merged.message;
-  return { why: `${lane.base} has moved on and does not merge into ${lane.branch}: ${why}`, then: `Nothing was changed. Message its Lead to merge ${lane.base} into the lane and settle it, or close it with land false.` };
+  return { why: `${lane.base} has moved on and does not merge into ${lane.branch}: ${why}`, then: `Nothing was changed. Message its Lead to merge ${lane.base} into the lane and settle it, or drop_lane it.` };
 }
 
 /** What a lane lands under as one commit or a merge: its title, its outcome and the tasks that went into it. */
@@ -99,7 +99,7 @@ export async function close(desk: DeskServices, project: Project, by: string, ar
   const lane = findLane(ledger, str(args.lane));
   if (!lane) return no(`There is no lane ${str(args.lane)}.`);
   if (lane.status === "waiting") {
-    if (args.land === true) return no(`Lane ${lane.id} never opened, so there is nothing to land; close it with land false to drop it.`);
+    if (args.land === true) return no(`Lane ${lane.id} never opened, so there is nothing to land; drop_lane drops it.`);
     ctx.moveLane(project, lane.id, "drop");
     ctx.event(project, { kind: "lane.closed", lane: lane.id, land: false, landing: "dropped while waiting", reason: str(args.reason), writers: [] });
     return ok(`Lane ${lane.id} was waiting and is dropped; nothing had started for it.`);
@@ -162,18 +162,18 @@ async function land(desk: DeskServices, project: Project, ledger: Ledger, lane: 
   const gate = await laneGate(ctx, project, lane);
   // A red gate stops landing unless the Supervisor passes `overGate`: the verdict is evidence, not a veto.
   if (!gate.ok && !overGate) {
-    return { ...no(`Lane ${lane.id} was not closed: ${gate.text}\nMessage its Lead, close it with land false, or land it over the gate with overGate true — that is your call.`), blocked: gate.text.split("\n")[0]!.replace(/\.$/, "") };
+    return { ...no(`Lane ${lane.id} was not closed: ${gate.text}\nMessage its Lead, drop_lane it, or land_lane it over the gate with overGate true and your reason: that is your call.`), blocked: gate.text.split("\n")[0]!.replace(/\.$/, "") };
   }
   let note = "";
   if (!lane.onBranch) {
     const check = await checkLanding(desk, project, lane, gate.ok, by, overGate, approved);
     if (check.held) return ok(check.held);
-    if (check.blocked) return { ...no(`Lane ${lane.id} was not landed: ${check.blocked}. The Human's approval stands; close_lane with land true lands it once that is cleared.`), blocked: check.blocked };
+    if (check.blocked) return { ...no(`Lane ${lane.id} was not landed: ${check.blocked}. The Human's approval stands; land_lane lands it once that is cleared.`), blocked: check.blocked };
     note = check.note;
   }
   const how = { as: loadConfig(project.state).landAs, message: landMessage(ledger, lane), keep: landedRef(lane.id) };
   const result = lane.onBranch ? { landed: true, how: `the work stays on ${lane.branch}, the branch it carried on; nothing was merged anywhere` } : await landLane(project.root, lane.base, lane.branch, how);
-  if (!result.landed) return { ...no(`Lane ${lane.id} was not closed: it could not land, because ${result.how}. Close it again once that is cleared, or close it with land false.`), blocked: result.how };
+  if (!result.landed) return { ...no(`Lane ${lane.id} was not closed: it could not land, because ${result.how}. land_lane it again once that is cleared, or drop_lane it.`), blocked: result.how };
   if (!gate.ok) ctx.event(project, { kind: "gate.overridden", lane: lane.id, by });
   return { how: `${result.how}${gate.ok ? "" : ", over a red gate"}`, note };
 }
@@ -225,7 +225,7 @@ async function retire(desk: DeskServices, project: Project, lane: Lane, args: Cl
 
 /**
  * The Human's word on a held landing. Approved, the desk lands it now for the Supervisor; what stops it (a seat mid-turn,
- * a dirty copy) leaves the approval standing for the next `close_lane`. Sent back, the lane stays open with their note.
+ * a dirty copy) leaves the approval standing for the next `land_lane`. Sent back, the lane stays open with their note.
  */
 export async function decideLand(desk: DeskServices, project: Project, laneId: string, approve: boolean, note: string): Promise<ToolReply> {
   const { ctx } = desk;

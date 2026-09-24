@@ -96,7 +96,7 @@ test("two lanes amended at once to write the same path do not both get it", asyn
 
 test("a copy two seats were writing in is put back once both turns end, however close together they end", async () => {
   const { h, sup, lane, peer } = await laneWithPeer();
-  assert.equal((await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false })).ok, true);
+  assert.equal((await h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "no longer wanted" })).ok, true);
   assert.deepEqual(h.ledger().lanes.L1!.restoring?.writers.sort(), [lane.lead!, peer].sort());
   for (const id of [lane.lead!, peer]) h.agents.get(id)!.status = "idle";
   await Promise.all([h.endTurn(lane.lead!, "done"), h.endTurn(peer, "done")]);
@@ -112,7 +112,7 @@ test("a landing two seats were in the way of can go once both turns end, however
   h.git(side, "commit", "-qm", "moved", "--allow-empty");
   h.git(h.root, "branch", "-f", "main", "side");
   h.git(h.root, "worktree", "remove", "--force", side);
-  assert.match((await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true })).text, /a seat is mid-turn there/);
+  assert.match((await h.call(sup, "supervisor", "land_lane", { lane: "L1" })).text, /a seat is mid-turn there/);
   for (const id of [lane.lead!, peer]) h.agents.get(id)!.status = "idle";
   await Promise.all([h.endTurn(lane.lead!, "done"), h.endTurn(peer, "done")]);
   await h.idle(sup);
@@ -121,7 +121,7 @@ test("a landing two seats were in the way of can go once both turns end, however
 
 test("a lane closed twice at once is closed once, and the second call is told it is already being closed", async () => {
   const { h, sup } = await laneWithPeer();
-  const [first, second] = await Promise.all([h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false }), h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false })]);
+  const [first, second] = await Promise.all([h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "no longer wanted" }), h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "no longer wanted" })]);
   assert.deepEqual([first.ok, second.ok].sort(), [false, true], `${first.text}\n${second.text}`);
   assert.match((first.ok ? second : first).text, /L1 is (already being closed|already closed)/);
 });
@@ -133,7 +133,7 @@ test("a READY whose gate is still running when its lane closes is not recorded o
   await h.call(sup, "supervisor", "open_lane", { title: "Slow", ...scope });
   const lead = h.ledger().lanes.L1!.lead!;
   const reporting = h.call(lead, "lead", "report", { summary: "ready to land", ready: true });
-  assert.equal((await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false })).ok, true);
+  assert.equal((await h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "no longer wanted" })).ok, true);
   const reported = await reporting;
   assert.equal(reported.ok, false, reported.text);
   assert.equal(h.ledger().lanes.L1!.ready, undefined);
@@ -141,7 +141,7 @@ test("a READY whose gate is still running when its lane closes is not recorded o
 
 test("an ask from a Lead whose lane closes as it asks is not opened on the closed lane", async () => {
   const { h, sup, lane } = await laneWithPeer();
-  const [asked] = await Promise.all([h.call(lane.lead!, "lead", "ask", { kind: "question", text: "Which one?" }), h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false })]);
+  const [asked] = await Promise.all([h.call(lane.lead!, "lead", "ask", { kind: "question", text: "Which one?" }), h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "no longer wanted" })]);
   assert.equal(asked.ok, false, asked.text);
   assert.deepEqual(Object.values(h.ledger().asks), []);
 });

@@ -17,7 +17,7 @@ schema. A call that doesn't fit is refused, with what is wrong.
 <!-- drawn from the code: verbs -->
 | Role | Tools |
 |---|---|
-| Supervisor | `open_lane` `message` `answer` `close_lane` `amend_lane` `replace_lead` `set_project` `status` `incidents` `mark_incident` |
+| Supervisor | `open_lane` `message` `answer` `land_lane` `drop_lane` `amend_lane` `replace_lead` `set_project` `status` `incidents` `mark_incident` |
 | Lead | `plan_tasks` `start_task` `start_review` `message` `answer` `accept` `rework` `amend_task` `cut` `ask` `report` `status` `incidents` `mark_incident` |
 | Peer, Reviewer | `done` `ask` |
 | Critic | `findings` |
@@ -26,7 +26,8 @@ schema. A call that doesn't fit is refused, with what is wrong.
 | Verb | Effect |
 |---|---|
 | `open_lane` | Records the lane, takes a working copy and seats a Lead, with a directive that names `CONTEXT.md` once it exists. It can read a GitHub issue. It refuses a lane whose declared write set or `contracts` overlap an open lane's write set, or that reaches a path the project keeps to one writer. The project's own checkout must be clean |
-| `close_lane` | Waits for queued merges. With `land`, it [lands the lane](ARCHITECTURE.md#a-lane). Then it cuts leftover tasks, archives their seats and the Lead, and puts the copy away |
+| `land_lane` | Waits for queued merges, then [lands the lane](ARCHITECTURE.md#a-lane): it cuts leftover tasks, archives their seats and the Lead, and puts the copy away. Landing over a red gate takes `overGate` and a reason |
+| `drop_lane` | Waits for queued merges, then closes the lane without landing, with a reason: it cuts leftover tasks, archives their seats and the Lead, puts the copy away, and keeps the branch. A waiting lane is dropped before anything starts |
 | `amend_lane` | Changes what an open or waiting lane is asked, keeping what it was asked before and why. Its Lead is told, and a READY it reported no longer stands. A write set or `contracts` that would overlap an open lane's is refused |
 | `replace_lead` | Seats a new Lead on an open lane whose Lead is gone, where the lane stands. A Lead Paseo already started for it is taken on instead, and the asks waiting on the old Lead move to the new one |
 | `set_project` | Sets the base branch, the gate command and its timeout (30 min by default), whether the gate runs per lane or per task, and the serial-only paths. An empty gate is an answer, and the desk never detects one over it |

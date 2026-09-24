@@ -25,7 +25,7 @@ test("a lane that waits for another opens by itself once that one lands, off a b
   h.commit(h.root, "a.txt", "cart\n");
   h.agents.get(cart.lead!)!.status = "idle";
   await h.endTurn(cart.lead!, "done");
-  const closed = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true });
+  const closed = await h.call(sup, "supervisor", "land_lane", { lane: "L1" });
   assert.equal(closed.ok, true, closed.text);
   const order = h.ledger().lanes.L2!;
   assert.deepEqual([order.status, h.ledger().lanes.L1!.landed], ["open", true]);
@@ -41,7 +41,7 @@ test("a lane waiting for one that closes without landing stays waiting, and its 
   const scope = { acceptance: ["a"], outOfScope: ["anything else in the repository"] };
   await h.call(sup, "supervisor", "open_lane", { title: "Cart", outcome: "a cart", ...scope, isolate: true });
   await h.call(sup, "supervisor", "open_lane", { title: "Order", outcome: "orders", ...scope, after: ["L1"] });
-  await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false });
+  await h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "no longer wanted" });
   await h.tick(Date.now());
   await h.tick(Date.now());
 
@@ -51,8 +51,8 @@ test("a lane waiting for one that closes without landing stays waiting, and its 
   assert.match(told[0]!, /Lane L1 closed without landing, so nothing of it is there to build on/);
   assert.match((await h.call(sup, "supervisor", "status", {})).text, /- L2 Order: after L1 closed without landing\. Not open: Lane L1 closed without landing/);
 
-  assert.match((await h.call(sup, "supervisor", "close_lane", { lane: "L2", land: true })).text, /never opened/);
-  const dropped = await h.call(sup, "supervisor", "close_lane", { lane: "L2", land: false });
+  assert.match((await h.call(sup, "supervisor", "land_lane", { lane: "L2" })).text, /never opened/);
+  const dropped = await h.call(sup, "supervisor", "drop_lane", { lane: "L2", reason: "no longer wanted" });
   assert.match(dropped.text, /was waiting and is dropped/);
   assert.equal(h.ledger().lanes.L2!.status, "closed");
 });
@@ -67,7 +67,7 @@ test("a waiting lane whose turn comes while an open lane writes its paths is hel
   // Stopped first, so each close puts its copy away at once instead of leaving it to a later round.
   for (const id of ["L1", "L2"]) h.agents.get(h.ledger().lanes[id]!.lead!)!.status = "idle";
 
-  await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true });
+  await h.call(sup, "supervisor", "land_lane", { lane: "L1" });
   const held = h.ledger().lanes.L3!;
   assert.equal(held.status, "waiting");
   assert.match(held.held?.why ?? "", /overlaps lane L2 at b\.txt/, "checked again against the lanes open when its turn came");
@@ -80,14 +80,14 @@ test("a waiting lane whose turn comes while an open lane writes its paths is hel
   assert.equal(h.ledger().lanes.L3!.status, "waiting", "a patrol round asks again and finds it still held");
   await h.call(sup, "supervisor", "open_lane", { title: "Aside", outcome: "aside", ...scope, writeSet: [".idea/misc.xml"], isolate: true });
   h.agents.get(h.ledger().lanes.L4!.lead!)!.status = "idle";
-  await h.call(sup, "supervisor", "close_lane", { lane: "L4", land: false });
+  await h.call(sup, "supervisor", "drop_lane", { lane: "L4", reason: "no longer wanted" });
   const told = readFileSync(join(h.project.state, "events.log"), "utf-8").split("\n").filter((line) => line.includes('"lane.held"') && line.includes('"L3"'));
   assert.equal(told.length, 1, "tried again when a lane closed, held for the same reason, and not told twice");
-  await h.call(sup, "supervisor", "close_lane", { lane: "L2", land: false });
+  await h.call(sup, "supervisor", "drop_lane", { lane: "L2", reason: "no longer wanted" });
   assert.equal(h.ledger().lanes.L3!.status, "open", "the close that freed its paths opens it");
   assert.equal(h.ledger().lanes.L3!.held, undefined);
   h.agents.get(h.ledger().lanes.L3!.lead!)!.status = "idle";
-  await h.call(sup, "supervisor", "close_lane", { lane: "L3", land: false });
+  await h.call(sup, "supervisor", "drop_lane", { lane: "L3", reason: "no longer wanted" });
 });
 
 test("a lane may wait only for lanes that exist and can still land, and one whose lanes have all landed opens at once", async () => {
@@ -98,7 +98,7 @@ test("a lane may wait only for lanes that exist and can still land, and one whos
 
   assert.match((await open({ after: ["L9"] })).text, /There is no lane L9 to wait for/);
   await open({ isolate: true });
-  await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false });
+  await h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "no longer wanted" });
   assert.match((await open({ after: ["L1"] })).text, /Lane L1 closed without landing[^]*Open this lane without waiting for it/);
   assert.match((await open({ after: ["L1"], onBranch: true, newBranch: "x" })).text, /A lane that waits cannot start a branch/);
 
@@ -111,7 +111,7 @@ test("a lane may wait only for lanes that exist and can still land, and one whos
 
   await open({ isolate: true, writeSet: ["b.txt"] });
   const landedId = Object.keys(h.ledger().lanes).at(-1)!;
-  await h.call(sup, "supervisor", "close_lane", { lane: landedId, land: true });
+  await h.call(sup, "supervisor", "land_lane", { lane: landedId });
   const now = await open({ after: [landedId], isolate: true });
   assert.match(now.text, /is open on lane\//, "nothing left to wait for, so it opens now");
 });
@@ -139,7 +139,7 @@ test("a lane waiting for the project's copy is held while a closed lane's Lead e
   await h.call(sup, "supervisor", "open_lane", { title: "Cart", ...scope });
   const cart = h.ledger().lanes.L1!;
   await h.call(sup, "supervisor", "open_lane", { title: "Order", ...scope, after: ["L1"] });
-  await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true });
+  await h.call(sup, "supervisor", "land_lane", { lane: "L1" });
   assert.ok(h.ledger().lanes.L1!.restoring, "its Lead is mid-turn, so the copy is still on its branch");
   assert.equal(h.ledger().lanes.L2!.status, "waiting");
   assert.match(h.ledger().lanes.L2!.held?.why ?? "", /its Lead is still ending a turn in the project's own copy/);
@@ -175,7 +175,7 @@ test("work that arrives mid-lane is folded into the lane that owns it, and the l
   assert.equal((await h.call(cart.lead!, "lead", "accept", { task: "L1-T1" })).ok, true);
   h.agents.get(cart.lead!)!.status = "idle";
   await h.endTurn(cart.lead!, "ready");
-  const landed = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true });
+  const landed = await h.call(sup, "supervisor", "land_lane", { lane: "L1" });
   assert.equal(landed.ok, true, landed.text);
 
   const order = h.ledger().lanes.L2!;
@@ -194,7 +194,7 @@ test("a waiting lane that cannot start is held with why, and a patrol round does
   await h.call(sup, "supervisor", "open_lane", { title: "Baseless", ...scope, after: ["L1"], isolate: true, base: "gone-base" });
   h.git(h.root, "branch", "-D", "gone-base");
   h.agents.get(h.ledger().lanes.L1!.lead!)!.status = "idle";
-  await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true });
+  await h.call(sup, "supervisor", "land_lane", { lane: "L1" });
 
   assert.match(h.ledger().lanes.L2!.held?.why ?? "", /peer that can lead a lane|can lead a lane/);
   assert.match(h.ledger().lanes.L3!.held?.why ?? "", /its base branch gone-base no longer exists/);
@@ -220,7 +220,7 @@ test("a lane waiting to carry on a branch is held if the Human's copy has moved 
   await h.call(sup, "supervisor", "open_lane", { title: "Then", ...scope, onBranch: true, after: ["L1"] });
   h.git(h.root, "switch", "-qc", "elsewhere");
   h.agents.get(h.ledger().lanes.L1!.lead!)!.status = "idle";
-  await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true });
+  await h.call(sup, "supervisor", "land_lane", { lane: "L1" });
   assert.equal(h.ledger().lanes.L2!.status, "waiting");
   assert.match(h.ledger().lanes.L2!.held?.why ?? "", /it carries on main, and the project's own copy is on elsewhere now/);
 
@@ -259,7 +259,7 @@ test("a waiting lane is amended in place and opens as it is asked then; a closed
   const amended = await h.call(sup, "supervisor", "amend_lane", { lane: "L2", why: "orders need an upserted cart", outcome: "orders from an upserted cart" });
   assert.match(amended.text, /Lane L2 is amended; it opens as it is now/);
 
-  await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true });
+  await h.call(sup, "supervisor", "land_lane", { lane: "L1" });
   const order = h.ledger().lanes.L2!;
   assert.equal(order.status, "open");
   assert.match(h.agents.get(order.lead!)!.prompt ?? "", /Outcome: orders from an upserted cart/, "its Lead is briefed on what it is asked now");
@@ -462,7 +462,7 @@ test("a task waits only for tasks of its own lane, one waiting for a cut task is
   assert.match((await h.call(lead, "lead", "start_task", { title: "Again", goal: "g", ...scope, owned: ["b.txt"], after: ["L1-T1"] })).text, /L1-T1 was cut[^]*Start this task without waiting for it/);
 
   h.agents.get(lead)!.status = "idle";
-  await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false });
+  await h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "no longer wanted" });
   assert.equal(h.ledger().tasks["L1-T2"]!.status, "cut", "a task still waiting when its lane closes goes with it");
 });
 

@@ -142,7 +142,7 @@ treated as empty.
   the ledger, so a restart picks it up: a merge cut off midway is undone and run again, and one git had
   already made is only recorded.
 
-**Landing.** `close_lane` with `land` does three things in a fixed order:
+**Landing.** `land_lane` does three things in a fixed order:
 
 1. If the base moved, merge the base into the lane, in the lane's copy. A conflict here is the Lead's
    to settle.

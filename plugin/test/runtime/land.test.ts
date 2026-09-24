@@ -35,7 +35,7 @@ async function laneWith(files: Record<string, string>, settings?: Record<string,
   // As a lane lands in the flow: after its Lead reports it ready.
   await h.call(lane.lead!, "lead", "report", { summary: "done", ready: true });
   h.agents.get(lane.lead!)!.status = "idle";
-  const land = () => h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true });
+  const land = () => h.call(sup, "supervisor", "land_lane", { lane: "L1" });
   return { h, sup, lane, work, land, onMain: (path: string) => h.git(h.root, "ls-tree", "--name-only", "-r", "main").split("\n").includes(path) };
 }
 
@@ -133,7 +133,7 @@ test("an approved landing that cannot happen yet stays approved, and lands when 
   const told = h.agents.get(sup)!.sent.join("\n");
   assert.match(told, /APPROVED L1 \(Cart\) for landing by the Human, but it could not land yet: the main working copy on main has uncommitted changes\. The approval stands/);
   assert.doesNotMatch(told, /land false/, "the Human approved it: dropping the lane is not the way out offered");
-  assert.match((await h.call(sup, "supervisor", "status", {})).text, /Landing approved by the Human \d+ min ago; close_lane with land true lands it\./);
+  assert.match((await h.call(sup, "supervisor", "status", {})).text, /Landing approved by the Human \d+ min ago; land_lane lands it\./);
   h.git(h.root, "checkout", "--", "a.txt");
   const landed = await land();
   assert.equal(landed.ok, true, landed.text);
@@ -145,7 +145,7 @@ test("an approved landing that cannot happen yet stays approved, and lands when 
 test("a landing held over a red gate lands over it once approved, as the Supervisor asked", async () => {
   const { h, sup, onMain } = await laneWith({ "a.txt": "one\nfour\n" }, { checkpoints: { land: "on" } });
   await h.call(sup, "supervisor", "set_project", { gate: "false" });
-  const held = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true, overGate: true });
+  const held = await h.call(sup, "supervisor", "land_lane", { lane: "L1", overGate: true, reason: "the Supervisor judged the red gate safe" });
   assert.match(held.text, /because The gate failed on the lane, and landing was asked for over it\./);
   assert.match(await decide(h, true, ""), /Approved: Lane L1 closed[^]*over a red gate/);
   assert.ok(onMain("a.txt"));
@@ -184,7 +184,7 @@ test("a Peer that hands back complete after its last test run failed is named to
   await new Promise((resolve) => setTimeout(resolve, 30));
   await h.idle(lane.lead!);
   assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /INCIDENT I\d+ \(claim-contradicted, attend\) on the Peer on L1-T1[^]*handed back as complete, but `npm test` failed the last time it ran, after the last edit/);
-  const held = await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true, overGate: true });
+  const held = await h.call(sup, "supervisor", "land_lane", { lane: "L1", overGate: true, reason: "the Supervisor judged the red gate safe" });
   assert.match(held.text, /Incident I\d+ on this lane is still open: claim-contradicted\./);
 });
 
@@ -260,4 +260,16 @@ test("a landing the Human approves twice at once lands once, and the second appr
   assert.match("error" in first ? first.error : "error" in second ? second.error : "", /has no landing waiting for your approval/);
   const events = readFileSync(join(h.project.state, "events.log"), "utf-8").split("\n").filter((line) => line.includes('"lane.closed"'));
   assert.equal(events.length, 1, "closed once");
+});
+
+test("a lane is landed over a red gate only with the Supervisor's reason for it", async () => {
+  const { h, sup } = await laneWith({ "a.txt": "one\nfour\n" });
+  await h.call(sup, "supervisor", "set_project", { gate: "false" });
+  const bare = await h.call(sup, "supervisor", "land_lane", { lane: "L1", overGate: true });
+  assert.equal(bare.ok, false);
+  assert.match(bare.text, /needs its reason/);
+  assert.equal(h.git(h.root, "show", "main:a.txt"), "one\ntwo\nthree\n", "main is as it was");
+  const said = await h.call(sup, "supervisor", "land_lane", { lane: "L1", overGate: true, reason: "the failing test is the flaky one already on main" });
+  assert.equal(said.ok, true, said.text);
+  assert.equal(h.git(h.root, "show", "main:a.txt"), "one\nfour\n");
 });

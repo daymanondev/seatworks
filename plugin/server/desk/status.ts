@@ -106,7 +106,7 @@ export function statusText(
     const approval = [
       ...(lane.ready ? [`Reported ready ${minutes(now, lane.ready.at)} min ago.`] : []),
       ...(land?.approved
-        ? [`Landing approved by the Human ${minutes(now, land.approved.at)} min ago; close_lane with land true lands it.`]
+        ? [`Landing approved by the Human ${minutes(now, land.approved.at)} min ago; land_lane lands it.`]
         : land
           ? [`Landing waits ${minutes(now, land.since)} min for the Human's approval: ${land.signals.join(" ") || "every landing here is approved first."}`]
           : []),
