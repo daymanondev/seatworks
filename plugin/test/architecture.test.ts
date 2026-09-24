@@ -52,7 +52,7 @@ const LONG_FILES: Record<string, number> = {
   "server/catalog/team.ts": 368,
   "server/desk/letters.ts": 382,
   "server/desk/slots.ts": 384,
-  "server/desk/tools/lead.ts": 424,
+  "server/desk/tools/lead.ts": 423,
   "server/desk/tools/supervisor.ts": 444,
   "server/runtime/control.ts": 460,
   "server/runtime/runtime.ts": 434,

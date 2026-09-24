@@ -344,10 +344,9 @@ export const cut: Tool = async (desk, caller, args) => {
   const found = laneTask(ledger, caller, str(args.task));
   if (typeof found === "string") return no(found);
   const { lane, task } = found;
-  if (!TASK.may(task.status, "cut")) return no(`${task.id} is already accepted.`);
   const updated = await ctx.moveTask(project, task.id, "cut");
   if (updated === undefined) return no(`${task.id} is gone.`);
-  if (typeof updated === "string") return no(`${task.id} is already accepted.`);
+  if (typeof updated === "string") return no(`${task.id} is already ${updated === "merged" ? "accepted" : "cut"}.`);
   await roster.archive(task.peer, true);
   let undone = "";
   if (task.kind === "code" && task.mode === "lane" && task.startSha && lane.worktree) {
