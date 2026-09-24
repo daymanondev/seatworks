@@ -1,3 +1,4 @@
+import { sentBy } from "../../core/paseo-adapter.ts";
 import type { StreamRow } from "../../core/ports.ts";
 
 export type Detail = {
@@ -54,6 +55,7 @@ export class Window {
   private readonly calls = new Map<string, Call>();
   private readonly limit: number;
   private instruction = "";
+  private from: string[] = [];
   private instructionAt = -1;
   private pushed = 0;
 
@@ -67,6 +69,7 @@ export class Window {
     if (type === "tool_call") return this.called(row);
     if (type === "user_message") {
       this.instruction = text(item.text);
+      this.from = sentBy(item);
       this.push({ kind: "user", text: this.instruction });
       this.instructionAt = this.pushed - 1;
     }
@@ -89,6 +92,7 @@ export class Window {
     this.units.length = 0;
     this.calls.clear();
     this.instruction = "";
+    this.from = [];
     this.instructionAt = -1;
     this.pushed = 0;
   }
@@ -97,8 +101,8 @@ export class Window {
     return this.units.slice(Math.max(0, this.instructionAt + 1 - (this.pushed - this.units.length)));
   }
 
-  lastInstruction(): string {
-    return this.instruction;
+  lastInstruction(): { text: string; from: string[] } {
+    return { text: this.instruction, from: this.from };
   }
 
   lostSinceInstruction(): number {

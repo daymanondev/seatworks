@@ -10,7 +10,7 @@ export type WatchedSeat = { id: string; provider: string; cwd: string; title?: s
  * `goal` is null when the ledger could not be read, and empty until it has placed the seat. `handedBack` is the outcome of
  * a hand-back made since `at` that the desk did not gate itself.
  */
-export type SeatContext = { rules: Rules; handedBack: (at: number) => string | undefined; goal: string | null; context: string; beside: Sibling[]; role: string };
+export type SeatContext = { rules: Rules; handedBack: (at: number) => string | undefined; goal: string | null; context: string; beside: Sibling[]; role: string; can: string[] };
 
 const median = (values: number[]): number => {
   const sorted = [...values].sort((a, b) => a - b);

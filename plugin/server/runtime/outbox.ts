@@ -123,7 +123,7 @@ export class Outbox {
       const steer = seat.status === "running" && began !== undefined && Date.now() - began >= SETTLE_MS && this.steers(seat) && !this.calling(to);
       if (!steer && (busy(seat.status) || waiting)) return new Set<string>();
       const text = await this.compose(to, mine);
-      await this.seats.send(to, text, steer);
+      await this.seats.send(to, text, steer, [...new Set(mine.map((letter) => letter.key.split(":")[0]!))]);
       const now = Date.now();
       this.awaiting.set(to, now);
       const ids = new Set(mine.map((letter) => letter.id));

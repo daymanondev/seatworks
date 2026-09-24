@@ -6,6 +6,14 @@ import { type TimelineHandle, follow } from "./stream.ts";
 /** The start of every message id the desk sends, which no person's client uses. */
 const DESK_MARK = "sw2-";
 
+const deskId = (kinds: string[]) => `${DESK_MARK}${kinds.join(".")}-${randomUUID()}`;
+
+/** Who a user message came from, by its id: the kinds of desk letter it carries, or a person. A prompt a person started a seat with has only a random messageId. */
+export function sentBy(item: Record<string, unknown>): string[] {
+  const id = item.clientMessageId ?? item.messageId;
+  return typeof id === "string" && id.startsWith(DESK_MARK) ? id.slice(DESK_MARK.length).split("-")[0]!.split(".") : ["person"];
+}
+
 export type Bound = () => PaseoApi | undefined;
 
 type Handle = {
@@ -66,18 +74,15 @@ export function seatsOn(bound: Bound): Seats {
       await handle.refresh();
       return lookOf(handle);
     },
-    async send(id: string, text: string, steer = false): Promise<void> {
-      // The daemon takes `activeTurnBehavior` though the SDK's type leaves it out; the id is how `typed` knows the desk sent it.
-      await ref(id).send(text, { messageId: `${DESK_MARK}${randomUUID()}`, ...(steer ? { activeTurnBehavior: "steer" } : {}) });
+    async send(id: string, text: string, steer: boolean, kinds: string[]): Promise<void> {
+      // The daemon takes `activeTurnBehavior` though the SDK's type leaves it out; the id is how `typed` and `sentBy` know the desk sent it.
+      await ref(id).send(text, { messageId: deskId(kinds), ...(steer ? { activeTurnBehavior: "steer" } : {}) });
     },
     async typed(id: string): Promise<string[]> {
-      // The projected timeline holds one row per call, so a whole session fits; a seat's first prompt has only a messageId.
+      // The projected timeline holds one row per call, so a whole session fits.
       const page = await ref(id).timeline.refetch({ direction: "tail", limit: 0, projection: "projected" });
       return page.entries.flatMap(({ item }) => {
-        if (item.type === "user_message" && typeof item.text === "string") {
-          const sent = item.clientMessageId ?? item.messageId;
-          return typeof sent === "string" && sent.startsWith(DESK_MARK) ? [] : [item.text];
-        }
+        if (item.type === "user_message" && typeof item.text === "string") return sentBy(item)[0] === "person" ? [item.text] : [];
         // What the person chose when a seat asked them is their word too.
         const output = (item.detail as { output?: { output?: unknown } } | undefined)?.output?.output;
         return item.type === "tool_call" && item.name === "AskUserQuestion" && item.status === "completed" && typeof output === "string" ? [output] : [];
@@ -155,6 +160,7 @@ export function workspacesOn(bound: Bound): Workspaces {
           parent: spec.parent,
           title: spec.title.slice(0, 60),
           prompt: spec.prompt,
+          clientMessageId: deskId(["brief"]),
           labels: spec.labels,
         })) as unknown as Handle;
       await handle.refresh();

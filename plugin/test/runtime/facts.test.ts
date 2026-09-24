@@ -42,7 +42,7 @@ function toSeen(message: StreamMessage, epochs: Map<string, number>): Seen | und
 
 /** `handed` is the outcome of a hand-back the turn made, if it made one. */
 function play(messages: StreamMessage[], given: Rules, handed?: string) {
-  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: given, handedBack: () => handed, goal: "", context: "", beside: [], role: "Peer" }));
+  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: given, handedBack: () => handed, goal: "", context: "", beside: [], role: "Peer", can: [] }));
   const facts: (Fact & { seq?: number })[] = [];
   const epochs = new Map<string, number>();
   let now = 1_000;
@@ -262,7 +262,7 @@ test("a second loop in the same turn is reported, once the first has been broken
 });
 
 test("a message steered into a long turn does not make it long again", () => {
-  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: rules(), handedBack: () => undefined, goal: "", context: "", beside: [], role: "Peer" }));
+  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: rules(), handedBack: () => undefined, goal: "", context: "", beside: [], role: "Peer", can: [] }));
   const t0 = Date.parse("2026-09-19T10:00:00Z");
   watch.see({ kind: "turn", phase: "started", turnId: "t" }, t0);
   assert.equal(watch.longTurn(t0 + 40 * 60_000, 30).length, 1);
@@ -353,7 +353,7 @@ test("the gate named in an unverified fact is masked like any other quote", () =
 });
 
 test("the end of a turn that is not the one the seat is in does not close it", () => {
-  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: rules(), handedBack: () => undefined, goal: "", context: "", beside: [], role: "Peer" }));
+  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: rules(), handedBack: () => undefined, goal: "", context: "", beside: [], role: "Peer", can: [] }));
   watch.see({ kind: "turn", phase: "started", turnId: "turn-2" }, 1_000);
   watch.see({ kind: "turn", phase: "completed", turnId: "turn-1" }, 2_000);
   assert.equal(watch.running, true);
@@ -362,7 +362,7 @@ test("the end of a turn that is not the one the seat is in does not close it", (
 });
 
 test("an instruction arriving mid-turn is a new subject, so the reading before it no longer counts as the one before", () => {
-  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: rules(), handedBack: () => undefined, goal: "", context: "", beside: [], role: "Peer" }));
+  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: rules(), handedBack: () => undefined, goal: "", context: "", beside: [], role: "Peer", can: [] }));
   const questions = { drifting: { view: "work" as const, instructions: "q", threshold: 0.7, level: "attend" as const, alone: true } };
   const answer = { answers: { drifting: 0.9 }, model: "m" };
   const findings = (before?: Record<string, number>) => weigh(answer, questions, [], { unclear: 0.2, ended: false, before }).findings.length;
@@ -377,7 +377,7 @@ test("an instruction arriving mid-turn is a new subject, so the reading before i
 });
 
 test("Claude's task notifications stay in what the sensor reads, though nothing counts them", () => {
-  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: rules(), handedBack: () => undefined, goal: "", context: "", beside: [], role: "Peer" }));
+  const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: rules(), handedBack: () => undefined, goal: "", context: "", beside: [], role: "Peer", can: [] }));
   for (const message of claudeTurn2()) {
     if (message.event.type !== "timeline") continue;
     watch.see({ kind: "row", row: { item: message.event.item!, seq: message.seq!, epoch: message.epoch!, turnId: message.event.turnId ?? null, replay: false } });

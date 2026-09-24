@@ -90,7 +90,7 @@ test("a seat's brief is read again until the ledger has placed it", () => {
   // A Peer's first turn starts before start_task places it, so an empty first read must not be kept.
   let placed = false;
   const rules = { destructive: /x^/, testPath: /x^/, suppressed: /x^/, gates: [], cwd: "/work", repeatsAt: 3, recoverWithin: 10 };
-  const watch = new SeatWatch({ id: "p1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: { ...rules, owned: placed ? ["src/a.ts"] : undefined }, handedBack: () => undefined, goal: placed ? "Task L1-T1: a" : "", context: "", beside: [], role: "Peer" }));
+  const watch = new SeatWatch({ id: "p1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: { ...rules, owned: placed ? ["src/a.ts"] : undefined }, handedBack: () => undefined, goal: placed ? "Task L1-T1: a" : "", context: "", beside: [], role: "Peer", can: [] }));
   assert.equal(watch.brief()?.goal, "");
   placed = true;
   assert.equal(watch.brief()?.goal, "Task L1-T1: a");

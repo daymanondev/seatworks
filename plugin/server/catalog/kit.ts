@@ -222,6 +222,8 @@ export type Question = {
   confirms?: string[];
   needs?: string[];
   excusedBeside?: boolean;
+  for?: string;
+  after?: string[];
   label?: string;
 };
 
@@ -333,7 +335,7 @@ function loadMcp(dir: string): Record<string, McpEntry> {
 }
 
 const SENSOR_KEYS = ["id", "url", "model", "timeoutSeconds", "retries", "stateChars", "debounceSeconds", "everySeconds", "unclear", "questions"];
-const QUESTION_KEYS = ["view", "instructions", "criteria", "threshold", "level", "alone", "agrees", "confirms", "needs", "excusedBeside", "label"];
+const QUESTION_KEYS = ["view", "instructions", "criteria", "threshold", "level", "alone", "agrees", "confirms", "needs", "excusedBeside", "for", "after", "label"];
 
 export function sensorProblems(id: string, raw: Record<string, unknown>): string[] {
   const problems: string[] = [];
@@ -370,6 +372,10 @@ export function sensorProblems(id: string, raw: Record<string, unknown>): string
       problems.push(`asks ${name} with needs that is not a list of its view's fields (${fields.join(", ")})`);
     }
     if (question?.label !== undefined && (typeof question.label !== "string" || !question.label.trim())) problems.push(`asks ${name} with a label that is not text`);
+    if (question?.for !== undefined && (typeof question.for !== "string" || !question.for)) problems.push(`asks ${name} for something that is not a capability`);
+    if (question?.after !== undefined && !(Array.isArray(question.after) && question.after.length > 0 && question.after.every((kind) => typeof kind === "string" && kind !== ""))) {
+      problems.push(`asks ${name} after something that is not a list of who an instruction comes from`);
+    }
     if (question?.excusedBeside !== undefined && (question.excusedBeside !== true || !opens)) problems.push(`asks ${name} excused beside, though it opens no incident to excuse`);
   }
   return problems;

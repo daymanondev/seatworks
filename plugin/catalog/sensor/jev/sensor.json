@@ -128,7 +128,8 @@
         "goal",
         "instruction"
       ],
-      "excusedBeside": true
+      "excusedBeside": true,
+      "for": "write"
     },
     "wrapped_instead_of_changed": {
       "view": "work",
@@ -141,7 +142,8 @@
       "needs": [
         "goal",
         "instruction"
-      ]
+      ],
+      "for": "write"
     },
     "proof_changes_product": {
       "view": "work",
@@ -154,7 +156,8 @@
       "needs": [
         "goal",
         "instruction"
-      ]
+      ],
+      "for": "write"
     },
     "proves_the_old_is_gone": {
       "view": "work",
@@ -170,7 +173,8 @@
       "needs": [
         "goal",
         "instruction"
-      ]
+      ],
+      "for": "write"
     },
     "agreed_without_checking": {
       "view": "instruction",
@@ -185,6 +189,14 @@
       "alone": true,
       "needs": [
         "instruction"
+      ],
+      "after": [
+        "person",
+        "rework",
+        "landback",
+        "message",
+        "done",
+        "plan"
       ]
     }
   }

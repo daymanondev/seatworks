@@ -34,7 +34,7 @@ import { TurnRules } from "./turns.ts";
 import { FACT_TITLES, type Fact, callsTo } from "./watch/facts.ts";
 import { type Finding, type Verdict, decide } from "./watch/findings.ts";
 import { weigh } from "./watch/jev/rules.ts";
-import { keepAssessment, lastKept, readTally } from "./watch/jev/assessments.ts";
+import { keepAssessment, keptQuestions, lastKept, readTally } from "./watch/jev/assessments.ts";
 import { Assessor, type Reading, type SensorError, type Sensing } from "./watch/jev/sensor.ts";
 import { stepText } from "./watch/trail.ts";
 import { type SeatContext, type SeatWatch, type WatchedSeat, Watches } from "./watch/watches.ts";
@@ -193,6 +193,7 @@ export class Runtime {
       context,
       beside,
       role: [role.label, role.description].filter(Boolean).join(": "),
+      can: role.can ?? [],
       rules: {
         destructive: new RegExp(attention.destructive, "i"),
         testPath: new RegExp(attention.testPath, "i"),
@@ -230,8 +231,8 @@ export class Runtime {
     if (!sensor || !jevOn(team)) return undefined;
     const brief = watch.brief();
     if (!brief || brief.goal === null) return undefined;
-    const { goal, context, beside, role, rules } = brief;
-    return { spec: sensor.spec, key: sensor.key, brief: { goal, context, beside, role, gates: rules.gates, workingCopy: watch.seat.cwd }, rules: { exit: rules.exit, destructive: rules.destructive } };
+    const { goal, context, beside, role, can, rules } = brief;
+    return { spec: sensor.spec, key: sensor.key, brief: { goal, context, beside, role, can, gates: rules.gates, workingCopy: watch.seat.cwd }, rules: { exit: rules.exit, destructive: rules.destructive } };
   }
 
   private assessed(watch: SeatWatch, reading: Reading): void {
@@ -291,12 +292,13 @@ export class Runtime {
         model: assessment.model,
         id: assessment.id,
         cost: assessment.cost,
-        questions: Object.fromEntries(Object.entries(reading.questions).map(([name, question]) => [name, { view: question.view, instructions: question.instructions, ...(question.criteria ? { criteria: question.criteria } : {}) }])),
+        questions: keptQuestions(reading.questions),
         answers: assessment.answers,
         facts: reading.facts.map(({ kind, level, quote }) => ({ kind, level, quote })),
         found: findings.map((finding) => finding.kind),
         verdicts: verdicts.map(({ kind, question, says, p }) => ({ kind, question, says, p })),
         views: reading.views,
+        turn: reading.turn,
       }).catch(unkept);
     } catch (error) {
       unkept(error);

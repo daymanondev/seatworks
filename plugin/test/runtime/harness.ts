@@ -31,6 +31,7 @@ type Fake = {
   pending: Pending[];
   answered: { requestId: string; response: { behavior: string; updatedInput?: { answers?: Record<string, string> } } }[];
   prompt?: string;
+  promptId?: string;
   labels: Record<string, string>;
 };
 
@@ -81,8 +82,10 @@ function fakePaseo() {
     id,
     projectId: workspaceProjects.get(id) ?? null,
     agents: {
-      async create(options: { config: { provider: string }; title: string; prompt: string; labels?: Record<string, string> }) {
-        return ref(add(options.config.provider, workspaces.get(id)!, options.title, "running", options.prompt, options.labels));
+      async create(options: { config: { provider: string }; title: string; prompt: string; clientMessageId?: string; labels?: Record<string, string> }) {
+        const made = add(options.config.provider, workspaces.get(id)!, options.title, "running", options.prompt, options.labels);
+        agents.get(made)!.promptId = options.clientMessageId;
+        return ref(made);
       },
     },
   });

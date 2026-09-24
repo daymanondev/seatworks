@@ -6,6 +6,7 @@ import { mock, test } from "node:test";
 import { gunzipSync } from "node:zlib";
 import type { WatchView, WatchSeat } from "../../shared/views.ts";
 import { HOME, type Pending, harness, ideCalls, laneWithPeer, repo } from "./harness.ts";
+import { sentBy } from "../../server/core/paseo-adapter.ts";
 
 const { placeProjectFiles } = await import("../../server/catalog/project-files.ts");
 const { saveLedger } = await import("../../server/desk/ledger.ts");
@@ -507,6 +508,20 @@ test("parallel work needs independent write sets and merges back from its own wo
   const fine = await h.call(sup, "supervisor", "open_lane", { title: "C", outcome: "c", acceptance: ["c"], outOfScope: ["anything else in the repository"], writeSet: ["c.txt"], isolate: true });
   assert.equal(fine.ok, true, fine.text);
   assert.ok(h.ledger().lanes.L2!.slot, "L1 is writing in the project's own copy, so the next lane is given one instead of switching the branch under it");
+  h.runtime.dispose();
+});
+
+test("what the desk sends a seat carries the kinds of its letters in its id, its first prompt too, so the watch tells it from a person's words", async () => {
+  const h = harness("outbox-kinds.json");
+  const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
+  await h.call(sup, "supervisor", "open_lane", { title: "Kinds", outcome: "x", acceptance: ["y"], outOfScope: ["anything else in the repository"] });
+  const lead = h.ledger().lanes.L1!.lead!;
+  await h.idle(lead);
+  await h.call(lead, "lead", "ask", { kind: "question", text: "Round half up or down?", default: "half up" });
+  await h.call(sup, "supervisor", "answer", { ask: "A1", text: "Half up." });
+  await h.idle(lead);
+  assert.deepEqual(sentBy({ clientMessageId: h.agents.get(lead)!.promptId }), ["brief"]);
+  assert.deepEqual(sentBy({ clientMessageId: h.agents.get(lead)!.sentIds.at(-1) }), ["answer"]);
   h.runtime.dispose();
 });
 

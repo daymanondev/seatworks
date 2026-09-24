@@ -16,7 +16,7 @@ import { stepText } from "../server/runtime/watch/trail.ts";
 
 export type Label = { id: string; seat: string; kind: string; opened: number; last: number; closed?: number; sensor?: Judged; by?: "watcher"; label: "useful" | "noise" };
 
-type Fetcher = Parameters<typeof assessViews>[4];
+type Fetcher = Parameters<typeof assessViews>[5];
 type Answers = (record: Kept) => Record<string, number> | undefined;
 
 const ENOUGH = 5;
@@ -115,7 +115,8 @@ async function reask(kept: Kept[], spec: SensorSpec, key: string, fetcher?: Fetc
     while (next < kept.length) {
       const record = kept[next++]!;
       try {
-        const asking = await assessViews(spec, key, record.views, `replay:${record.seat}`, fetcher);
+        // A record kept before its turn was does not say who sent the instruction, so what is asked only after some is not asked of it.
+        const asking = await assessViews(spec, key, record.views, record.turn ?? { can: [], from: [] }, `replay:${record.seat}`, fetcher);
         if (!asking) continue;
         const { assessment } = asking;
         answers.set(record, assessment.answers);
@@ -184,7 +185,8 @@ function separation(scored: Scored[], replayed: boolean): { useful: Scored[]; no
 
 const sameQuestion = (record: Kept, name: string, question: Question) => {
   const kept = record.questions[name];
-  return kept !== undefined && kept.instructions === question.instructions && JSON.stringify(kept.criteria ?? null) === JSON.stringify(question.criteria ?? null);
+  const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  return kept !== undefined && kept.instructions === question.instructions && same(kept.criteria, question.criteria) && same(kept.for, question.for) && same(kept.after, question.after);
 };
 
 function effective(kept: Kept[], during: Kept[], name: string, question: Question, answers: Answers): number | undefined {
@@ -245,7 +247,7 @@ export async function calibrate(options: CalibrateOptions): Promise<string> {
     const ties = [question.alone ? `alone, ${question.level}` : "", question.agrees ? `with ${question.agrees.join("/")}, ${question.level}` : "", question.confirms ? `confirms ${question.confirms.join("/")}` : ""].filter(Boolean).join("; ");
     out.push("");
     out.push(`${name}${threshold === undefined ? " (label-only)" : ` (${ties}; at ${fixed(threshold)}, unsure from ${fixed(threshold - unclear)})`}`);
-    out.push(`  answered ${answered} times as kept${earlier > 0 ? ` (and ${earlier} times to an earlier wording, which is left out: --ask asks those again)` : ""}${replayed ? `, ${answeredAgain} times asked again` : ""}`);
+    out.push(`  answered ${answered} times as kept${earlier > 0 ? ` (and ${earlier} times as it was worded or aimed before, which is left out: --ask asks those again where it still applies)` : ""}${replayed ? `, ${answeredAgain} times asked again` : ""}`);
     if (threshold === undefined) continue;
     if (question.level && answered + answeredAgain > 0) {
       const scored: Scored[] = [];
