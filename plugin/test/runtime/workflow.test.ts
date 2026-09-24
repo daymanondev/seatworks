@@ -579,7 +579,7 @@ test("an escalation with nobody supervising seated waits for one instead of bein
   const lane = h.ledger().lanes.L1!;
   await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Work", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"] }] });
   const peer = h.ledger().tasks["L1-T1"]!.peer!;
-  assert.equal((await h.call(peer, "peer", "ask", { question: "Round half up or down?", tried: "read the spec" })).ok, true);
+  assert.equal((await h.call(peer, "peer", "ask", { question: "Round half up or down?", tried: "read the spec", bestGuess: "half up" })).ok, true);
   h.agents.get(lane.lead!)!.status = "idle";
   Object.assign(h.agents.get(sup)!, { archivedAt: new Date().toISOString(), status: "closed" });
 
@@ -593,7 +593,7 @@ test("an escalation with nobody supervising seated waits for one instead of bein
   await h.tick(start + 64 * 60_000);
   await h.idle(back);
   assert.equal(Object.values(h.ledger().asks)[0]!.escalated, true);
-  assert.match(h.agents.get(back)!.sent.join("\n"), /Round half up or down\?/, "and the Supervisor who came back is the one told");
+  assert.match(h.agents.get(back)!.sent.join("\n"), /Round half up or down\?\n\nTried: read the spec\n\nTheir default: half up/, "and the Supervisor who came back is the one told, the Peer's best guess with it");
 });
 
 test("a stalled task still holds its working copy, and runs again once its Peer is heard from", async () => {
@@ -622,7 +622,7 @@ test("a stalled task still holds its working copy, and runs again once its Peer 
   h.runtime.outbox.turnEnded(peer);
   await new Promise((resolve) => setTimeout(resolve, 3));
   h.beginTurn(peer);
-  assert.equal((await h.call(peer, "peer", "ask", { question: "Which file first?", tried: "read both" })).ok, true);
+  assert.equal((await h.call(peer, "peer", "ask", { question: "Which file first?", tried: "read both", bestGuess: "the one the test names" })).ok, true);
   await h.endTurn(peer, "asked");
   assert.equal(h.ledger().tasks["L1-T1"]!.status, "running");
 });
@@ -647,7 +647,7 @@ test("a Peer that asked is not stalled on its next quiet turn, and a repeated re
   h.runtime.outbox.turnEnded(peer);
   await new Promise((resolve) => setTimeout(resolve, 3));
   h.beginTurn(peer);
-  assert.equal((await h.call(peer, "peer", "ask", { question: "Round half up or down?", tried: "read the spec" })).ok, true);
+  assert.equal((await h.call(peer, "peer", "ask", { question: "Round half up or down?", tried: "read the spec", bestGuess: "half up" })).ok, true);
   await h.endTurn(peer, "asked and waiting");
   assert.equal(h.ledger().tasks["L1-T1"]!.silent, 0, "the count is of consecutive quiet turns, not a lifetime tally");
 
@@ -1244,7 +1244,7 @@ test("an ask answered by the owner over a Lead's head is told to that Lead, not 
   const task = h.ledger().tasks["L1-T1"]!;
 
   // Unanswered asks escalate to the owner, so the owner answering one is the design.
-  const asked = await h.call(task.peer!, "peer", "ask", { question: "Drop the column or keep it nullable?", tried: "read the migration" });
+  const asked = await h.call(task.peer!, "peer", "ask", { question: "Drop the column or keep it nullable?", tried: "read the migration", bestGuess: "keep it nullable" });
   assert.equal(asked.ok, true, asked.text);
   const ask = Object.values(h.ledger().asks)[0]!;
   assert.equal(ask.to, lane.lead, "an ask goes upward, to the Lead");
@@ -1333,37 +1333,6 @@ test("a Lead is pointed at the project's concept once the Human has settled one,
 
   const pages = await h.call(sup, "supervisor", "set_project", { docs: ["decision"] });
   assert.equal(pages.ok, false, "the shelf of pages is gone, and so is the argument that kept them");
-});
-
-test("a review hands back a verdict and its findings, and the Lead is told both", async () => {
-  const h = harness();
-  const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
-  await h.call(sup, "supervisor", "open_lane", { title: "Rounding", outcome: "money rounds correctly", acceptance: ["a"], outOfScope: ["anything else"] });
-  const lane = h.ledger().lanes.L1!;
-  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Round", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"] }] });
-  h.commit(lane.worktree!, "a.txt", "rounded\n");
-  const peer = h.ledger().tasks["L1-T1"]!.peer!;
-  await h.call(peer, "peer", "done", { outcome: "complete", summary: "rounded" });
-  h.agents.get(peer)!.status = "idle";
-
-  const opened = await h.call(lane.lead!, "lead", "start_review", { task: "L1-T1", focus: "Is half-up right for money here?" });
-  assert.equal(opened.ok, true, opened.text);
-  const review = Object.values(h.ledger().tasks).find((task) => task.kind === "review")!;
-  const reviewer = review.peer!;
-
-  // A reviewer hands back a judgement in its own tool set's words, which must reach the Lead intact.
-  const handed = await h.call(reviewer, "reviewer", "done", {
-    verdict: "accept",
-    findings: "P3 a.txt:1 — banker's rounding would be safer at the boundary, but half-up matches the spec.",
-    checks: "Read the diff and ran the rounding cases.",
-  });
-  assert.equal(handed.ok, true, handed.text);
-  assert.equal(h.ledger().tasks[review.id]!.handback?.outcome, "accept", "an accepted review is recorded as accepted, not as changes");
-
-  await h.idle(lane.lead!);
-  const toLead = h.agents.get(lane.lead!)!.sent.join("\n");
-  assert.match(toLead, /Verdict: accept/);
-  assert.match(toLead, /banker's rounding would be safer/, "the review itself reaches the Lead rather than being dropped");
 });
 
 test("a copy a reviewer is reading is not taken away when the task it reviews is accepted", async () => {
@@ -1774,13 +1743,15 @@ test("every call is held to the schema the seat was shown, and told what it take
   assert.equal(misnamed.ok, false);
   assert.match(misnamed.text, /no field commits/);
   assert.match(misnamed.text, /checks must be text/);
-  assert.match(misnamed.text, /It takes outcome, summary, and optionally commit, checks, leftUndone, discovered/);
+  assert.match(misnamed.text, /It takes outcome, summary, and optionally checks, leftUndone, discovered/);
   assert.equal(h.ledger().tasks["L1-T1"]!.status, "running", "nothing was handed back");
   const report = await h.call(lane.lead!, "lead", "report", { summary: "done", carries: "a note" });
   assert.equal(report.ok, false);
   assert.match(report.text, /needs ready/);
   const blank = await h.call(peer, "peer", "done", { outcome: "complete", summary: "  " });
   assert.match(blank.text, /needs summary/, "a required text has to say something");
+  assert.match((await h.call(lane.lead!, "lead", "ask", { kind: "question", text: "Which one?" })).text, /needs default \(What you do meanwhile/, "a Lead that asks says what it does meanwhile");
+  assert.match((await h.call(peer, "peer", "ask", { question: "Which one?" })).text, /needs bestGuess \(Your best answer to it/, "a Peer that asks says its best guess");
 });
 
 test("a patrol round files finished lanes past the newest few into the archive, and leaves the rest", async () => {

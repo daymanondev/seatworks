@@ -621,7 +621,7 @@
     },
     {
       "name": "ask",
-      "description": "Ask the owner. need: a resource or decision from above. blocked: something outside the project stops you. question: user-visible behavior the directive leaves open. Give your default and keep working on it unless the step can't be undone.",
+      "description": "Ask the owner, and keep working on your default unless the next step cannot be undone. need: a resource or decision from above (a missing prerequisite becomes a detour lane). blocked: something outside the project stops you. question: user-visible behavior the directive leaves open.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -634,15 +634,18 @@
             ]
           },
           "text": {
-            "type": "string"
+            "type": "string",
+            "description": "The question, with what you found that makes it one."
           },
           "default": {
-            "type": "string"
+            "type": "string",
+            "description": "What you do meanwhile, and what stands if nobody answers."
           }
         },
         "required": [
           "kind",
-          "text"
+          "text",
+          "default"
         ]
       }
     },
@@ -776,7 +779,7 @@
   "peer": [
     {
       "name": "done",
-      "description": "Hand the task back. Call it once at the end of the task, after committing on your branch.",
+      "description": "Hand the task back. Call it once at the end of the task, after committing on your branch; the desk reads the commit from your branch.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -787,10 +790,6 @@
               "partial",
               "blocked"
             ]
-          },
-          "commit": {
-            "type": "string",
-            "description": "The commit holding the work."
           },
           "summary": {
             "type": "string",
@@ -825,11 +824,16 @@
           },
           "tried": {
             "type": "string",
-            "description": "What you checked and your best guess."
+            "description": "What you checked."
+          },
+          "bestGuess": {
+            "type": "string",
+            "description": "Your best answer to it, which whoever answers may simply confirm."
           }
         },
         "required": [
-          "question"
+          "question",
+          "bestGuess"
         ]
       }
     }
@@ -837,7 +841,7 @@
   "reviewer": [
     {
       "name": "done",
-      "description": "Hand the review back. Call it once at the end.",
+      "description": "Hand the review back. Call it once at the end: every defect you traced, each with its severity, and your answer to the question you were given. The Lead filters.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -847,20 +851,71 @@
               "accept",
               "changes",
               "reopen"
-            ]
+            ],
+            "description": "accept, changes, or reopen for a wrong premise. For a question, accept unless your answer calls for a change."
+          },
+          "answer": {
+            "type": "string",
+            "description": "Your direct answer to the focus you were given; \"no material findings\" when that is the answer."
           },
           "findings": {
-            "type": "string",
-            "description": "One finding per paragraph: severity P0-P3, file:line, the failure, the smallest fix."
+            "type": "array",
+            "description": "Each defect you traced. A verdict of changes or reopen needs at least one.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "severity": {
+                  "type": "string",
+                  "enum": [
+                    "P0",
+                    "P1",
+                    "P2",
+                    "P3"
+                  ]
+                },
+                "where": {
+                  "type": "string",
+                  "description": "file:line"
+                },
+                "failure": {
+                  "type": "string",
+                  "description": "Which input or timing fails, for whom."
+                },
+                "fix": {
+                  "type": "string",
+                  "description": "The smallest durable fix."
+                },
+                "confirmedBy": {
+                  "type": "string",
+                  "description": "How you confirmed it: the command, test or trace."
+                }
+              },
+              "required": [
+                "severity",
+                "where",
+                "failure",
+                "fix"
+              ]
+            }
           },
-          "checks": {
-            "type": "string",
-            "description": "What you read and ran."
+          "read": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What you read."
+          },
+          "ran": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The commands you ran."
           }
         },
         "required": [
           "verdict",
-          "findings"
+          "answer"
         ]
       }
     },

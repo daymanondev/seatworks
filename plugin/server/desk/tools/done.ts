@@ -4,7 +4,7 @@ import { z } from "zod";
 import { currentBranch, headSha } from "../../core/git.ts";
 import { workState } from "../../catalog/project-files.ts";
 import { IN_QUEUE, SETTLED, TASK } from "../../domain/task.ts";
-import { type Args, type Caller, type ToolReply, no, ok, str } from "../context.ts";
+import { type Args, type Caller, type ToolReply, no, ok, str, strs } from "../context.ts";
 import { taskGate } from "../gates.ts";
 import { type Task, loadLedger, taskOfPeer } from "../ledger.ts";
 import { clip } from "../../core/text.ts";
@@ -13,10 +13,12 @@ import { type DeskServices, defineTool } from "../services.ts";
 
 function handbackBody(task: Task, args: Args, commit: string | undefined, uncommitted: boolean): { outcome: string; body: string } {
   if (task.kind === "review") {
-    const outcome = str(args.verdict) || "changes";
-    return { outcome, body: [`Verdict: ${outcome}`, "", str(args.findings) || "No findings given.", "", `Checks: ${str(args.checks) || "not given"}`].join("\n") };
+    const outcome = str(args.verdict);
+    const findings = ((args.findings ?? []) as Finding[]).map((found) => `- ${found.severity} ${found.where}: ${found.failure} Fix: ${found.fix}${found.confirmedBy ? ` Confirmed by: ${found.confirmedBy}` : ""}`);
+    const lines = [`Verdict: ${outcome}`, "", str(args.answer), "", "Findings:", ...(findings.length > 0 ? findings : ["none"]), "", `Read: ${strs(args.read).join("; ") || "not given"}`, `Ran: ${strs(args.ran).join("; ") || "nothing"}`];
+    return { outcome, body: lines.join("\n") };
   }
-  const outcome = str(args.outcome) || "complete";
+  const outcome = str(args.outcome);
   const lines = [
     `Outcome: ${outcome}`,
     `Commit: ${commit ?? "none"}${uncommitted ? " (the working copy still has uncommitted changes)" : ""}`,
@@ -30,9 +32,12 @@ function handbackBody(task: Task, args: Args, commit: string | undefined, uncomm
   return { outcome, body: lines.join("\n") };
 }
 
-const HandBack = z.strictObject({ outcome: z.enum(["complete", "partial", "blocked"]), commit: z.string().optional(), summary: z.string(), checks: z.string().optional(), leftUndone: z.string().optional(), discovered: z.string().optional() });
+const HandBack = z.strictObject({ outcome: z.enum(["complete", "partial", "blocked"]), summary: z.string(), checks: z.string().optional(), leftUndone: z.string().optional(), discovered: z.string().optional() });
 
-const Verdict = z.strictObject({ verdict: z.enum(["accept", "changes", "reopen"]), findings: z.string(), checks: z.string().optional() });
+const Finding = z.strictObject({ severity: z.enum(["P0", "P1", "P2", "P3"]), where: z.string(), failure: z.string(), fix: z.string(), confirmedBy: z.string().optional() });
+type Finding = z.infer<typeof Finding>;
+
+const Verdict = z.strictObject({ verdict: z.enum(["accept", "changes", "reopen"]), answer: z.string(), findings: z.array(Finding).optional(), read: z.array(z.string()).optional(), ran: z.array(z.string()).optional() });
 
 /** What the Peer must fix before its turn ends: work left uncommitted, or a copy off the branch, where a commit belongs to no branch and goes with the copy. */
 async function reminderOf(task: Task, laneBranch: string | undefined, uncommitted: boolean): Promise<string> {
@@ -50,7 +55,8 @@ async function handBack({ ctx, roster }: DeskServices, caller: Caller, args: Par
   if (!task) return no("No task is assigned to you.");
   if (SETTLED.includes(task.status)) return no(`This task is already ${task.status === "merged" ? "accepted" : "cut"}; there is nothing to hand back.`);
   const review = task.kind === "review";
-  const commit = review ? undefined : str(args.commit) || (task.worktree ? await headSha(task.worktree) : undefined);
+  if (review && args.verdict !== "accept" && (args.findings ?? []).length === 0) return no(`A verdict of ${args.verdict} names what must change: give each finding.`);
+  const commit = review || !task.worktree ? undefined : await headSha(task.worktree);
   // Only what git actually said: a copy it could not read is not a copy with work left in it.
   const uncommitted = !review && task.worktree ? (await workState(task.worktree)) === "dirty" : false;
   const handed = handbackBody(task, args, commit, uncommitted);
@@ -69,7 +75,7 @@ async function handBack({ ctx, roster }: DeskServices, caller: Caller, args: Par
     if (!entry) return "gone";
     if (!TASK.move(entry, "handBack")) return entry.status;
     entry.silent = 0;
-    entry.handback = { file, outcome, commit, summary: clip(str(args.summary) || str(args.findings), 400), at: Date.now(), ...(run ? { gate: { ok: run.ok, note: run.note } } : {}) };
+    entry.handback = { file, outcome, commit, summary: clip(str(review ? args.answer : args.summary), 400), at: Date.now(), ...(run ? { gate: { ok: run.ok, note: run.note } } : {}) };
     return undefined;
   });
   if (already) {

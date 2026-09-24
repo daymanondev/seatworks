@@ -143,14 +143,14 @@ test("a READY whose gate is still running when its lane closes is not recorded o
 
 test("an ask from a Lead whose lane closes as it asks is not opened on the closed lane", async () => {
   const { h, sup, lane } = await laneWithPeer();
-  const [asked] = await Promise.all([h.call(lane.lead!, "lead", "ask", { kind: "question", text: "Which one?" }), h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "no longer wanted" })]);
+  const [asked] = await Promise.all([h.call(lane.lead!, "lead", "ask", { kind: "question", text: "Which one?", default: "the first" }), h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "no longer wanted" })]);
   assert.equal(asked.ok, false, asked.text);
   assert.deepEqual(Object.values(h.ledger().asks), []);
 });
 
 test("an ask from a Peer whose task is cut as it asks is not opened", async () => {
   const { h, lane, peer } = await laneWithPeer();
-  const [asked] = await Promise.all([h.call(peer, "peer", "ask", { question: "Which one?" }), h.call(lane.lead!, "lead", "cut", { task: "L1-T1", reason: "not needed" })]);
+  const [asked] = await Promise.all([h.call(peer, "peer", "ask", { question: "Which one?", bestGuess: "the first" }), h.call(lane.lead!, "lead", "cut", { task: "L1-T1", reason: "not needed" })]);
   assert.match(asked.text, /L1-T1 was accepted or cut while you asked/);
   assert.deepEqual(Object.values(h.ledger().asks), []);
 });

@@ -377,7 +377,7 @@ test("a waiting lane asked to open by a round and a close at once opens once, wi
 test("a lane whose Lead is gone gets a new one where it stands, with the asks that waited on the old one, and its Supervisor is told once", async () => {
   const { h, sup, lane, peer } = await laneWithPeer();
   assert.match((await h.call(sup, "supervisor", "replace_lead", { lane: "L1" })).text, /still seated; message it instead/);
-  assert.equal((await h.call(peer, "peer", "ask", { question: "Which rounding?" })).ok, true);
+  assert.equal((await h.call(peer, "peer", "ask", { question: "Which rounding?", bestGuess: "half up" })).ok, true);
   h.agents.get(lane.lead!)!.archivedAt = new Date().toISOString();
 
   const replaced = await h.call(sup, "supervisor", "replace_lead", { lane: "L1" });

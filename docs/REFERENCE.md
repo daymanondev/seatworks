@@ -38,8 +38,8 @@ schema. A call that doesn't fit is refused, with what is wrong.
 | `amend_task` | Changes what a task asks while its Peer works, keeping what it asked before and why. The Peer reads it at its next turn. A parallel task's new owned paths are checked as a start would check them |
 | `cut` | Stops the task and archives its Peer. It resets the lane copy to where the task started, when nothing merged there since. It is refused while the task's merge runs |
 | `report` | Reports to the Supervisor. With `ready`, it runs the lane gate first |
-| `ask` | A Lead asks the Supervisor. A Peer or Reviewer asks its Lead, or the Supervisor when the Lead is gone |
-| `done` | Hands the task back to the Lead, with a file. On a per-task-gate project, it runs the gate first. It is refused once the task is accepted, queued or cut |
+| `ask` | A Lead asks the Supervisor, with the default it works on meanwhile. A Peer asks its Lead with its best guess, which the letter shows as its default; a Reviewer asks with what it tried. Either goes to the Supervisor when the Lead is gone |
+| `done` | Hands the task back to the Lead, with a file; the commit is read from the branch. A review hands back its verdict, its answer to the focus and each finding (severity, place, failure, fix), and `changes` or `reopen` needs at least one. On a per-task-gate project, it runs the gate first. It is refused once the task is accepted, queued or cut |
 | `message` | The Supervisor messages a lane or a task, and a Lead messages a task in its own lane. A seat stopped on a question takes it as the answer |
 | `answer` | Closes an open ask. The Supervisor may answer any ask, others only their own |
 | `incidents` | Lists the 50 most recent open or unmarked incidents, with each one's brief. With `closed`, it adds the 20 most recently marked. A Lead sees only its own lane's |

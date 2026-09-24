@@ -12,6 +12,7 @@ const firstLine = (text: string) => text.split(/\r?\n/).find((line) => line.trim
 const line = (text: string, limit: number) => clip(text.replace(/\s+/g, " ").trim(), limit);
 
 /** A person's note as a sentence: theirs often ends in a full stop already, and one more reads as a typo. */
+const theirDefault = (ask: Ask): string[] => (ask.default ? ["", `Their default: ${ask.default}`] : []);
 const ended = (text: string) => (/[.!?]$/.test(text.trim()) ? text.trim() : `${text.trim()}.`);
 
 /** Every kind of letter the desk mails. A letter's key starts with its kind, and so does the id Paseo shows for the message. */
@@ -57,10 +58,7 @@ export const letters = {
   },
 
   askTo(ask: Ask, from: string): Letter {
-    const lines = [`ASK ${ask.id} (${ask.kind}) from ${from}`, "", ask.text];
-    if (ask.default) lines.push("", `Their default: ${ask.default}`);
-    lines.push("", `Reply with answer, ask ${ask.id}.`);
-    return mail("ask", [ask.id], lines.join("\n"));
+    return mail("ask", [ask.id], [`ASK ${ask.id} (${ask.kind}) from ${from}`, "", ask.text, ...theirDefault(ask), "", `Reply with answer, ask ${ask.id}.`].join("\n"));
   },
 
   answered(ask: Ask): Letter {
@@ -315,7 +313,7 @@ export const letters = {
   },
 
   escalated(ask: Ask, minutes: number, lane: string): Letter {
-    return mail("escalate", [ask.id], [`UNANSWERED ${ask.id} in ${lane}: a Peer has waited ${minutes} minutes on its Lead.`, "", ask.text].join("\n"));
+    return mail("escalate", [ask.id], [`UNANSWERED ${ask.id} in ${lane}: a Peer has waited ${minutes} minutes on its Lead.`, "", ask.text, ...theirDefault(ask)].join("\n"));
   },
 
   critique(lane: Lane, found: { kind: string; human: string; lane: string; why: string; question: string }[], critic: string): Letter {
