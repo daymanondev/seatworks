@@ -7,11 +7,8 @@ import { tempDir } from "../tempdir.ts";
 
 type FakeAgent = { status: string; pendingPermissions: { title?: string; name?: string }[]; archivedAt: string | null; sent: string[]; steered: string[]; kinds: string[][] };
 
-function fakeSeats(agents: Record<string, FakeAgent>): Seats {
+function fakeSeats(agents: Record<string, FakeAgent>): Pick<Seats, "look" | "send"> {
   return {
-    async open() {
-      return [];
-    },
     async look(id: string) {
       const agent = agents[id]!;
       return { id, status: agent.status, pendingPermissions: agent.pendingPermissions, archivedAt: agent.archivedAt };
@@ -20,14 +17,6 @@ function fakeSeats(agents: Record<string, FakeAgent>): Seats {
       agents[id]!.sent.push(text);
       agents[id]!.kinds.push(kinds);
       if (steer) agents[id]!.steered.push(text);
-    },
-    async typed() {
-      return [];
-    },
-    async respond() {},
-    async archive() {},
-    watch() {
-      throw new Error("the outbox watches nobody");
     },
   };
 }

@@ -20,7 +20,7 @@ const SETTLE_MS = 60_000;
 export class Outbox {
   private readonly file: string;
   private readonly compose: Compose;
-  private readonly seats: Seats;
+  private readonly seats: Pick<Seats, "look" | "send">;
   private readonly dropped: Dropped | undefined;
   private readonly steers: Steers;
   private readonly calling: Calling;
@@ -35,7 +35,7 @@ export class Outbox {
   private readonly lanes = new Map<string, Promise<unknown>>();
   private counter = 0;
 
-  constructor(file: string, compose: Compose, seats: Seats, dropped?: Dropped, steers: Steers = () => false, calling: Calling = () => false) {
+  constructor(file: string, compose: Compose, seats: Pick<Seats, "look" | "send">, dropped?: Dropped, steers: Steers = () => false, calling: Calling = () => false) {
     this.file = file;
     this.compose = compose;
     this.seats = seats;
