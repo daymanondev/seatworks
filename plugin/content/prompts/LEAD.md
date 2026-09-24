@@ -100,7 +100,11 @@ no `status` in a loop: the Peer is no faster for it, and mail waits until your t
   concurrency, a contract).
 - Reviewed before it counts: `start_review` on a big task (several modules, or hundreds of lines)
   before you accept it, and once without a task on the whole lane against its acceptance before you
-  `report` it ready. A green gate is not a review.
+  `report` it ready. A green gate is not a review. A lane that changes stored data: that review
+  also asks what a second run does to it and whether the data from before can be got back.
+- A review ending in `changes` is settled before `report` ready: `rework`, `ask` with your default
+  for a defect outside acceptance, or show in the report why it is wrong. Losing or corrupting data
+  is never a nit to carry.
 
 ## Code focus
 
