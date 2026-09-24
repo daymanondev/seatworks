@@ -6,7 +6,8 @@ import { firstOverlap, serialHits, serialPaths, serialReach } from "../core/scop
 import type { Issue } from "./issue.ts";
 import { type Lane, type Ledger, type Task, type TaskStatus, activeTasks, loadLedger, ownCopyHolder } from "./ledger.ts";
 import { letters, outside } from "./letters.ts";
-import { type Project, conceptFile, loadConfig } from "./project.ts";
+import { directiveFor } from "./directive.ts";
+import { type Project, loadConfig } from "./project.ts";
 import type { DeskServices } from "./services.ts";
 
 /** Why a lane cannot open, and what open_lane would do instead: the reason is shared, the advice is not. */
@@ -45,17 +46,6 @@ export const seatingKey = (project: Project, lane: string) => `${project.slug}:$
 /** A seat Paseo holds as this lane's Lead, by the labels it was started with; a Peer's and a reviewer's also name a task. */
 export function leadSeatOf(seats: SeatView[], project: Project, lane: string): SeatView | undefined {
   return seats.find((seat) => seat.labels?.["seatworks.project"] === project.slug && seat.labels["seatworks.lane"] === lane && !seat.labels["seatworks.task"]);
-}
-
-export function directiveFor(project: Project, lane: Lane, issue?: Issue): string {
-  return letters.directive(lane, issue, conceptFile(project.state), gateRegime(project));
-}
-
-/** Which gate regime this project runs, because a Lead plans its splits against it. */
-function gateRegime(project: Project): string {
-  const config = loadConfig(project.state);
-  if (!config.gate) return "none set, so nothing is checked for you";
-  return config.gateOn === "task" ? `${config.gate} runs on every task, and its verdict reaches the Lead with the hand-back — evidence, not a veto` : `${config.gate} runs on the whole lane when you report it ready`;
 }
 
 export function openedReply(project: Project, lane: Lane, slot: { id?: string }, lead: string, issue: Issue | undefined): string {
@@ -133,7 +123,7 @@ async function seatLead(desk: DeskServices, project: Project, lane: Lane, how: S
     const lead = await agents.start(project, slot, leadRole.role, {
       parent: how.parent,
       title: `${lane.id} ${lane.title}`,
-      prompt: directiveFor(project, lane, how.issue),
+      prompt: await directiveFor(project, lane, slot.path, how.issue),
       labels: { "seatworks.lane": lane.id, "seatworks.role": leadRole.role },
     });
     await ctx.ledger(project, (ledger) => {

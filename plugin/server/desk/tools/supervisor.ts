@@ -12,7 +12,8 @@ import { clip, letters } from "../letters.ts";
 import { type Project, type ProjectConfig, configFile, detectGate, loadConfig, saveConfig } from "../project.ts";
 import type { Roster } from "../roster.ts";
 import type { DeskServices, Tool } from "../services.ts";
-import { directiveFor, leadSeatOf, overlap, openedReply, placement, seatingKey, startLead } from "../opening.ts";
+import { takeoverFor } from "../directive.ts";
+import { leadSeatOf, overlap, openedReply, placement, seatingKey, startLead } from "../opening.ts";
 import { openWaiting, waitsFor } from "../waiting.ts";
 import { keepRun } from "../checkpoints.ts";
 import { seatCritic } from "../critique.ts";
@@ -394,12 +395,11 @@ export const replaceLead: Tool = async ({ ctx, roster, agents }, caller, args) =
       const leadRole = roleThatCan(ctx.kit, "lead", str(args.role) || undefined);
       if (!leadRole) return no(namedOrNot(ctx.kit, "lead", str(args.role), "lead a lane"));
       if (!lane.worktree || !existsSync(lane.worktree)) return no(`Lane ${lane.id} has no working copy left${lane.worktree ? ` at ${lane.worktree}` : ""}; close it and open the work again.`);
-      const fetched = lane.issue ? await fetchIssue(lane.issue, project.root) : undefined;
       try {
         lead = await agents.start(project, { path: lane.worktree, workspaceId: lane.workspaceId }, leadRole.role, {
           parent: caller.id,
           title: `${lane.id} ${lane.title}`,
-          prompt: `${letters.takeover(lane, lane.lead ?? "its first Lead")}\n\n${directiveFor(project, lane, fetched && !("error" in fetched) ? fetched : undefined)}`,
+          prompt: await takeoverFor(project, lane, lane.worktree),
           labels: { "seatworks.lane": lane.id, "seatworks.role": leadRole.role },
         });
       } catch (error) {
