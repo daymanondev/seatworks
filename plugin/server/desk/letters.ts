@@ -1,24 +1,23 @@
 import { TEAM_SERVER } from "../catalog/kit.ts";
 import type { Counts } from "../core/git.ts";
-import { clip, hash } from "../core/text.ts";
+import { clip, hash, outside } from "../core/text.ts";
 import type { PendingPermission } from "../core/paseo.ts";
 import { IN_QUEUE } from "../domain/task.ts";
 import type { Incident } from "./incidents.ts";
 import type { Amendment, Ask, Lane, Task } from "./ledger.ts";
 
 export const list = (items: string[] | undefined, empty = "none") => (items && items.length > 0 ? items.map((item) => `- ${item}`).join("\n") : empty);
-const firstLine = (text: string) => text.split(/\r?\n/).find((line) => line.trim())?.trim() ?? "";
+export const firstLine = (text: string) => text.split(/\r?\n/).find((line) => line.trim())?.trim() ?? "";
 
 const line = (text: string, limit: number) => clip(text.replace(/\s+/g, " ").trim(), limit);
 
 /** A person's note as a sentence: theirs often ends in a full stop already, and one more reads as a typo. */
-const theirDefault = (ask: Ask): string[] => (ask.default ? ["", `Their default: ${ask.default}`] : []);
 export const ended = (text: string) => (/[.!?]$/.test(text.trim()) ? text.trim() : `${text.trim()}.`);
 
 /** Every kind of letter the desk mails. A letter's key starts with its kind, and so does the id Paseo shows for the message. */
 type Kind =
   | "answer" | "answeredFor" | "ask" | "amended" | "canland" | "detour" | "done" | "escalate" | "failed" | "gone"
-  | "halfopen" | "held" | "hold" | "idle" | "incident" | "land" | "landback" | "landheld" | "later" | "leadgone" | "merge" | "message"
+  | "halfopen" | "held" | "hold" | "humanwrote" | "idle" | "incident" | "land" | "landback" | "landheld" | "later" | "leadgone" | "merge" | "message"
   | "notstarted" | "nudge" | "opened" | "permission" | "reconcile" | "remind" | "report" | "resumed" | "rework" | "silent" | "started" | "unanswered";
 
 /** A letter the desk mails a seat: its text, and the key under which a second one to that seat is the same letter. */
@@ -55,32 +54,6 @@ export const letters = {
 
   handback(task: Task, file: string, body: string, peer: string): Letter {
     return mail("done", [task.id, hash(body)], [`HANDBACK ${task.id} (${task.title}) from ${peer}`, "", clip(body, 2500), "", `Full hand-back: ${file}`].join("\n"));
-  },
-
-  askTo(ask: Ask, from: string): Letter {
-    return mail("ask", [ask.id], [`ASK ${ask.id} (${ask.kind}) from ${from}`, "", ask.text, ...theirDefault(ask), "", `Reply with answer, ask ${ask.id}.`].join("\n"));
-  },
-
-  answered(ask: Ask): Letter {
-    return mail("answer", [ask.id], [`ANSWER to your ask ${ask.id}`, "", ask.answer ?? ""].join("\n"));
-  },
-
-  /** The Lead an ask was put to, told what its Peer was told and by whom: the owner may answer a Lead's ask, never out of its sight. */
-  answeredFor(ask: Ask, by: string, leads = true): Letter {
-    const text = [
-      `ANSWERED FOR YOU: ${ask.id} (${ask.kind}) from ${ask.from}, which was waiting on you, was answered by ${by}.`,
-      "",
-      "The question:",
-      ask.text,
-      "",
-      "The answer it was given:",
-      ask.answer ?? "",
-      "",
-      // Only an ask with a task has a Peer to speak of, and acceptance is only a Lead's to judge.
-      ask.task && leads ? `Nothing else moved: ${ask.task} is still owned by the same Peer, on the same branch, and accepting it is still yours to judge.` : "Nothing else moved.",
-      "If this changes what you were going to do, say so in your next report.",
-    ].join("\n");
-    return mail("answeredFor", [ask.id], text);
   },
 
   message(from: string, text: string, sending: Sending): Letter {
@@ -269,20 +242,28 @@ export const letters = {
     return mail("resumed", [lane.id, task?.id ?? "lead", Date.now()], note ? `${what}\n\n${note}` : what);
   },
 
+  /** Words the Human wrote straight into a Lead's or Peer's chat, fenced as data. */
+  humanWrote(lane: Lane, task: Task | undefined, seat: string, text: string): Letter {
+    const who = task ? `the Peer on ${task.id} (${task.title})` : `the Lead of ${lane.id} (${lane.title})`;
+    const lines = [
+      `HUMAN WROTE to ${who} directly, past you:`,
+      "<human>",
+      outside("human", text, 1500),
+      "</human>",
+      "",
+      task
+        ? "Its Lead was not told. If it changes what the task or the lane is asked, carry it in: tell the Lead, amend_lane, or settle it with the Human."
+        : "If it changes what the lane is asked, carry it in with amend_lane; if it settles the concept, write it into CONTEXT.md.",
+    ];
+    return mail("humanwrote", [seat, hash(text)], lines.join("\n"));
+  },
+
   started(task: Task, what: string): Letter {
     return mail("started", [task.id], waited(task, what));
   },
 
   opened(lane: Lane, what: string): Letter {
     return mail("opened", [lane.id], waited(lane, what));
-  },
-
-  reminder(ask: Ask, minutes: number): Letter {
-    return mail("remind", [ask.id, ask.reminders], `STILL OPEN after ${minutes} minutes: ask ${ask.id} (${ask.kind}): ${firstLine(ask.text)}`);
-  },
-
-  escalated(ask: Ask, minutes: number, lane: string): Letter {
-    return mail("escalate", [ask.id], [`UNANSWERED ${ask.id} in ${lane}: a Peer has waited ${minutes} minutes on its Lead.`, "", ask.text, ...theirDefault(ask)].join("\n"));
   },
 
   mailbox(items: string[], open: Ask[]): string {

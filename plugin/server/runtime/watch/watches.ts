@@ -1,5 +1,6 @@
 import { type Kit, can, seatOf } from "../../catalog/kit.ts";
 import type { Seen, SeatView, Seats, Stream } from "../../core/ports.ts";
+import { sentBy } from "../../core/sent-by.ts";
 import { type Fact, Recovery, type Rules, afterChange, contradicted, fact, stuck, unverified } from "./facts.ts";
 import type { Quirks } from "../../catalog/timeline.ts";
 import { Window } from "./window.ts";
@@ -145,6 +146,8 @@ type WatchDeps = {
   seats: Seats;
   context: (seat: WatchedSeat) => SeatContext | undefined;
   found: (watch: SeatWatch, facts: Fact[]) => void;
+  /** A person wrote in the seat's own chat, past the desk. */
+  spoke: (seat: WatchedSeat, text: string) => void;
   log?: (line: string, error?: unknown) => void;
 };
 
@@ -213,6 +216,9 @@ export class Watches {
 
   /** A lost stream leaves the seat unfollowed, so the next round follows it again. */
   private seen(watch: SeatWatch, seen: Seen): void {
+    if (seen.kind === "row" && !seen.row.replay && seen.row.item.type === "user_message" && sentBy(seen.row.item)[0] === "person") {
+      this.deps.spoke(watch.seat, typeof seen.row.item.text === "string" ? seen.row.item.text : "");
+    }
     if (seen.kind !== "lost") return this.found(watch, watch.see(seen));
     if (this.followed.get(watch.seat.id)?.watch === watch) this.followed.delete(watch.seat.id);
     this.log(`${watch.seat.id} is no longer watched: ${seen.error}`);

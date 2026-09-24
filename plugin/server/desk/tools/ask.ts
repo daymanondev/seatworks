@@ -2,7 +2,7 @@ import { z } from "zod";
 import { SETTLED } from "../../domain/task.ts";
 import { type Caller, type ToolReply, no, ok, str } from "../context.ts";
 import { type Ask, type AskKind, laneOfLead, loadLedger, nextAskId, taskOfPeer } from "../ledger.ts";
-import { letters } from "../letters.ts";
+import { askLetters } from "../ask-letters.ts";
 import { type DeskServices, defineTool } from "../services.ts";
 
 export const askOwner = defineTool({
@@ -35,7 +35,7 @@ export const askOwner = defineTool({
       return { ...created };
     });
     if (!entry) return no("You have no open lane.");
-    await ctx.post(to, letters.askTo(entry, `the Lead of ${lane.id} (${lane.title})`));
+    await ctx.post(to, askLetters.askTo(entry, `the Lead of ${lane.id} (${lane.title})`));
     ctx.event(caller.project, { kind: "ask.opened", ask: entry.id, from: caller.id, to });
     return ok(`Asked as ${entry.id}. Keep working on your default where you can; the answer arrives as mail.`);
   },
@@ -73,7 +73,7 @@ async function askUp({ ctx, roster }: DeskServices, caller: Caller, question: st
     return { ...created };
   });
   if (!entry) return no(`${task.id} was accepted or cut while you asked, so there is nothing to ask about; end your turn.`);
-  await ctx.post(to, letters.askTo(entry, `the Peer on ${task.id} (${task.title})`));
+  await ctx.post(to, askLetters.askTo(entry, `the Peer on ${task.id} (${task.title})`));
   ctx.event(project, { kind: "ask.opened", ask: entry.id, from: caller.id, to });
   return ok(`Asked as ${entry.id}${to === lane.lead ? "" : ", of the owner, because your lead is not there"}. End your turn; the answer arrives as a message.`);
 }

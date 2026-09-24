@@ -94,6 +94,7 @@ export class Runtime implements HostHooks {
       seats: this.seats,
       context: (seat) => this.watchContext(seat),
       found: (watch, facts) => this.watchFound(watch, facts),
+      spoke: (seat, text) => void this.turns.spoke(seat, text).catch((error: unknown) => console.error("seatworks-v2: a word the Human wrote to a seat could not be passed on:", error)),
     });
     this.patrol = new Patrol({ kit, source: this.source, desk: this.desk, seats: this.seats, outbox: this.outbox, turns: this.turns, watches: this.watches, remember });
     this.control = new SettingsControl({

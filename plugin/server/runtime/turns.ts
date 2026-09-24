@@ -71,6 +71,19 @@ export class TurnRules {
     await this.deps.desk.post(owner, letters.permission(agent.id, `${role.label} ${agent.title ?? agent.id}`, request));
   }
 
+  /** The Human wrote to a Lead or Peer in its own chat: whoever supervises is told, so nothing reaches a lane past its owner unseen. */
+  async spoke(seat: { id: string; provider: string; cwd: string }, text: string): Promise<void> {
+    const role = seatOf(this.deps.kit, seat.provider)?.role;
+    if (!role || can(role, "supervise")) return;
+    const project = projectOf(seat.cwd);
+    const ledger = loadLedger(project.state);
+    const task = taskOfPeer(ledger, seat.id);
+    const lane = task ? ledger.lanes[task.lane] : laneOfLead(ledger, seat.id);
+    if (!lane) return;
+    const to = await this.deps.desk.supervisorFor(project, lane.opener);
+    await this.deps.desk.post(to, letters.humanWrote(lane, task, seat.id, text));
+  }
+
   async ended(event: TurnEnded): Promise<void> {
     const { agent, outcome, timeline } = event;
     const role = seatOf(this.deps.kit, agent.provider)?.role;

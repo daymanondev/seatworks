@@ -6,6 +6,7 @@ import { TASK } from "../domain/task.ts";
 import type { Desk } from "../desk/desk.ts";
 import { loadIncidents, openFor, saidBefore } from "../desk/incidents.ts";
 import { type Ask, type Ledger, activeTasks, loadLedger, openAsksFrom } from "../desk/ledger.ts";
+import { askLetters } from "../desk/ask-letters.ts";
 import { letters } from "../desk/letters.ts";
 import { type Project, loadConfig, projectOf } from "../desk/project.ts";
 import { statusText } from "../desk/status.ts";
@@ -201,19 +202,19 @@ export class Patrol {
           entry.remindedAt = now;
           return { ...entry };
         });
-        if (moved) await desk.post(to, letters.askTo(moved, ask.task ? `the Peer on ${ask.task}, whose reader is gone` : `the Lead of ${ask.lane ?? "a lane"}, whose reader is gone`));
+        if (moved) await desk.post(to, askLetters.askTo(moved, ask.task ? `the Peer on ${ask.task}, whose reader is gone` : `the Lead of ${ask.lane ?? "a lane"}, whose reader is gone`));
         continue;
       }
       if (seats.get(ask.to)?.status !== "idle" || !waited(ask)) continue;
       const age = Math.round((now - ask.openedAt) / 60_000);
       const reminding = ask.reminders < maxReminders;
       if (reminding) {
-        await desk.post(ask.to, letters.reminder(ask, age));
+        await desk.post(ask.to, askLetters.reminder(ask, age));
         // Escalated only from a Lead: an ask already put to the supervisor has nowhere further up.
       } else if (ask.to === lane?.lead && !can(roleNamed(this.deps.kit, ask.fromRole), "lead") && !ask.escalated) {
         const to = await desk.supervisorFor(project, lane?.opener);
         // Marked escalated only once delivered; with nobody seated it is retried next round.
-        if ((await desk.post(to, letters.escalated(ask, age, ask.lane ?? "the project"))) === "nobody") continue;
+        if ((await desk.post(to, askLetters.escalated(ask, age, ask.lane ?? "the project"))) === "nobody") continue;
       } else continue;
       // Pinned to this round's count so overlapping rounds cannot push it past the owner's maximum.
       desk.transact(project, (current) => {

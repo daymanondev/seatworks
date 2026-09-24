@@ -99,7 +99,7 @@ letter, never written by hand where it is posted.
 | Kind | Letters |
 |---|---|
 | Opening a seat | OWNER DIRECTIVE, TASK, REVIEW |
-| Between seats | MESSAGE, RECONCILE, ASK, ANSWER to your ask, ANSWERED FOR YOU, STILL OPEN, UNANSWERED |
+| Between seats | MESSAGE, RECONCILE, ASK, ANSWER to your ask, ANSWERED FOR YOU, STILL OPEN, UNANSWERED, HUMAN WROTE |
 | Work moving | HANDBACK, REWORK, AMENDED, MERGED, MERGE FAILED, MERGE CONFLICT, REPORT, CAN LAND, CLEARED |
 | Landing held for the Human | LAND HELD, LANDED, HELD AGAIN, CHANGED, APPROVED, SENT BACK, LAND SENT BACK |
 | Waiting and starting again | WAITING, OPENED, NOT OPENED, NOT STARTED, LEAD GONE |
@@ -109,7 +109,8 @@ letter, never written by hand where it is posted.
 
 CAN LAND tells whoever tried to land a lane under a seat mid-turn that the turn has ended. NO ANSWER
 tells a seat that the plugin stopped before the call it was told to wait for by mail had finished.
-RECONCILE tells a Lead what the Supervisor sent its Peer. ANSWERED FOR YOU tells a seat that someone
+RECONCILE tells a Lead what the Supervisor sent its Peer. HUMAN WROTE tells whoever supervises what the Human
+typed straight into a Lead's or Peer's chat. ANSWERED FOR YOU tells a seat that someone
 else answered an ask addressed to it. HOLD is the one letter sent past the outbox, cutting a running turn
 short where the seat's agent allows it.
 

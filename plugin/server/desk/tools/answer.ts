@@ -4,7 +4,7 @@ import { ASK } from "../../domain/ask.ts";
 import { no, ok, str } from "../context.ts";
 import { repeatsIncident } from "../incidents.ts";
 import { type Ask, loadLedger } from "../ledger.ts";
-import { letters } from "../letters.ts";
+import { askLetters } from "../ask-letters.ts";
 import { defineTool } from "../services.ts";
 
 export const answer = defineTool({
@@ -29,8 +29,8 @@ export const answer = defineTool({
     // Answering an ask put to someone else is allowed (the round escalates them), but that seat is told first.
     const waiting = ask.to === caller.id ? undefined : ask.to;
     const by = waiting && can(roleNamed(ctx.kit, result.waitingRole ?? ""), "supervise") ? `${caller.role.label} ${caller.id}` : "the owner";
-    if (waiting) await ctx.post(waiting, letters.answeredFor(ask, by, can(roleNamed(ctx.kit, result.waitingRole ?? ""), "lead")));
-    const posted = await ctx.post(ask.from, letters.answered(ask));
+    if (waiting) await ctx.post(waiting, askLetters.answeredFor(ask, by, can(roleNamed(ctx.kit, result.waitingRole ?? ""), "lead")));
+    const posted = await ctx.post(ask.from, askLetters.answered(ask));
     ctx.event(caller.project, { kind: "ask.answered", ask: ask.id, by: caller.id, told: waiting ?? null });
     return ok(`Answered ${ask.id}; the asker ${posted === "sent" ? "has it" : "reads it as soon as it can take it"}.${waiting ? " Whoever it was waiting on has been told what it was answered with." : ""}`);
   },

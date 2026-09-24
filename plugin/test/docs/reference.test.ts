@@ -81,7 +81,7 @@ test("every verb a seat can be shown has one row saying what it does, and no row
 test("every heading a letter or brief starts with is in the letters table, and the table names none that is not", () => {
   const heading = /^[A-Z]{2,}(?: [A-Z]{2,})*/;
   const written = new Set<string>();
-  for (const file of ["letters.ts", "land-letters.ts", "briefs.ts", "directive.ts"]) {
+  for (const file of ["letters.ts", "ask-letters.ts", "land-letters.ts", "briefs.ts", "directive.ts"]) {
     for (const match of readFileSync(join(PLUGIN, "server", "desk", file), "utf-8").matchAll(/[`"]([A-Z]{2,}(?: [A-Z]{2,})*)(?=[ :]|\$|`|")/g)) written.add(match[1]!);
   }
   const listed = rows("| Kind | Letters |").flatMap(([, letters]) => letters!.split(",").flatMap((entry) => entry.trim().match(heading) ?? []));

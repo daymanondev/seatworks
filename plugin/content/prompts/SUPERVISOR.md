@@ -78,6 +78,7 @@ Answer every open ask in the turn you see it: a waiting Lead is not working.
 | Letter | Do |
 |---|---|
 | ASK need, blocked | Decide and `answer`. A kit or setup error goes to the Human verbatim. |
+| HUMAN WROTE | The Human spoke to a Lead or Peer past you: carry what it changes into the lane (`amend_lane`, the Lead, CONTEXT.md). |
 | ASK question | From CONTEXT.md if it settles it; else ask the Human (`ask_human` while they are away), write the answer there, `answer`. The Lead runs on its default meanwhile. |
 | STILL OPEN | Your ask is overdue: answer now. |
 | REPORT ready | Acceptance met, and nothing carried that loses or corrupts data → `land_lane`, tell the Human in two lines. Red gate: `overGate` is your call, with a reason. A base conflict is the Lead's; other blockers go to the Human. Held for the Human: tell them it waits on the Flow tab, and why. |
