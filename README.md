@@ -2,7 +2,7 @@
 
 A [Paseo](https://paseo.sh) plugin that runs a team of coding agents the **SLP** way. A
 **Supervisor** works with you, a **Lead** owns each line of work, and **Peers** each do one task. A
-**Reviewer** reads the work with clean context, and a **Watcher** reads how it is being done.
+**Reviewer** reads the work with clean context.
 
 > **Pre-release.** Nothing has shipped: no releases, no compatibility promises.
 
@@ -44,7 +44,6 @@ The step-by-step picture is in [A lane, end to end](docs/ARCHITECTURE.md#a-lane)
 | Lead | One lane: its tasks, their order, and what is accepted | Claude Code · `claude-opus-5` · medium |
 | Peer | One task, and the engineering judgement inside it | Devin CLI · `swe-2-max` |
 | Reviewer | A read-only review of one change | Devin CLI · `swe-2-max` |
-| Watcher | Reading Leads and Peers as they work. It cannot touch the work | the Peer's agent |
 
 Roles are data in `plugin/roles.json`, not code. Each role's tools are in
 [the reference](docs/REFERENCE.md#desk-verbs).
@@ -124,17 +123,14 @@ live), **MCP** (optional servers per role) and **Health**. Everything the desk k
 
 The desk reads the turns of Leads and Peers in code, catching things like a destructive command, the
 same failure again and again, or a weakened test. It also reads each lane's record, for example a
-task sent back three times. A second reader looks beside the code:
-
-- **A Watcher seat**, the default. It needs no key.
-- **Jev**, a model called through OpenRouter. It needs a key, and each reading costs money.
+task sent back three times.
 
 A finding becomes an **incident**. An ordinary one about a Peer goes to its Lead. One about a Lead,
 an urgent one (a *page*), or one whose Lead is gone goes to the Supervisor. Whoever gets it marks it
 `useful`, `noise` or `unknown`. The watched seat never hears of it.
 
 Out of the box the watch only records and lists. To mail incidents, turn on **Mail incidents** on the
-Watcher's chip in the **Team** tab. How it all works is in
+Supervisor's chip in the **Team** tab. How it all works is in
 [the architecture](docs/ARCHITECTURE.md#the-watch).
 
 ## Known Paseo behaviour

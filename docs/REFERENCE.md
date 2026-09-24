@@ -5,7 +5,7 @@ are under `plugin/` unless they start with `~`.
 
 - **Desk:** [verbs](#desk-verbs) · [records](#records) · [gate detection](#gate-detection) · [letters](#letters) · [mail](#mail) · [permission requests](#permission-requests)
 - **Seats:** [hooks](#hooks-and-events) · [harness fields](#harness-fields) · [seat directories](#seat-directories) · [MCP servers](#mcp-servers)
-- **Watch:** [facts](#facts) · [holds](#holds) · [Jev](#jev) · [calibrate](#calibrate)
+- **Watch:** [facts](#facts) · [holds](#holds)
 - **Setup and files:** [settings](#settings) · [panel](#panel) · [state on disk](#state-on-disk) · [evals](#evals) · [known limits](#known-limits)
 
 ## Desk verbs
@@ -19,7 +19,6 @@ schema. A call that doesn't fit is refused, with what is wrong.
 | Supervisor | `open_lane` `close_lane` `set_project` `message` `answer` `status` `incidents` `ack` |
 | Lead | `start_task` `start_review` `accept` `rework` `cut` `report` `message` `answer` `ask` `status` `incidents` `ack` |
 | Peer, Reviewer | `done` `ask` |
-| Watcher | `raise` `judge` |
 
 | Verb | Effect |
 |---|---|
@@ -36,14 +35,12 @@ schema. A call that doesn't fit is refused, with what is wrong.
 | `done` | Hands the task back to the Lead, with a file. On a per-task-gate project, it runs the gate first. It is refused once the task is accepted, queued or cut |
 | `message` | The Supervisor messages a lane or a task, and a Lead messages a task in its own lane. A seat stopped on a question takes it as the answer |
 | `answer` | Closes an open ask. The Supervisor may answer any ask, others only their own |
-| `raise` | Opens an incident of a kind in `catalog/watcher/watcher.json`, on a step ref from a reading |
-| `judge` | Confirms or vetoes an open code fact the Watcher judges |
 | `incidents` | Lists the 50 most recent open or unmarked incidents, with each one's brief. With `closed`, it adds the 20 most recently marked. A Lead sees only its own lane's |
 | `ack` | Marks an incident `useful`, `noise` or `unknown`, with an optional note, and closes it |
 | `status` | Lanes, tasks, working copies and open asks. A Lead sees its own lane |
 
 Behaviour depends on a role's capabilities (`supervise`, `lead`, `work`, `write`, `review`,
-`watched`, `watch`), never its name. `raise` and `judge` are refused while the watch is by Jev.
+`critique`, `watched`), never its name.
 
 ## Records
 
@@ -167,8 +164,8 @@ settings revision changes, its settings file is gone, or a login appeared since.
 | Agent | Directory | Written there | Launch |
 |---|---|---|---|
 | Claude Code | `~/.claude/profiles/…` | `settings.json` (deny rules, sandbox), `.claude.json` (its own MCP servers cleared), `skills/`, a `projects` link, `CLAUDE.md` for working rules | `bin/seat-room` with `--setting-sources user`, so the project's settings, hooks and skills stay out |
-| Codex | `~/.codex/seats/…` | `config.toml` (`model_provider` and `model_providers` from your own `~/.codex/config.toml`; `workspace-write`, or `read-only` for Reviewer and Watcher; `approval_policy = "never"`; subagents off), `model-catalog.json`, `rules/seatworks.rules`, `skills/`, an `auth.json` link, `AGENTS.md` | Paseo's Codex provider |
-| Pi | `~/.pi/seats/…` | `settings.json` (`pi-mcp-adapter`, project trust off, tool lists for Reviewer and Watcher), `mcp.json`, `skills/`, links to login, models and npm | Paseo's Pi provider |
+| Codex | `~/.codex/seats/…` | `config.toml` (`model_provider` and `model_providers` from your own `~/.codex/config.toml`; `workspace-write`, or `read-only` for Reviewer and Critic; `approval_policy = "never"`; subagents off), `model-catalog.json`, `rules/seatworks.rules`, `skills/`, an `auth.json` link, `AGENTS.md` | Paseo's Codex provider |
+| Pi | `~/.pi/seats/…` | `settings.json` (`pi-mcp-adapter`, project trust off, tool lists for Reviewer and Critic), `mcp.json`, `skills/`, links to login, models and npm | Paseo's Pi provider |
 | Devin CLI | `~/.devin/seats/…` | `devin/config.json` (permissions, command denials, subagents off, other tools' config off), `devin/AGENTS.md`, `devin/mcp_config.json`, `devin/skills/`, a link to your git config | `bin/seat-room acp`, over Paseo's ACP provider |
 
 - **Claude Code** still reads the project's `CLAUDE.md`: the working directory is passed as an
@@ -187,7 +184,7 @@ settings revision changes, its settings file is gone, or a login appeared since.
 | `context7` | Plain HTTP, no key | Library docs. Queries leave the machine |
 
 Catalog servers are off until a settings layer turns them on. One that names no roles goes to every
-role with desk tools except the Watcher. `mcp/code.mjs` can pin calls to the seat's git root, sync
+role with desk tools except the Critic. `mcp/code.mjs` can pin calls to the seat's git root, sync
 changed files, open and close the working copy in the backend, wait out indexing, rewrite errors and
 replace tool descriptions.
 
@@ -216,8 +213,7 @@ replace tool descriptions.
 | `brief-prewritten` | A code task's brief has a code fence, or steps naming a file and a member |
 | `accepted-unfinished` | A task merged whose Peer handed it back `partial` or `blocked`, or never at all |
 
-The Watcher's own kinds, each with a level, meaning and example, are in
-`catalog/watcher/watcher.json`. [ANTIPATTERNS.md](ANTIPATTERNS.md) says which pattern each answers.
+[ANTIPATTERNS.md](ANTIPATTERNS.md) says which pattern each fact answers.
 
 ## Holds
 
@@ -226,56 +222,11 @@ An incident is sent once. Until then it may be held:
 | Held | Meaning |
 |---|---|
 | shadow | `attention.watch` is off, the default. Nothing is sent |
-| awaiting | The reader can judge this fact and hasn't yet. It waits 2 min for Jev, or `watcherJudgeMinutes` for a Watcher, then goes anyway |
-| vetoed | The reader disagreed. It is kept, and sent if a later sighting goes unjudged or is confirmed |
 | budget | `incidentsPerDay` attend-level incidents went out in the last 24 h |
 | nobody | Nobody to tell, or the only candidate is the watched seat. The patrol retries |
 
 A page never waits. A sighting whose exact words were already marked `noise` for that seat and kind
 opens nothing. Archiving a seat closes its incidents, and they still wait to be marked.
-
-## Jev
-
-The sensor is `catalog/sensor/jev/`, asked through OpenRouter. It reads a watched seat 5 s after it
-goes quiet, at least every 30 s while it works, and at once when a turn ends, something fails,
-something irreversible is seen or a permission is asked.
-
-| View | Fields | Read by |
-|---|---|---|
-| `actions` | `goal`, `context`, `instruction`, `working_copy`, `steps` (acts only) | `unsafe_action` |
-| `work` | `role`, `goal`, `context`, `beside`, `instruction`, `steps` (all) | questions about the work |
-| `claim` | `goal`, `claim`, `last_check`, `changed_after_check` | `unverified_success`, `claim_contradicted` |
-| `instruction` | `instruction`, `steps` (the first ones) | `agreed_without_checking` |
-
-| Tie | Questions | Effect |
-|---|---|---|
-| `alone` | `unsafe_action` (page), `missing_mechanism`, `proves_the_old_is_gone`, `agreed_without_checking` | Opens its own incident. At attend, it needs two readings in a row over threshold |
-| `agrees` | `goal_drift`, with `outside-scope` | Opens one when that fact was noted in the same reading |
-| `confirms` | `worker_stuck` (for `stuck`, `no-recovery`), `unverified_success` (for `unverified`) | Judges the open fact |
-| recorded only | `injected_intent`, `guessed_ambiguity`, `admits_error`, `changed_direction`, `wrapped_instead_of_changed`, `proof_changes_product`, `claim_contradicted` | Nothing, until `calibrate` earns it a threshold |
-
-A question with `for` is asked only of a seat whose role can do that (`write`: a Peer). One with `after`
-is asked only when the turn's instruction came from those: a person, or a letter of that kind, read
-from the id the desk gives it. `agreed_without_checking` is asked after the Human's words, typed or
-in a landing sent back; an order from a seat above is not a doubt to check.
-
-Each view is one request, so a reading costs up to four, plus one per finding it pinpoints. 429 and
-5xx responses are retried. A failure is logged as `sensor.degraded` at most once a minute.
-
-## Calibrate
-
-`node bin/calibrate.ts <project or its state directory>` reads `assessments/` against the marks.
-For each question it reports its AUROC, peak rate, a threshold within the day's budget, and a
-verdict. It calls Jev only with `--ask`.
-
-| Flag | Effect |
-|---|---|
-| `--ask` | Asks the current questions again against the kept views, one call each |
-| `--limit N` | Keeps the newest N assessments |
-| `--per-day N` | Replaces the day's budget |
-| `--model ID` | Keeps only one model version's answers |
-| `--sample N` | Offers turns nothing was raised on |
-| `--missed ID` / `--fine ID` | Marks a sampled turn |
 
 ## Settings
 
@@ -287,9 +238,7 @@ There are two layers: `~/.local/share/seatworks-v3/settings.json` for the machin
 | Each role's agent, model and thinking | panel |
 | MCP servers: on or off, roles, options, pasted snippets | panel |
 | `attention.watch`, the mail switch | panel (*Mail incidents*) |
-| The sensor key, machine layer only | panel. Never read back |
 | The Flow switch | panel |
-| `attention.by`: `seat` or `jev` | panel (*Watch by*) or by hand |
 | Rules per role, or for every seat | by hand |
 | The Flow interval, and the other attention values | by hand |
 
@@ -298,10 +247,7 @@ There are two layers: `~/.local/share/seatworks-v3/settings.json` for the machin
 | `tickSeconds` (machine layer only) | 30 |
 | `leadIdleMinutes` | 12 |
 | `askRemindMinutes` / `maxReminders` | 15 / 2 |
-| `watch` / `by` | false / `seat` |
-| `watcherQuietSeconds` / `watcherEveryMinutes` | 60 / 5 |
-| `watcherChars` / `watcherRotateAfter` | 12000 / 40 |
-| `watcherJudgeMinutes` | 10 |
+| `watch` | false |
 | `incidentsPerDay` | 5 |
 | `longTurnMinutes` | 30 |
 | `reworksAt` / `reviewsAt` | 3 / 3 |
@@ -315,8 +261,8 @@ it is given its own. Each role still needs its settings files under `harness/<ag
 
 | Tab | What it holds |
 |---|---|
-| **Team** | The agent per role, its model and thinking. The Watcher's chip holds the watch: *Watch by*, the reader's agent or Jev's key, and *Mail incidents* |
-| **Flow** | Supervisors, lanes, tasks and open asks, live. Then the watch: the Watcher and its open incidents, or the Jev card |
+| **Team** | The agent per role, its model and thinking. The Supervisor's chip also holds the land check and *Mail incidents* |
+| **Flow** | Supervisors, lanes, tasks and open asks, live. Then the incidents not yet marked |
 | **MCP** | Servers on or off, their roles and options, and adding one from a snippet |
 | **Health** | The machine's checks and, on a project, its lanes' status |
 | **Plugin** | Updates, Migrate and Clean up, for the whole machine |
@@ -336,8 +282,8 @@ project keeps its ledger and logs, and is refused while a lane is open or a work
 ~/.paseo/config.json                      providers sw2-<role>-<agent>, agent profiles
 ~/.local/share/seatworks-v3/
   roles.json                              optional; replaces the shipped preset
-  settings.json                           machine settings, including the sensor key
-  settings.json.bak-<time>                what Migrate repaired, as it was; can hold the key
+  settings.json                           machine settings
+  settings.json.bak-<time>                what Migrate repaired, as it was; can hold a pasted token
   kit.json                                which kit runs, and since when
   content.json                            the shipped prompts, skills and guides you have taken in
   own/                                    your own copies, kept over the shipped ones
@@ -350,7 +296,6 @@ project keeps its ledger and logs, and is refused while a lane is open or a work
   projects/<slug>/                        slug = repo folder name + 6 hex chars of sha1(root)
     meta.json  settings.json  project.json
     ledger.json  incidents.json
-    assessments/                          what Jev was shown and said
     events.log  attention.log  status.md
     handbacks/  gates/  notebook.md  CONTEXT.md
 <profileRoot>/sw2-<role>-<agent>-<slug>/  one seat directory per role, agent and project
@@ -361,23 +306,19 @@ and slot event. The watch writes these kinds there:
 
 | Group | Kinds |
 |---|---|
-| Watch | `watch.fact`, `watch.finding`, `watch.raised`, `watch.sensor`, `watch.unbriefed`, `watch.offline` |
-| Watcher | `watcher.seated`, `watcher.rotated` |
-| Sensor | `sensor.degraded`, `sensor.unkept` |
-| Incidents | `incident.open`, `incident.judged`, `incident.held`, `incident.told`, `incident.read`, `incident.ack`, `incident.lookup-failed`, `incident.post-failed` |
+| Watch | `watch.fact`, `watch.finding`, `watch.unbriefed`, `watch.offline` |
+| Incidents | `incident.open`, `incident.held`, `incident.told`, `incident.read`, `incident.ack`, `incident.lookup-failed`, `incident.post-failed` |
 
 `call.malformed` is logged when a seat's own harness rejected a tool call before it reached the desk.
 
 ## Evals
 
-`npm run check` needs no key and launches no seat. These three call real models, so they sit outside
+`npm run check` needs no key and launches no seat. This one calls a real model, so it sits outside
 it:
 
 | Command | What it measures |
 |---|---|
 | `npm run eval:triggers -- --agent "claude -p"` | Whether a real agent opens each skill on the briefs it should |
-| `npm run eval:sensor` | Whether each question in `test/sensor/cases.json` reads its turns the right way |
-| `node bin/calibrate.ts <project>` | A question's threshold against a real project's marks. It calls Jev only with `--ask` |
 
 ## Known limits
 
@@ -397,5 +338,3 @@ it:
   30 minutes ago.
 - **A project-layer save** doesn't rewrite the Paseo providers.
 - **The watch can't see a sub-agent's work.** It isn't on the seat's timeline.
-- **Nothing checks the sensor.** Health doesn't look at the key or the endpoint. `events.log` is
-  where a failing sensor shows up.

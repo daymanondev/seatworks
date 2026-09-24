@@ -21,7 +21,7 @@
 <text class="sub" x="56" y="388.5" text-anchor="start">machine, then project</text>
 <rect class="node" x="40" y="416" width="190" height="54" rx="10" style="fill:var(--slate-fill);stroke:var(--slate)"/>
 <text class="title mono" x="56" y="439.5" text-anchor="start" style="fill:var(--slate-ink)">catalog/</text>
-<text class="sub" x="56" y="458.5" text-anchor="start">MCP, sensor, Watcher kinds</text>
+<text class="sub" x="56" y="458.5" text-anchor="start">MCP servers</text>
 <text class="note" x="40" y="518" text-anchor="start">A bad kit file fails the load, by name.</text>
 <path class="edge" d="M230,163 L272,163" style="stroke:var(--slate)"/>
 <path class="edge" d="M230,233 L272,233" style="stroke:var(--slate)"/>

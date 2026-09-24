@@ -54,7 +54,6 @@ These are mostly absences, so the code won't show them to you.
 - **No hidden command chain.** When the Supervisor messages a Peer, the Peer's Lead is told first.
 - **The watched seat never hears what the watch concluded about it.** No incident is ever addressed
   to it.
-- **The key is never read back.** The panel sees the word `KEPT` in place of the sensor key.
 - **Nothing a seat reads resolves into a repository.** Skills and guides are copies under
   `content/`, because some agents load the `AGENTS.md` above every file they read.
 - **All or nothing.** A seat directory is written only when the whole seat can be built. A kit that
@@ -68,14 +67,14 @@ These are mostly absences, so the code won't show them to you.
 | `server/catalog/` | Data to seats: the kit loader, team resolution, providers, seat directories, launch config, content, the project files |
 | `server/desk/` | The ledger and the verbs seats call: lanes, tasks, asks, working copies, merges, gates, incidents, letters |
 | `server/runtime/` | The composition root and the loops: hooks, spool, outbox, patrol, turn reading, RPC, health |
-| `server/runtime/watch/` | The watch: the window over a timeline, facts, findings and the pacer. `seat/` is the Watcher reader, `jev/` the sensor |
+| `server/runtime/watch/` | The watch: the window over a timeline, the facts read from it and from each lane's record, and the findings they make |
 | `client/` | The Seatworks panel |
 | `shared/` | What the panel and server share: RPC contracts (`rpc.ts`) and views (`views.ts`) |
 | `mcp/` | `team.mjs`, `code.mjs`, and `tools.json` (the tool sets and their schemas) |
-| `bin/` | `seat-room` (the launcher) and `calibrate.ts` (the watch's report card) |
+| `bin/` | `seat-room` (the launcher) and `acp-catalog.mjs` (a model listing that never starts an agent) |
 | `roles.json` | The SLP preset: roles, capabilities, tool sets, prompts, skills, defaults, attention values |
 | `harness/<agent>/` | How each agent is set up: `harness.json`, plus base and per-role settings |
-| `catalog/` | Optional MCP servers, the sensor, and the Watcher's kinds |
+| `catalog/` | Optional MCP servers |
 | `content/` | Runtime content that seats read: prompts, skills, guides, the team block. Not documentation |
 
 All paths are under `plugin/`.
@@ -84,8 +83,8 @@ All paths are under `plugin/`.
 
 ![From data to a running seat](images/seat-build.svg)
 
-1. **Plugin start.** `loadKit` reads `roles.json`, each `harness.json`, the MCP catalog, the tool
-   sets and the sensor. Then the plugin writes one Paseo provider and one agent profile per role and
+1. **Plugin start.** `loadKit` reads `roles.json`, each `harness.json`, the MCP catalog and the tool
+   sets. Then the plugin writes one Paseo provider and one agent profile per role and
    agent. The shipped kit makes twenty: five roles on four agents. It reloads the daemon only when
    something changed.
 2. **Before `agent.create`.** `Seating.ensure` builds the seat directory. This covers settings, deny
@@ -171,8 +170,6 @@ a single message.
 
 ## The watch
 
-![What the watch sees](images/watch.svg)
-
 **What is watched.** Every live seat whose role can be `watched`: Leads and Peers in the preset,
 never a Reviewer. `core/stream.ts` joins Paseo's live timeline with its paged history, and folds it
 into a window of at most 80 entries per seat: calls, words, thoughts, instructions and errors.
@@ -181,21 +178,10 @@ into a window of at most 80 entries per seat: calls, words, thoughts, instructio
 turns. Each fact has a level:
 
 - **`page`**, e.g. `destructive`. It goes out at once.
-- **`attend`**, e.g. `stuck`, `test-weakened` or `unverified`. It waits for the reader's judgement
-  and counts against the day's budget.
+- **`attend`**, e.g. `stuck`, `test-weakened` or `unverified`. It counts against the day's budget.
 - **`note`**, e.g. `gate-failed`. It is only evidence.
 
 The full list is in [the reference](REFERENCE.md#facts).
-
-**A second reader, picked by `attention.by`.**
-
-- **`seat`, the default: a Watcher seat.** While a lane is open, one Watcher sits in the project.
-  The desk mails it what each watched seat did, said and thought, in batches, never into its running
-  turn. It reports with `raise`, citing the ref of a step (`R3.S5`). It agrees or disagrees with a
-  code fact with `judge`. After a set number of readings it is replaced by a fresh one.
-- **`jev`: a model, through OpenRouter.** It needs a key, and without one nothing is watched. Each
-  reading splits the turn into four views, so each question sees only what it needs. When a question
-  fires, Jev is asked which step it meant, and the incident quotes that step.
 
 **Incidents.** Each finding joins the open incident for its seat and kind, or opens one, in
 `incidents.json`. It is sent at most once, as an INCIDENT letter:
@@ -204,12 +190,11 @@ The full list is in [the reference](REFERENCE.md#facts).
 - One about a Lead, a `page`, or one whose Lead is gone goes to the Supervisor.
 - It never goes to the watched seat.
 
-Until it is sent, it may be held: in **shadow** (mailing is off, the default), **awaiting** its
-reader, **vetoed** by it, over the day's **budget**, or with **nobody** to tell.
+Until it is sent, it may be held: in **shadow** (mailing is off, the default), over the day's
+**budget**, or with **nobody** to tell.
 
-**Marking and calibrating.** Whoever gets an incident marks it with `ack`, as `useful`, `noise` or
-`unknown`, after checking the agent's own record. Jev's readings are kept under `assessments/`.
-`bin/calibrate.ts` scores each question against the marks, so thresholds come from data.
+**Marking.** Whoever gets an incident marks it with `ack`, as `useful`, `noise` or `unknown`, after
+checking the agent's own record.
 
 ## The concept and the team block
 
@@ -231,13 +216,12 @@ A timer runs a round every `tickSeconds`, 30 s by default. Rounds never overlap.
 on its own, so one broken project doesn't stop the round. For each project, in order:
 
 1. Tell the Supervisor about idle lanes.
-2. Retell held incidents: those waiting on their reader, vetoed by it, or with nobody to tell.
+2. Retell held incidents that had nobody to tell.
 3. Mark tasks whose Peer is gone.
 4. Remind open asks, re-address ones whose reader is gone, and escalate ones nobody answered.
 5. Read each lane's record for facts.
-6. Seat, rotate or dismiss the Watcher.
-7. Sweep stray workspaces and worktrees, and finish held teardowns.
-8. Write `status.md`.
+6. Sweep stray workspaces and worktrees, and finish held teardowns.
+7. Write `status.md`.
 
 Then it pumps every seat that has mail.
 

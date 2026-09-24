@@ -1,7 +1,7 @@
 # AGENTS.md
 
 A Paseo plugin that serves the **SLP** working concept (Supervisor / Lead / Peer, plus a Reviewer
-and a Watcher). This file holds only what the code does not tell you.
+and a Critic). This file holds only what the code does not tell you.
 
 - **Nothing here has shipped.** No consumers, no versions, nothing to stay compatible with.
 - **Context anchor:** `../v3/CONCEPT.md` holds the concept, the recovered spec and the KEEP list;
@@ -93,7 +93,7 @@ runs in a HOME of its own, and a `console.error` the test did not ask for fails 
 ## SLP is the preset, not the plugin
 
 - **Roles are data** in `roles.json`: `can` (capabilities: supervise, lead, work, write, review,
-  critique, watched, watch), `tools` (a set in `mcp/tools.json`), prompt, skills, defaults,
+  critique, watched), `tools` (a set in `mcp/tools.json`), prompt, skills, defaults,
   `follows`. Nothing in `server/` compares a role to a name; capabilities decide routing, acceptance
   and watching.
 - **A roles file in the state root replaces the shipped one**, and may point at its own prompts and
