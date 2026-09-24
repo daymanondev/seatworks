@@ -24,7 +24,6 @@ import { SettingsControl } from "./control.ts";
 import { codeIndex } from "./code-index.ts";
 import { type Letter, Outbox } from "./outbox.ts";
 import { Patrol } from "./patrol.ts";
-import { Relink, reloadPlugin } from "./relink.ts";
 import { registerRpc } from "./rpc.ts";
 import { Seating } from "./seating.ts";
 import { replyFile, spoolDirs, takeRequests, writeReply } from "./spool.ts";
@@ -62,7 +61,6 @@ export class Runtime {
   private readonly watches: Watches;
   private readonly troubles = new Map<string, { kind: string; at: number; detail: string }[]>();
   private readonly offline = new Set<string>();
-  private readonly relink = new Relink(reloadPlugin);
   private readonly makeIndex: (proxy: IndexedProxy) => CodeIndex;
   private readonly reload: () => Promise<boolean>;
   private api: PaseoApi | undefined;
@@ -276,7 +274,6 @@ export class Runtime {
 
   private tickFailed(error: unknown): void {
     console.error("seatworks-v2: tick failed:", error);
-    if (this.tick && this.relink.failed(errorText(error))) console.error("seatworks-v2: lost the daemon link; reloading the plugin.");
     if (!/not connected|client closed|transport/i.test(errorText(error))) return;
     for (const project of this.desk.projects.values()) {
       if (this.offline.has(project.slug)) continue;
