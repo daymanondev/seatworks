@@ -144,14 +144,17 @@ export class Desk {
     for (const project of ctx.projects.values()) {
       const waiting = Object.values(loadLedger(project.state).lanes).filter((lane) => lane.status === "open" && lane.landing?.writers.some(ended));
       for (const lane of waiting) {
-        const left = lane.landing!.writers.filter((id) => !ended(id));
-        ctx.transact(project, (ledger) => {
+        // Who is left is worked out where it is written: a turn that ended meanwhile must not be written back as still in the way.
+        const by = ctx.transact(project, (ledger) => {
           const entry = ledger.lanes[lane.id];
-          if (!entry?.landing) return;
-          if (left.length > 0) entry.landing.writers = left;
-          else delete entry.landing;
+          if (!entry?.landing) return undefined;
+          entry.landing.writers = entry.landing.writers.filter((id) => !ended(id));
+          if (entry.landing.writers.length > 0) return undefined;
+          const { by } = entry.landing;
+          delete entry.landing;
+          return by;
         });
-        if (left.length === 0) await ctx.post(lane.landing!.by, `canland:${lane.id}:${Date.now()}`, letters.canLand(lane));
+        if (by) await ctx.post(by, `canland:${lane.id}:${Date.now()}`, letters.canLand(lane));
       }
     }
   }

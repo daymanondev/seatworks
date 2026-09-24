@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { join } from "node:path";
 import { saveLedger } from "../../server/desk/ledger.ts";
-import { harness } from "./harness.ts";
+import { tempDir } from "../tempdir.ts";
+import { harness, laneWithPeer } from "./harness.ts";
 
 const scope = { outcome: "x", acceptance: ["a"], outOfScope: ["anything else in the repository"] };
 const work = (title: string, extra: Record<string, unknown> = {}) => ({ title, goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest of the repository"], ...extra });
@@ -90,4 +92,29 @@ test("two lanes amended at once to write the same path do not both get it", asyn
   ]);
   assert.deepEqual([first.ok, second.ok].sort(), [false, true], `${first.text}\n${second.text}`);
   assert.match((first.ok ? second : first).text, /overlaps lane L[12] at c\.txt/);
+});
+
+test("a copy two seats were writing in is put back once both turns end, however close together they end", async () => {
+  const { h, sup, lane, peer } = await laneWithPeer();
+  assert.equal((await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: false })).ok, true);
+  assert.deepEqual(h.ledger().lanes.L1!.restoring?.writers.sort(), [lane.lead!, peer].sort());
+  for (const id of [lane.lead!, peer]) h.agents.get(id)!.status = "idle";
+  await Promise.all([h.endTurn(lane.lead!, "done"), h.endTurn(peer, "done")]);
+  assert.equal(h.ledger().lanes.L1!.restoring, undefined);
+  assert.equal(h.git(h.root, "branch", "--show-current").trim(), "main");
+});
+
+test("a landing two seats were in the way of can go once both turns end, however close together they end", async () => {
+  const { h, sup, lane, peer } = await laneWithPeer();
+  // main moves on, so landing starts with merging it into the lane's copy, where both are mid-turn.
+  const side = join(tempDir("sw2-moved-"), "wt");
+  h.git(h.root, "worktree", "add", "-q", "-b", "side", side, "main");
+  h.git(side, "commit", "-qm", "moved", "--allow-empty");
+  h.git(h.root, "branch", "-f", "main", "side");
+  h.git(h.root, "worktree", "remove", "--force", side);
+  assert.match((await h.call(sup, "supervisor", "close_lane", { lane: "L1", land: true })).text, /a seat is mid-turn there/);
+  for (const id of [lane.lead!, peer]) h.agents.get(id)!.status = "idle";
+  await Promise.all([h.endTurn(lane.lead!, "done"), h.endTurn(peer, "done")]);
+  await h.idle(sup);
+  assert.equal(h.agents.get(sup)!.sent.join("\n").split("CAN LAND L1").length - 1, 1);
 });

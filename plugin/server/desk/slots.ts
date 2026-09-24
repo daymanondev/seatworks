@@ -165,40 +165,36 @@ export class Slots {
   }
 
   private async finish(project: Project, stopped: (agentId: string) => boolean): Promise<void> {
-    for (const lane of Object.values(loadLedger(project.state).lanes)) {
-      if (!lane.restoring) continue;
-      const waiting = lane.restoring.writers;
-      const left = waiting.filter((id) => !stopped(id));
-      // A record with nobody left to wait for is a restore that did not happen, retried each time.
-      if (waiting.length > 0 && left.length === waiting.length) continue;
-      if (left.length > 0) {
-        this.ctx.transact(project, (ledger) => {
-          const entry = ledger.lanes[lane.id];
-          if (entry?.restoring) entry.restoring.writers = left;
-        });
-        continue;
-      }
+    const ledger = loadLedger(project.state);
+    // A record with nobody left to wait for is a restore that did not happen, retried each time.
+    const due = (writers: string[]) => writers.length === 0 || writers.some(stopped);
+    for (const lane of Object.values(ledger.lanes).filter((entry) => entry.restoring && due(entry.restoring.writers))) {
+      const restoring = this.ctx.transact(project, (current) => {
+        const entry = current.lanes[lane.id]?.restoring;
+        return entry && this.leftToWait(entry, stopped);
+      });
       // The record goes only once the copy is really back: it is the only token a later round can retry from.
-      if (!(await this.restore(project, lane.restoring!.base, lane.restoring!.branch))) continue;
-      if (lane.restoring!.landed) await this.dropLanded(project, lane.restoring!.branch, landedRef(lane.id));
-      this.ctx.transact(project, (ledger) => {
-        const entry = ledger.lanes[lane.id];
+      if (!restoring || !(await this.restore(project, restoring.base, restoring.branch))) continue;
+      if (restoring.landed) await this.dropLanded(project, restoring.branch, landedRef(lane.id));
+      this.ctx.transact(project, (current) => {
+        const entry = current.lanes[lane.id];
         if (entry) delete entry.restoring;
       });
     }
-    for (const slot of Object.values(loadLedger(project.state).slots)) {
-      const waiting = slot.releasing?.writers ?? [];
-      const left = waiting.filter((id) => !stopped(id));
-      if (waiting.length === 0 || left.length === waiting.length) continue;
-      if (left.length > 0) {
-        this.ctx.transact(project, (ledger) => {
-          const entry = ledger.slots[slot.id];
-          if (entry?.releasing) entry.releasing.writers = left;
-        });
-        continue;
-      }
-      await this.release(project, slot.id, slot.releasing?.dropBranch, slot.releasing?.into);
+    for (const slot of Object.values(ledger.slots).filter((entry) => entry.releasing && entry.releasing.writers.some(stopped))) {
+      const releasing = this.ctx.transact(project, (current) => {
+        const entry = current.slots[slot.id]?.releasing;
+        return entry && entry.writers.length > 0 ? this.leftToWait(entry, stopped) : undefined;
+      });
+      if (releasing) await this.release(project, slot.id, releasing.dropBranch, releasing.into);
     }
+  }
+
+  /** Drops the writers that have stopped from a wait as it stands in the ledger; the wait comes back once nobody is left in it. */
+  private leftToWait<T extends { writers: string[] }>(wait: T, stopped: (agentId: string) => boolean): T | undefined {
+    const left = wait.writers.filter((id) => !stopped(id));
+    wait.writers = left;
+    return left.length === 0 ? { ...wait } : undefined;
   }
 
   private run(teardown: Teardown): Promise<string | undefined> {
