@@ -6,33 +6,47 @@ const typeOf = (value: unknown): string => (Array.isArray(value) ? "array" : val
 
 const blank = (value: unknown): boolean => value === undefined || value === null || (typeof value === "string" && value.trim() === "") || (Array.isArray(value) && value.every(blank));
 
-function fits(name: string, schema: ArgSchema, value: unknown): string | undefined {
-  if (schema.type && typeOf(value) !== schema.type) return `${name} must be ${TYPE_WORDS[schema.type] ?? schema.type}`;
-  if (schema.enum && !schema.enum.includes(value)) return `${name} must be one of ${schema.enum.join(", ")}`;
-  if (schema.items && Array.isArray(value)) {
-    const wrong = value.map((item) => fits(`each of ${name}`, schema.items!, item)).find(Boolean);
-    if (wrong) return wrong;
+const absent = (value: unknown): boolean => value === undefined || value === null;
+
+function fits(name: string, schema: ArgSchema, value: unknown): string[] {
+  if (schema.type && typeOf(value) !== schema.type) return [`${name} must be ${TYPE_WORDS[schema.type] ?? schema.type}`];
+  if (schema.enum && !schema.enum.includes(value)) return [`${name} must be one of ${schema.enum.join(", ")}`];
+  if (!Array.isArray(value) || !schema.items) return [];
+  if (schema.maxItems !== undefined && value.length > schema.maxItems) return [`${name} takes at most ${schema.maxItems}`];
+  for (const item of value) {
+    const wrong = fits(`each of ${name}`, schema.items, item);
+    // Inside a list's items only what the handler cannot take is refused: a blank there was never held against a call.
+    const inner = wrong.length === 0 && schema.items.properties ? problems(schema.items, item as Record<string, unknown>, absent).map((problem) => `${problem} in each of ${name}`) : [];
+    if (wrong.length + inner.length > 0) return [...wrong, ...inner];
   }
-  return undefined;
+  return [];
+}
+
+function problems(schema: ArgSchema, args: Record<string, unknown>, missing: (value: unknown) => boolean): string[] {
+  const properties = schema.properties ?? {};
+  const found: string[] = [];
+  for (const name of schema.required ?? []) {
+    const what = properties[name]?.description;
+    if (missing(args[name])) found.push(`needs ${name}${what ? ` (${what.replace(/\.$/, "")})` : ""}`);
+  }
+  for (const [name, value] of Object.entries(args)) {
+    const field = properties[name];
+    if (!field) found.push(`has no field ${name}`);
+    else if (!absent(value)) found.push(...fits(name, field, value));
+  }
+  return found;
 }
 
 /** Why `args` miss the schema the seat was shown; empty when they fit. Some harnesses never validate their own tool calls. */
 export function argsProblems(schema: ArgSchema, args: Record<string, unknown>): string[] {
-  const properties = schema.properties ?? {};
-  const problems: string[] = [];
-  for (const name of schema.required ?? []) {
-    const what = properties[name]?.description;
-    if (blank(args[name])) problems.push(`needs ${name}${what ? ` (${what.replace(/\.$/, "")})` : ""}`);
-  }
-  for (const [name, value] of Object.entries(args)) {
-    const field = properties[name];
-    if (!field) problems.push(`has no field ${name}`);
-    else if (value !== undefined && value !== null) {
-      const wrong = fits(name, field, value);
-      if (wrong) problems.push(wrong);
-    }
-  }
-  return problems;
+  return problems(schema, args, blank);
+}
+
+/** A call as its tool takes it: a field sent as null was read as left out, so it is left out. */
+export function withoutNulls(args: Record<string, unknown>): Record<string, unknown> {
+  const kept = (value: unknown): unknown =>
+    Array.isArray(value) ? value.map(kept) : value && typeof value === "object" ? withoutNulls(value as Record<string, unknown>) : value;
+  return Object.fromEntries(Object.entries(args).filter(([, value]) => value !== null).map(([name, value]) => [name, kept(value)]));
 }
 
 /** What a tool takes, as a seat reads it back: its required fields, then the rest. */

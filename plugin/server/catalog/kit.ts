@@ -41,7 +41,7 @@ function subdirs(root: string): string[] {
     .map((entry) => entry.name);
 }
 
-export type ArgSchema = { type?: string; enum?: unknown[]; items?: ArgSchema; properties?: Record<string, ArgSchema>; required?: string[]; description?: string };
+export type ArgSchema = { type?: string; enum?: unknown[]; items?: ArgSchema; maxItems?: number; properties?: Record<string, ArgSchema>; required?: string[]; description?: string };
 
 function loadToolSets(dir: string): Record<string, Record<string, ArgSchema>> {
   const file = join(dir, "mcp", "tools.json");

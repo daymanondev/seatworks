@@ -49,7 +49,10 @@ These are mostly absences, so the code won't show them to you.
   Everything else depends on the ports in `core/ports.ts`, in the plugin's own types, so the tests
   use fakes.
 - **One place checks arguments.** `desk/args.ts` checks every call against the schema its seat was
-  shown, before any verb runs.
+  shown, before any verb runs. Each tool's zod input, which a test holds equal to that schema, types
+  what its handler reads; a tool set picks among tools of one name by the schema it shows.
+- **One table per lifecycle.** A task, lane, ask or incident changes status only through its table
+  in `server/domain/`, checked under the ledger's lock against the status it has then.
 - **One file writes letters.** Everything the desk says to a seat is in `desk/letters.ts`; a Lead's
   directive, what it starts from, is in `desk/directive.ts`.
 - **One writer per working copy.** A lane-mode task holds the lane's copy from start until it is
@@ -67,9 +70,11 @@ These are mostly absences, so the code won't show them to you.
 | Path | What it does |
 |---|---|
 | `server/core/` | The ports, the timeline stream reader, atomic stores, `git`, the gate runner |
+| `server/domain/` | Each kind's lifecycle as one transition table: tasks, lanes, asks, incidents. Imports nothing |
 | `server/adapters/paseo/` | Paseo itself: its hooks and panel calls in the plugin's own types, and its agent, workspace and model API behind the ports |
 | `server/catalog/` | Data to seats: the kit loader, team resolution, providers, seat directories, launch config, content, the project files |
-| `server/desk/` | The ledger and the verbs seats call: lanes, tasks, asks, working copies, merges, gates, incidents, letters |
+| `server/desk/` | The ledger and what the tools do to it: lanes, tasks, asks, working copies, merges, gates, incidents, letters, closing a lane |
+| `server/desk/tools/` | One module per tool the seats call, each a zod input and a handler; `registry.ts` lists them for the desk |
 | `server/runtime/` | The composition root and the loops: hooks, spool, outbox, patrol, turn reading, RPC, health |
 | `server/runtime/watch/` | The watch: the window over a timeline, the facts read from it and from each lane's record, and the findings they make |
 | `client/` | The Seatworks panel |

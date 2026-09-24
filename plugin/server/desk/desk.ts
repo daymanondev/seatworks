@@ -1,10 +1,10 @@
 import type { Team } from "../catalog/team.ts";
-import { type Kit, type RoleSpec, can, schemaOf, seatOf, worksTasks } from "../catalog/kit.ts";
+import { type Kit, schemaOf, seatOf } from "../catalog/kit.ts";
 import type { Finding } from "../domain/incident.ts";
 import type { TaskMove, TaskStatus } from "../domain/task.ts";
 import type { Seats, Workspaces } from "../core/ports.ts";
 import { Agents } from "./agents.ts";
-import { argsProblems, shapeOf } from "./args.ts";
+import { argsProblems, shapeOf, withoutNulls } from "./args.ts";
 import { sortKeys } from "../core/store.ts";
 import { type Args, type Caller, type CodeIndex, DeskContext, type Mailer, type Posted, type ToolReply, type ToolRequest, hash, no, ok } from "./context.ts";
 import { errorText } from "../core/errors.ts";
@@ -16,51 +16,14 @@ import { fileRecords, keepArchived, takeFinished } from "./archive.ts";
 import { MergeQueue } from "./merge.ts";
 import { type Project, projectOf } from "./project.ts";
 import { Roster } from "./roster.ts";
-import type { DeskServices, Tool } from "./services.ts";
+import { type DeskServices, type ToolDef, servedBy } from "./services.ts";
 import { Slots } from "./slots.ts";
 import { type Noticed, closeIncidentsOf, notice, retell } from "./notice.ts";
-import * as incidents from "./tools/incidents.ts";
-import * as lead from "./tools/lead.ts";
-import * as shared from "./tools/shared.ts";
-import * as supervisor from "./tools/supervisor.ts";
 import { openWaiting, startWaiting } from "./waiting.ts";
-import * as critique from "./critique.ts";
-import * as worker from "./tools/worker.ts";
-
-const TOOLS: Record<string, Tool> = {
-  open_lane: supervisor.openLane,
-  close_lane: supervisor.closeLane,
-  amend_lane: supervisor.amendLane,
-  replace_lead: supervisor.replaceLead,
-  set_project: supervisor.setProject,
-  start_task: lead.startTask,
-  plan_tasks: lead.planTasks,
-  start_review: lead.startReview,
-  accept: lead.accept,
-  rework: lead.rework,
-  amend_task: lead.amendTask,
-  cut: lead.cut,
-  report: lead.report,
-  done: worker.done,
-  message: shared.message,
-  answer: shared.answer,
-  status: shared.status,
-  incidents: incidents.incidents,
-  ack: incidents.ack,
-  findings: critique.findings,
-};
-
-const ASK: { holds: (role: RoleSpec) => boolean; tool: Tool }[] = [
-  { holds: (role) => can(role, "lead"), tool: lead.ask },
-  { holds: worksTasks, tool: worker.ask },
-];
-
-function toolFor(role: RoleSpec, name: string): Tool | undefined {
-  return name === "ask" ? ASK.find((entry) => entry.holds(role))?.tool : TOOLS[name];
-}
 
 type DeskOptions = {
   kit: Kit;
+  tools: ToolDef[];
   outbox: Mailer;
   seats: Seats;
   workspaces: Workspaces;
@@ -77,6 +40,7 @@ export class Desk {
   readonly projects: Map<string, Project>;
   readonly pendingArchive: Set<string>;
   private readonly services: DeskServices;
+  private readonly tools: ToolDef[];
   /** Whether a call from this seat is still being worked on — which is not silence. */
   inFlight(agentId: string): boolean {
     for (const key of this.running.keys()) if (key.startsWith(`${agentId}\n`)) return true;
@@ -97,6 +61,7 @@ export class Desk {
     const slots = new Slots(ctx, options.workspaces);
     const agents = new Agents(ctx, roster, slots, options.workspaces);
     this.services = { ctx, roster, slots, agents, merges: new MergeQueue(ctx, agents) };
+    this.tools = options.tools;
     this.projects = ctx.projects;
     this.pendingArchive = roster.pendingArchive;
   }
@@ -249,17 +214,17 @@ export class Desk {
     const caller = await this.caller(request);
     if ("error" in caller) return no(caller.error);
     const { ctx } = this.services;
-    const schema = schemaOf(ctx.kit, caller.role, request.tool);
-    const tool = schema ? toolFor(caller.role, request.tool) : undefined;
+    const shown = schemaOf(ctx.kit, caller.role, request.tool);
+    const tool = shown ? servedBy(this.tools, request.tool, shown) : undefined;
     const args = (request.args ?? {}) as Args;
-    const problems = schema ? argsProblems(schema, args) : [];
+    const problems = shown ? argsProblems(shown, args) : [];
     let reply: ToolReply;
     try {
       reply = !tool
         ? no(`Unknown tool ${request.tool}.`)
         : problems.length > 0
-          ? no(`${request.tool} was not carried out: it ${problems.join("; ")}. ${shapeOf(schema!)}`)
-          : await tool(this.services, caller, args);
+          ? no(`${request.tool} was not carried out: it ${problems.join("; ")}. ${shapeOf(shown!)}`)
+          : await tool.handle(this.services, caller, tool.input.parse(withoutNulls(args)));
     } catch (error) {
       ctx.log(caller.project, `${caller.role.role} ${caller.id} ${request.tool} crashed: ${errorText(error)}`);
       reply = no(`${request.tool} failed: ${errorText(error)}`);

@@ -13,11 +13,13 @@ import { guidesDir, home, nodeBin, outboxPath, spoolDir, stateRoot } from "../co
 import type { AgentConfig, HookAgent, Host, HostHooks, PermissionRequested, Seats, SessionOpen, TurnEnded, Workspaces } from "../core/ports.ts";
 import type { CodeIndex } from "../desk/context.ts";
 import { Desk } from "../desk/desk.ts";
-import { type Ledger, laneOfLead, loadLedger, openAsksTo, taskOfPeer } from "../desk/ledger.ts";
+import { laneOfLead, loadLedger, openAsksTo, taskOfPeer } from "../desk/ledger.ts";
+import { TOOLS } from "../desk/tools/registry.ts";
 import { letters } from "../desk/letters.ts";
 import { appendRecord } from "../desk/records.ts";
 import { type Project, gateCommands, loadConfig, projectOf } from "../desk/project.ts";
 import { SettingsControl } from "./control.ts";
+import { type Trouble, watchView } from "./watch-view.ts";
 import { codeIndex } from "./code-index.ts";
 import { type Letter, Outbox } from "./outbox.ts";
 import { Patrol } from "./patrol.ts";
@@ -25,17 +27,14 @@ import { Seating } from "./seating.ts";
 import { replyFile, spoolDirs, takeRequests, writeReply } from "./spool.ts";
 import { TeamSource } from "./team-source.ts";
 import { TurnRules } from "./turns.ts";
-import { type Fact, callsTo, factTitle } from "./watch/facts.ts";
+import { type Fact, callsTo } from "./watch/facts.ts";
 import { decide } from "./watch/findings.ts";
 import { type SeatContext, type SeatWatch, type WatchedSeat, Watches } from "./watch/watches.ts";
 import { malformed } from "./timeline.ts";
-import { loadIncidents } from "../desk/incidents.ts";
-import type { WatchView } from "../../shared/views.ts";
 import { errorText } from "../core/errors.ts";
 
 const TROUBLES = 10;
 
-const INCIDENTS_SHOWN = 200;
 
 type RuntimeOptions = { outboxFile?: string; codeIndex?: (proxy: IndexedProxy) => CodeIndex; reloadDaemon?: () => Promise<boolean> };
 
@@ -53,7 +52,7 @@ export class Runtime implements HostHooks {
   private readonly turns: TurnRules;
   private readonly patrol: Patrol;
   private readonly watches: Watches;
-  private readonly troubles = new Map<string, { kind: string; at: number; detail: string }[]>();
+  private readonly troubles = new Map<string, Trouble[]>();
   private readonly offline = new Set<string>();
   private readonly makeIndex: (proxy: IndexedProxy) => CodeIndex;
   private readonly reload: () => Promise<boolean>;
@@ -84,6 +83,7 @@ export class Runtime implements HostHooks {
     const remember = (project: Project) => this.remember(project);
     this.desk = new Desk({
       kit,
+      tools: TOOLS,
       outbox: this.outbox,
       seats: this.seats,
       workspaces: this.workspaces,
@@ -107,7 +107,7 @@ export class Runtime implements HostHooks {
       models: () => this.refreshModels(),
       seats: this.seats,
       held: () => this.outbox.letters(),
-      watch: (project) => this.watchView(project),
+      watch: (project) => watchView(project, this.troubles.get(project.slug) ?? []),
       decideLand: (project, lane, approve, note) => this.desk.decideLand(project, lane, approve, note),
     });
   }
@@ -174,38 +174,6 @@ export class Runtime implements HostHooks {
       this.desk.event(project, { kind: "call.malformed", agent: event.agent.id, role: seat.role.role, tool: call.tool, error: call.quote });
       this.troubled(project, "call.malformed", `the ${seat.role.label}'s ${call.tool} was written with an input that is not JSON, and never reached the desk`);
     }
-  }
-
-  private watchView(project: Project): WatchView {
-    const now = Date.now();
-    const ago = (at: number) => Math.max(0, Math.round((now - at) / 60_000));
-    let ledger: Ledger | undefined;
-    try {
-      ledger = loadLedger(project.state);
-    } catch {}
-    const nameOf = (id: string, fallback: string) => {
-      const task = ledger ? taskOfPeer(ledger, id) : undefined;
-      if (task) return `${task.kind === "review" ? "Reviewer" : "Peer"} · ${task.id} ${task.title}`;
-      const lane = ledger ? laneOfLead(ledger, id) : undefined;
-      return lane ? `Lead · ${lane.id} ${lane.title}` : fallback;
-    };
-    const incidents = Object.values(loadIncidents(project.state).items)
-      .filter((item) => item.open)
-      .sort((a, b) => (a.level === b.level ? b.last - a.last : a.level === "page" ? -1 : 1))
-      .slice(0, INCIDENTS_SHOWN)
-      .map((item) => ({
-        id: item.id,
-        title: factTitle(item.kind) ?? item.kind.replace(/[-_]/g, " "),
-        level: item.level,
-        name: nameOf(item.seat, item.where),
-        minutes: ago(item.last),
-        quote: item.quote.replace(/\s+/g, " ").slice(0, 300),
-        told: item.told !== undefined ? (item.toldTo ?? null) : null,
-        lane: item.lane ?? null,
-        held: item.told === undefined ? (item.held ?? null) : null,
-      }));
-    const troubles = this.troubles.get(project.slug) ?? [];
-    return { incidents, trouble: troubles.map((entry) => ({ kind: entry.kind, minutes: ago(entry.at), detail: entry.detail })).reverse() };
   }
 
   private watchFound(watch: SeatWatch, facts: Fact[]): void {

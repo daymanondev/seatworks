@@ -46,6 +46,9 @@ test("a plan that cannot run as given is refused whole, and nothing of it is rec
   assert.match(await refused([task("a", ["a.txt"], { after: ["b"] }), task("b", ["b.txt"], { after: ["a"] })]), /The plan loops: A, B wait for each other/);
   assert.match(await refused([task("a", ["a.txt"], { skills: ["no-such-skill"] })]), /A: .*no skill called no-such-skill/);
   assert.match(await refused([task(" ", ["a.txt"])]), /Every task of a plan has a key/);
+  const { goal: _, ...aimless } = task("a", ["a.txt"]);
+  assert.match(await refused([aimless, task("b", ["b.txt"], { parallel: "yes", owner: "me" })]), /it needs goal \(The outcome, not the implementation\) in each of tasks\. It takes tasks\./, "a task of the plan is held to what start_task takes");
+  assert.match(await refused([task("b", ["b.txt"], { parallel: "yes", owner: "me" })]), /it parallel must be true or false in each of tasks; has no field owner in each of tasks\./);
   await h.call(lead, "lead", "start_review", { focus: "is the cart shape right?" });
   assert.match(await refused([task("L1-R1", ["a.txt"])]), /The key L1-R1 is already a task of this project/);
   assert.deepEqual(Object.keys(h.ledger().tasks), ["L1-R1"], "none of those recorded a task");

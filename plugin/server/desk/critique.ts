@@ -1,11 +1,12 @@
 import { readFileSync } from "node:fs";
+import { z } from "zod";
 import { roleThatCan } from "../catalog/kit.ts";
 import { errorText } from "../core/errors.ts";
-import { type Args, no, ok, str } from "./context.ts";
+import { no, ok, str } from "./context.ts";
 import { type Lane, loadLedger } from "./ledger.ts";
 import { letters } from "./letters.ts";
 import { type Project, conceptFile } from "./project.ts";
-import type { DeskServices, Tool } from "./services.ts";
+import { type DeskServices, defineTool } from "./services.ts";
 
 const LABEL = "seatworks.critique";
 
@@ -49,22 +50,26 @@ export async function seatCritic(desk: DeskServices, project: Project, lane: Lan
 }
 
 /** A Critic's findings, each quote checked against what it was given; told to the Supervisor, and the Critic let go. */
-export const findings: Tool = async (desk, caller, args) => {
-  const { ctx, roster } = desk;
-  const { project } = caller;
-  const seat = (await roster.open()).find((entry) => entry.id === caller.id);
-  const laneId = seat?.labels?.[LABEL];
-  const lane = laneId ? loadLedger(project.state).lanes[laneId] : undefined;
-  if (!lane) return no("There is no lane on record for you to have read; end your turn.");
-  const listed = (Array.isArray(args.findings) ? (args.findings as Args[]) : []).map((entry) => ({ kind: str(entry.kind), human: str(entry.human), lane: str(entry.lane), why: str(entry.why), question: str(entry.question) }));
-  const said = flat((await roster.typed(lane.opener)).join("\n"));
-  const written = flat(laneText(lane));
-  for (const finding of listed) {
-    if (finding.human ? !said.includes(flat(finding.human)) : finding.kind !== "added") return no(finding.human ? `"${finding.human}" is not in what the Human wrote: copy their words exactly, or leave the point out.` : "Only an added point may quote nothing the Human wrote.");
-    if (finding.lane ? !written.includes(flat(finding.lane)) : finding.kind === "added") return no(finding.lane ? `"${finding.lane}" is not in the lane: copy its words exactly, or leave it empty when the lane says nothing of it.` : "An added point quotes what the lane added.");
-  }
-  ctx.event(project, { kind: "critique.found", lane: lane.id, agent: caller.id, found: listed.length, kinds: listed.map((finding) => finding.kind) });
-  if (listed.length > 0) await ctx.post(await roster.supervisorFor(project, lane.opener), `critique:${lane.id}:${caller.id}`, letters.critique(lane, listed));
-  await roster.archive(caller.id);
-  return ok(listed.length > 0 ? "Handed to the Supervisor. End your turn." : "Recorded that you found nothing. End your turn.");
-};
+export const findings = defineTool({
+  name: "findings",
+  input: z.strictObject({ lane: z.string(), findings: z.array(z.strictObject({ kind: z.enum(["missing", "added", "contradiction", "ambiguity"]), human: z.string(), lane: z.string(), why: z.string(), question: z.string() })).max(5).optional() }),
+  async handle(desk, caller, args) {
+    const { ctx, roster } = desk;
+    const { project } = caller;
+    const seat = (await roster.open()).find((entry) => entry.id === caller.id);
+    const laneId = seat?.labels?.[LABEL];
+    const lane = laneId ? loadLedger(project.state).lanes[laneId] : undefined;
+    if (!lane) return no("There is no lane on record for you to have read; end your turn.");
+    const listed = (args.findings ?? []).map((entry) => ({ kind: str(entry.kind), human: str(entry.human), lane: str(entry.lane), why: str(entry.why), question: str(entry.question) }));
+    const said = flat((await roster.typed(lane.opener)).join("\n"));
+    const written = flat(laneText(lane));
+    for (const finding of listed) {
+      if (finding.human ? !said.includes(flat(finding.human)) : finding.kind !== "added") return no(finding.human ? `"${finding.human}" is not in what the Human wrote: copy their words exactly, or leave the point out.` : "Only an added point may quote nothing the Human wrote.");
+      if (finding.lane ? !written.includes(flat(finding.lane)) : finding.kind === "added") return no(finding.lane ? `"${finding.lane}" is not in the lane: copy its words exactly, or leave it empty when the lane says nothing of it.` : "An added point quotes what the lane added.");
+    }
+    ctx.event(project, { kind: "critique.found", lane: lane.id, agent: caller.id, found: listed.length, kinds: listed.map((finding) => finding.kind) });
+    if (listed.length > 0) await ctx.post(await roster.supervisorFor(project, lane.opener), `critique:${lane.id}:${caller.id}`, letters.critique(lane, listed));
+    await roster.archive(caller.id);
+    return ok(listed.length > 0 ? "Handed to the Supervisor. End your turn." : "Recorded that you found nothing. End your turn.");
+  },
+});

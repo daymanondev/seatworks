@@ -2,7 +2,7 @@ import { headSha, isAncestor, landLane, landedRef, mergeBranch } from "../core/g
 import { LANE } from "../domain/lane.ts";
 import { TASK } from "../domain/task.ts";
 import { keepRun } from "./checkpoints.ts";
-import { type Args, type ToolReply, no, ok, str } from "./context.ts";
+import { type ToolReply, no, ok, str } from "./context.ts";
 import { laneGate } from "./gates.ts";
 import { GATE_FAILED, NOT_READY, landCheck } from "./landing.ts";
 import { type Lane, type Ledger, type Task, findLane, loadLedger, tasksOf } from "./ledger.ts";
@@ -13,6 +13,8 @@ import type { DeskServices } from "./services.ts";
 import { openWaiting } from "./waiting.ts";
 
 type Closed = ToolReply & { blocked?: string };
+
+type Closing = { lane: string; land: boolean; reason?: string; overGate?: boolean };
 
 /**
  * Merges base into the lane in its own copy; never under a seat mid-turn there, and an unseen seat counts as writing.
@@ -89,7 +91,7 @@ async function checkLanding(desk: DeskServices, project: Project, lane: Lane, ga
 }
 
 /** Closes a lane for `by`: the Supervisor that called, or the one the Human's approval lands it for. `blocked` is what kept a landing from happening. */
-export async function close(desk: DeskServices, project: Project, by: string, args: Args): Promise<Closed> {
+export async function close(desk: DeskServices, project: Project, by: string, args: Closing): Promise<Closed> {
   const { ctx, merges } = desk;
   const ledger = loadLedger(project.state);
   const lane = findLane(ledger, str(args.lane));
@@ -167,7 +169,7 @@ async function land(desk: DeskServices, project: Project, ledger: Ledger, lane: 
 }
 
 /** Closes the lane on record, cuts what it still had going, and puts away its seats and copy, each once nothing is writing there. */
-async function retire(desk: DeskServices, project: Project, lane: Lane, args: Args, landed: { how: string; note: string }): Promise<Closed> {
+async function retire(desk: DeskServices, project: Project, lane: Lane, args: Closing, landed: { how: string; note: string }): Promise<Closed> {
   const { ctx, roster, slots, agents } = desk;
   const retired = await ctx.ledger(project, (current) => {
     const entry = current.lanes[lane.id];

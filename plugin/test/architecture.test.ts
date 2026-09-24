@@ -19,7 +19,7 @@ const MAY_IMPORT: Record<string, string[]> = {
   "server/desk/tools": ["server/core", "server/domain", "server/catalog", "server/desk"],
   "server/runtime/watch": ["server/core", "server/domain", "server/catalog", "server/desk"],
   "server/upkeep": ["server/core", "server/catalog", "server/desk", "shared"],
-  "server/runtime": ["server/core", "server/domain", "server/catalog", "server/desk", "server/runtime/watch", "server/upkeep", "shared"],
+  "server/runtime": ["server/core", "server/domain", "server/catalog", "server/desk", "server/desk/tools", "server/runtime/watch", "server/upkeep", "shared"],
   "server/adapters": ["server/core", "@getpaseo/plugin/server"],
   mcp: [],
   bin: [],
@@ -27,17 +27,9 @@ const MAY_IMPORT: Record<string, string[]> = {
 
 const PACKAGES = ["@getpaseo/plugin/server", "@getpaseo/plugin/client", "@getpaseo/plugin"];
 
-const UPWARD = [
-  "server/desk/desk.ts > server/desk/tools/incidents.ts",
-  "server/desk/desk.ts > server/desk/tools/lead.ts",
-  "server/desk/desk.ts > server/desk/tools/shared.ts",
-  "server/desk/desk.ts > server/desk/tools/supervisor.ts",
-  "server/desk/desk.ts > server/desk/tools/worker.ts",
-];
-
 const NAMED = [
   "server/catalog/project-files.ts > claude",
-  "server/desk/tools/supervisor.ts > claude",
+  "server/desk/tools/open-lane.ts > claude",
 ];
 
 const LIMITS = { file: 300, testFile: 400, function: 50 };
@@ -49,7 +41,6 @@ const LONG_FILES: Record<string, number> = {
   "server/catalog/team.ts": 368,
   "server/desk/letters.ts": 382,
   "server/desk/slots.ts": 384,
-  "server/desk/tools/lead.ts": 423,
   "server/runtime/control.ts": 460,
   "server/runtime/runtime.ts": 434,
   "server/runtime/watch/facts.ts": 317,
@@ -78,10 +69,6 @@ const LONG_FUNCTIONS: Record<string, number> = {
 
   "server/desk/flow.ts flowView": 100,
   "server/desk/status.ts statusText": 104,
-  "server/desk/tools/lead.ts startReview": 69,
-  "server/desk/tools/shared.ts message": 56,
-  "server/desk/tools/supervisor.ts replaceLead": 52,
-  "server/desk/tools/worker.ts done": 53,
   "server/runtime/doctor.ts doctor": 77,
   "server/runtime/watch/history.ts deskFacts": 54,
 };
@@ -111,10 +98,14 @@ function nameOf(node: ts.Node): string {
   return "(anonymous)";
 }
 
-/** Named after the functions and classes around it too, so two helpers of one name in one file stay apart. */
+/** Named after the functions, classes and variables around it too, so two helpers or two `handle`s of one file stay apart. */
 function qualified(node: ts.Node): string {
   const names: string[] = [];
-  for (let at: ts.Node | undefined = node; at; at = at.parent) if (isFunction(at) || ts.isClassLike(at)) names.unshift(nameOf(at));
+  for (let at: ts.Node | undefined = node; at; at = at.parent) {
+    if (isFunction(at) || ts.isClassLike(at)) names.unshift(nameOf(at));
+    // A variable holding a function already names it; one holding a call's result names what is inside the call.
+    else if (ts.isVariableDeclaration(at) && at.initializer && !ts.isFunctionLike(at.initializer)) names.unshift(at.name.getText());
+  }
   return names.join(".");
 }
 
@@ -201,7 +192,7 @@ test("every file of the plugin is in an area that MAY_IMPORT names", () => {
   assert.deepEqual(product.filter((path) => !areaOf(path)), [], "Add its area to MAY_IMPORT, with the areas it may import.");
 });
 
-test("an area imports only what MAY_IMPORT allows it, apart from the imports UPWARD still lists", () => {
+test("an area imports only what MAY_IMPORT allows it", () => {
   const found = new Set<string>();
   for (const path of product) {
     const area = areaOf(path)!;
@@ -213,11 +204,7 @@ test("an area imports only what MAY_IMPORT allows it, apart from the imports UPW
       found.add(`${path} > ${inside ? to : reached}`);
     }
   }
-  const problems = [
-    ...[...found].filter((edge) => !UPWARD.includes(edge)).map((edge) => `${edge}: that area may not import this one. Move the code to where both may reach it; UPWARD only ever shrinks.`),
-    ...UPWARD.filter((edge) => !found.has(edge)).map((edge) => `${edge} is gone: take it off UPWARD.`),
-  ];
-  assert.deepEqual(problems, []);
+  assert.deepEqual([...found], [], "That area may not import this one: move the code to where both may reach it.");
 });
 
 /** Tarjan's strongly connected components over the plugin's own imports, type-only ones included. */

@@ -1,0 +1,72 @@
+import { z } from "zod";
+import { can } from "../../catalog/kit.ts";
+import { SETTLED } from "../../domain/task.ts";
+import { type Caller, hash, no, ok, str } from "../context.ts";
+import { type Task, findLane, findTask, laneOfLead, loadLedger } from "../ledger.ts";
+import { letters } from "../letters.ts";
+import { type DeskServices, defineTool } from "../services.ts";
+
+/** Gives `text` to a seat: as its answer when it is stopped on a question, or else as mail it reads once it can. */
+async function handTo({ ctx, roster }: DeskServices, caller: Caller, to: { target: string; from: string; who: string }, key: string, text: string): Promise<string> {
+  const reached = await roster.answerQuestion(to.target, `From ${to.from}: ${text}`);
+  if (reached === "answered") {
+    ctx.event(caller.project, { kind: "question.answered", agent: to.target, by: caller.id });
+    return `It was stopped on a question, so this went to ${to.who} as the answer, and it carries on.`;
+  }
+  const posted = await ctx.post(to.target, key, letters.message(to.from, text));
+  if (posted === "sent") return `Delivered to ${to.who}.`;
+  if (reached === "waiting") return `Queued for ${to.who}, which is stopped on a permission only the Human can give; it reads this once that is decided.`;
+  return `Queued for ${to.who}; it reads this as soon as it can take it.`;
+}
+
+export const message = defineTool({
+  name: "message",
+  input: z.strictObject({ to: z.string(), text: z.string() }),
+  async handle(desk, caller, args) {
+    const { ctx, roster } = desk;
+    const to = str(args.to);
+    const text = str(args.text);
+    const ledger = loadLedger(caller.project.state);
+    // Keyed by the event, not the words: keyed on text, the same instruction sent again was dropped as a repeat.
+    const key = `message:${caller.id}:${hash(to, text)}:${Date.now()}`;
+    const unread = (who: string) => `${who} is not seated any more, so a message would wait for nobody.`;
+    const settled = (task: Task) =>
+      SETTLED.includes(task.status) ? `${task.id} is ${task.status === "merged" ? "accepted" : "cut"}, and its Peer has been put away with it.` : undefined;
+    const deliver = (target: string, from: string, who: string) => handTo(desk, caller, { target, from, who }, key, text);
+    if (can(caller.role, "supervise")) {
+      const lane = findLane(ledger, to);
+      if (lane) {
+        if (lane.status !== "open" || !lane.lead) return no(`Lane ${lane.id} has no running Lead.`);
+        if (!(await roster.seated(lane.lead))) return no(unread(`The Lead of ${lane.id} (${lane.lead})`));
+        return ok(await deliver(lane.lead, "the owner", `the Lead of ${lane.id}`));
+      }
+      const task = findTask(ledger, to);
+      if (task?.peer) {
+        // Checked before anything is sent, so a settled task never gets a RECONCILE.
+        const done = settled(task);
+        if (done) return no(done);
+        if (!(await roster.seated(task.peer))) return no(unread(`The Peer on ${task.id}`));
+        const laneOf = ledger.lanes[task.lane];
+        const onLane = laneOf?.status === "open" ? laneOf.lead : undefined;
+        // The ledger says who the Lead is; only Paseo says whether it is still there to be told.
+        const lead = onLane && (await roster.seated(onLane)) ? onLane : undefined;
+        if (!laneOf || !lead) {
+          return no(
+            `${task.id} has no running Lead to tell. Reaching its Peer without one would leave nobody holding the room's state, which is the one thing this must not do. Reopen the lane's Lead, or say it to the lane.`,
+          );
+        }
+        // The Lead is told first, so it is never the last to know what reached its own Peer.
+        await ctx.post(lead, `reconcile:${key}`, letters.reconciled(laneOf, task, task.peer, text));
+        return ok(`${await deliver(task.peer, "the project owner", `the Peer on ${task.id}`)} Its Lead has been told what reached it and what is still its own.`);
+      }
+      return no(`There is no lane or task ${to}.`);
+    }
+    const lane = laneOfLead(ledger, caller.id);
+    const task = findTask(ledger, to);
+    if (!lane || !task || task.lane !== lane.id || !task.peer) return no(`${to} is not a task in your lane.`);
+    const done = settled(task);
+    if (done) return no(done);
+    if (!(await roster.seated(task.peer))) return no(unread(`The Peer on ${task.id}`));
+    return ok(await deliver(task.peer, "your lead", `the Peer on ${task.id}`));
+  },
+});

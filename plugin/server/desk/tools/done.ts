@@ -1,13 +1,14 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { z } from "zod";
 import { currentBranch, headSha } from "../../core/git.ts";
 import { workState } from "../../catalog/project-files.ts";
 import { IN_QUEUE, SETTLED, TASK } from "../../domain/task.ts";
-import { type Args, hash, no, ok, str } from "../context.ts";
+import { type Args, type Caller, type ToolReply, hash, no, ok, str } from "../context.ts";
 import { taskGate } from "../gates.ts";
-import { type Ask, type Task, loadLedger, nextAskId, taskOfPeer } from "../ledger.ts";
+import { type Task, loadLedger, taskOfPeer } from "../ledger.ts";
 import { clip, letters } from "../letters.ts";
-import type { Tool } from "../services.ts";
+import { type DeskServices, defineTool } from "../services.ts";
 
 function handbackBody(task: Task, args: Args, commit: string | undefined, uncommitted: boolean): { outcome: string; body: string } {
   if (task.kind === "review") {
@@ -28,7 +29,20 @@ function handbackBody(task: Task, args: Args, commit: string | undefined, uncomm
   return { outcome, body: lines.join("\n") };
 }
 
-export const done: Tool = async ({ ctx, roster }, caller, args) => {
+const HandBack = z.strictObject({ outcome: z.enum(["complete", "partial", "blocked"]), commit: z.string().optional(), summary: z.string(), checks: z.string().optional(), leftUndone: z.string().optional(), discovered: z.string().optional() });
+
+const Verdict = z.strictObject({ verdict: z.enum(["accept", "changes", "reopen"]), findings: z.string(), checks: z.string().optional() });
+
+/** What the Peer must fix before its turn ends: work left uncommitted, or a copy off the branch, where a commit belongs to no branch and goes with the copy. */
+async function reminderOf(task: Task, laneBranch: string | undefined, uncommitted: boolean): Promise<string> {
+  const meant = task.mode === "parallel" ? task.branch : laneBranch;
+  const adrift = meant && task.worktree ? (await currentBranch(task.worktree)) !== meant : false;
+  if (uncommitted) return " Your working copy still has uncommitted changes: commit them before ending your turn.";
+  return adrift ? ` Your working copy is not on ${meant} any more, so anything you committed is on no branch and will be collected. Put it back — after a bisect that is git bisect reset — and commit there before your turn ends.` : "";
+}
+
+/** One hand-back for tasks and reviews: the task's kind says which of the two a seat sent. */
+async function handBack({ ctx, roster }: DeskServices, caller: Caller, args: Partial<z.infer<typeof HandBack> & z.infer<typeof Verdict>>): Promise<ToolReply> {
   const { project } = caller;
   const ledger = loadLedger(project.state);
   const task = taskOfPeer(ledger, caller.id);
@@ -70,47 +84,10 @@ export const done: Tool = async ({ ctx, roster }, caller, args) => {
   const reader = lead && (await roster.seated(lead)) ? lead : await roster.supervisorFor(project, ledger.lanes[task.lane]?.opener);
   await ctx.post(reader, `done:${task.id}:${hash(body)}`, letters.handback(heading, file, body, caller.id));
   ctx.event(project, { kind: review ? "review.done" : "task.done", task: task.id, outcome, commit });
-  // A commit made off the branch (mid-bisect) belongs to no branch and goes with the copy; said while fixable.
-  const branch = review ? undefined : ledger.lanes[task.lane]?.branch;
-  const meant = task.mode === "parallel" ? task.branch : branch;
-  const adrift = !review && meant && task.worktree ? (await currentBranch(task.worktree)) !== meant : false;
-  const reminder = uncommitted
-    ? " Your working copy still has uncommitted changes: commit them before ending your turn."
-    : adrift
-      ? ` Your working copy is not on ${meant} any more, so anything you committed is on no branch and will be collected. Put it back — after a bisect that is git bisect reset — and commit there before your turn ends.`
-      : "";
+  const reminder = review ? "" : await reminderOf(task, ledger.lanes[task.lane]?.branch, uncommitted);
   return ok(`Handed back.${reminder} End your turn now; if anything changes you will get a message.`);
-};
+}
 
-export const ask: Tool = async ({ ctx, roster }, caller, args) => {
-  const question = str(args.question);
-  const { project } = caller;
-  const ledger = loadLedger(project.state);
-  const task = taskOfPeer(ledger, caller.id);
-  const lane = task ? ledger.lanes[task.lane] : undefined;
-  if (!task || !lane?.lead) return no("Nobody is assigned to answer you; end your turn with the question.");
-  // A gone Lead would never answer; it goes up a level instead, and the Peer is told so.
-  const to = (await roster.seated(lane.lead)) ? lane.lead : await roster.supervisorFor(project, lane.opener);
-  if (!to) return no("Your lead is not there and nobody above it is either, so nobody can answer now. Carry on with your default where you can, and end your turn with the question.");
-  const tried = str(args.tried);
-  const entry = await ctx.ledger(project, (current) => {
-    const created: Ask = {
-      id: nextAskId(current),
-      from: caller.id,
-      fromRole: caller.role.role,
-      to,
-      lane: lane.id,
-      task: task.id,
-      kind: "question",
-      text: tried ? `${question}\n\nTried: ${tried}` : question,
-      status: "open",
-      openedAt: Date.now(),
-      reminders: 0,
-    };
-    current.asks[created.id] = created;
-    return { ...created };
-  });
-  await ctx.post(to, `ask:${entry.id}`, letters.askTo(entry, `the Peer on ${task.id} (${task.title})`));
-  ctx.event(project, { kind: "ask.opened", ask: entry.id, from: caller.id, to });
-  return ok(`Asked as ${entry.id}${to === lane.lead ? "" : ", of the owner, because your lead is not there"}. End your turn; the answer arrives as a message.`);
-};
+export const done = defineTool({ name: "done", input: HandBack, handle: handBack });
+
+export const doneReview = defineTool({ name: "done", input: Verdict, handle: handBack });
