@@ -1,9 +1,17 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, isAbsolute, join } from "node:path";
+import { DESK_OWNED } from "../core/paths.ts";
 import { hiddenWordsIn } from "./hidden-words.ts";
 import { type Kit, type RoleSpec, ownOr } from "./kit.ts";
 
 export type PromptPaths = { guides: string; state: string };
+
+/** What under the project's state a text names that the role neither writes nor reads as the desk's own record. */
+function unwritten(role: RoleSpec, text: string): string[] {
+  const writes = new Set((role.writes ?? []).map((entry) => entry.replace(/\/$/, "")));
+  const named = [...text.matchAll(/(?:\{\{state\}\}|\$SEATWORKS_STATE)\/([A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)/g)].map((match) => match[1]!);
+  return [...new Set(named)].filter((segment) => !writes.has(segment) && !DESK_OWNED.has(segment));
+}
 
 export function renderText(role: RoleSpec, source: string, paths: PromptPaths): string {
   const text = source.replaceAll("{{guides}}", paths.guides).replaceAll("{{state}}", paths.state);
@@ -14,6 +22,8 @@ export function renderText(role: RoleSpec, source: string, paths: PromptPaths): 
   if (hidden.length > 0) {
     throw new Error(`the ${role.role} prompt contains words that role must not see: ${hidden.join(", ")}`);
   }
+  const loose = unwritten(role, source);
+  if (loose.length > 0) throw new Error(`the ${role.role} prompt names ${loose.join(", ")} under the project's state, which the role does not write: add it to the role's writes`);
   return text;
 }
 
@@ -39,6 +49,8 @@ export function skillProblems(role: RoleSpec, name: string, dir: string): string
     if (leftover) problems.push(`skill ${name} holds ${leftover[0]} in ${basename(file)}, and a skill is read as written, so nothing fills it in`);
     const hidden = hiddenWordsIn(text, role.hidesWords ?? []);
     if (hidden.length > 0) problems.push(`skill ${name} shows the ${role.role} words it must not see in ${basename(file)}: ${hidden.join(", ")}`);
+    const loose = unwritten(role, text);
+    if (loose.length > 0) problems.push(`skill ${name} names ${loose.join(", ")} under the project's state in ${basename(file)}, which the ${role.role} does not write: add it to the role's writes`);
   }
   return problems;
 }
@@ -68,17 +80,4 @@ export function skillSources(kit: Kit, role: RoleSpec, extra: Map<string, string
   }
   for (const [name, dir] of extra) found.set(name, dir);
   return found;
-}
-
-export const DESK_OWNED = new Set(["ledger.json", "incidents.json", "project.json", "meta.json", "settings.json", "status.md", "events.log", "attention.log", "handbacks", "gates", "archive"]);
-
-/** Derived from the role's prompt, skills and rules, since a hand-kept list drifted and the sandbox refused the writes it missed. */
-export function stateTargets(kit: Kit, role: RoleSpec, extra: Map<string, string> = new Map(), rules = ""): string[] {
-  const texts: string[] = [rules];
-  const prompt = contentPath(kit, role.prompt);
-  if (existsSync(prompt)) texts.push(readFileSync(prompt, "utf-8"));
-  for (const dir of skillSources(kit, role, extra).values()) for (const file of markdownIn(dir)) texts.push(readFileSync(file, "utf-8"));
-  const found = new Set<string>();
-  for (const text of texts) for (const match of text.matchAll(/(?:\{\{state\}\}|\$SEATWORKS_STATE)\/([A-Za-z0-9_.-]+)/g)) found.add(match[1]!);
-  return [...found].filter((segment) => !DESK_OWNED.has(segment)).sort();
 }

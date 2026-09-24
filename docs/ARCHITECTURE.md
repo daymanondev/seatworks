@@ -111,10 +111,12 @@ The content lint runs during the build. A role prompt, a working rule or a skill
 from the role's `hidesWords` fails the build. For example, a Peer may not read "seat". Only
 `{{guides}}` and `{{state}}` are allowed as placeholders.
 
-The sandbox is derived from the content too. On Claude Code and Codex, a seat's shell may write under
-the project's state only where its prompt, skills or rules name that path (`{{state}}/…` or
-`$SEATWORKS_STATE/…`). The desk's own files are never granted, and only the Supervisor names
-`CONTEXT.md`. Pi, Oh My Pi and OpenCode have no sandbox.
+Each role declares in `roles.json` what it writes under the project's state (`writes`: a file, or a
+folder ending in `/`). On Claude Code and Codex, a seat's shell may write there and nowhere else under
+state. The lint fails a prompt, rule or skill that names a path under state (`{{state}}/…` or
+`$SEATWORKS_STATE/…`) its role does not write, unless it is the desk's own record, which seats only
+read. A role may not declare the desk's own files, and only the Supervisor writes `CONTEXT.md`. Pi,
+Oh My Pi and OpenCode have no sandbox.
 
 What each agent's seat directory holds is in [the reference](REFERENCE.md#seat-directories).
 

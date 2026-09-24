@@ -29,7 +29,14 @@
           "list_schedules"
         ]
       },
-      "hidesWords": []
+      "hidesWords": [],
+      "writes": [
+        "CONTEXT.md",
+        "notebook.md",
+        "plans/",
+        "pre-mortem/",
+        "architecture-premise-audit/"
+      ]
     },
     {
       "role": "lead",
@@ -52,6 +59,12 @@
       },
       "hidesWords": [
         "supervisor"
+      ],
+      "writes": [
+        "plans/",
+        "council/",
+        "ultra-review/",
+        "repo-refresh/"
       ]
     },
     {

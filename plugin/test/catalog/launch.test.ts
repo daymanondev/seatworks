@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DESK_OWNED, skillSources } from "../../server/catalog/content.ts";
 import { loadKit, providerId } from "../../server/catalog/kit.ts";
 import { applyRole, seatEnv } from "../../server/catalog/launch.ts";
 import type { AgentConfig, SessionOpen } from "../../server/core/ports.ts";
 import { resolveTeam } from "../../server/catalog/team.ts";
-import { stateRoot } from "../../server/core/paths.ts";
+import { DESK_OWNED, stateRoot } from "../../server/core/paths.ts";
 import { makeKit } from "../kit.ts";
+import { tempDir } from "../tempdir.ts";
 
 const kit = makeKit();
 const team = resolveTeam(kit);
@@ -48,31 +48,24 @@ test("a Lead opened on another harness follows that harness, whatever the settin
   assert.equal(next.modeId, "full");
 });
 
-test("a seat's shell may write every place under state its own content names, and none of the desk's own files", () => {
-  // The shipped kit, because the grant is derived from the shipped prompts and skills.
+test("a seat's shell may write under state only what its role declares, and a role may declare none of the desk's own files", () => {
   const real = loadKit(join(dirname(fileURLToPath(import.meta.url)), "..", ".."));
   const realTeam = resolveTeam(real);
   const sandboxed = (role: string) =>
     ({ provider: providerId(real, role, "claude"), cwd: "/repo", providerOptions: { settings: { sandbox: { filesystem: { allowWrite: ["/tmp"] } } } } }) as unknown as AgentConfig;
   const granted = (role: string): string[] => (applyRole(real, realTeam, sandboxed(role), render, "/state/repo") as unknown as { providerOptions: any }).providerOptions.settings.sandbox.filesystem.allowWrite;
-  const named = (role: string): string[] => {
-    const spec = real.roles.find((entry) => entry.role === role)!;
-    const texts = [readFileSync(join(real.dir, "content", spec.prompt), "utf-8")];
-    for (const dir of skillSources(real, spec).values()) for (const file of readdirSync(dir, { recursive: true }).map(String).filter((name) => name.endsWith(".md"))) texts.push(readFileSync(join(dir, file), "utf-8"));
-    return [...new Set(texts.flatMap((text) => [...text.matchAll(/(?:\{\{state\}\}|\$SEATWORKS_STATE)\/([A-Za-z0-9_.-]+)/g)].map((match) => match[1]!)))];
-  };
-
-  // Skills write under ultra-review/, council/, repo-refresh/ and pre-mortem/ too, not only where the prompts say.
-  for (const role of real.roles.map((entry) => entry.role)) {
-    const paths = granted(role);
-    for (const segment of named(role).filter((name) => !DESK_OWNED.has(name))) {
-      assert.ok(paths.includes(`/state/repo/${segment}`), `the ${role}'s own content tells it to write ${segment}, and its shell may not`);
-    }
-    for (const owned of DESK_OWNED) assert.ok(!paths.includes(`/state/repo/${owned}`), `the ${role} was given the desk's own ${owned}`);
-  }
-  assert.ok(granted("lead").includes("/state/repo/ultra-review"));
+  for (const role of real.roles) assert.deepEqual(granted(role.role), ["/tmp", ...(role.writes ?? []).map((entry) => join("/state/repo", entry.replace(/\/$/, "")))]);
+  assert.ok(granted("lead").includes("/state/repo/ultra-review"), "the ultra-review scripts write their reports from the Lead's shell");
   assert.ok(granted("supervisor").includes("/state/repo/CONTEXT.md"), "the Supervisor writes the project's concept as the Human settles it");
-  assert.ok(!granted("lead").includes("/state/repo/CONTEXT.md"), "a Lead reads the Human's word and does not rewrite it");
+  assert.ok(!granted("supervisor").includes("/state/repo/checkpoints.log"), "a record a skill reads is not one it writes");
+  const writing = (writes: string[]) => () => {
+    const own = tempDir("sw2-writes-");
+    const shipped = JSON.parse(readFileSync(join(real.dir, "roles.json"), "utf-8")) as { roles: { role: string }[] };
+    writeFileSync(join(own, "roles.json"), JSON.stringify({ ...shipped, roles: shipped.roles.map((role) => (role.role === "lead" ? { ...role, writes } : role)) }));
+    return loadKit(real.dir, own);
+  };
+  assert.throws(writing(["gates/"]), /lead writes gates, which is the desk's own record/);
+  assert.throws(writing(["../outside"]), /is not one file, or one folder ending in \/, under the project's state/);
 
   // The sandbox binds the shell only; a file tool that could rewrite project.json's gate escapes it via /bin/sh.
   const deny: string[] = JSON.parse(readFileSync(join(real.dir, "harness", "claude", "settings.json"), "utf-8")).permissions.deny;

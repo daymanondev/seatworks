@@ -1,8 +1,7 @@
 import { join } from "node:path";
 import type { AgentConfig, SessionOpen } from "../core/ports.ts";
 import { type Kit, type McpServers, type RoleSpec, agentDefault, seatOf } from "./kit.ts";
-import { stateTargets } from "./content.ts";
-import { type Team, preapprovedFor, rulesFor, skillDirsFor } from "./team.ts";
+import { type Team, preapprovedFor } from "./team.ts";
 
 type RenderPrompt = (role: RoleSpec) => string;
 
@@ -24,9 +23,9 @@ function appendAt(options: unknown, path: string, value: string): Json {
   return root;
 }
 
-/** Only the state paths the seat's content writes: state also holds the desk's record, whose `gate` runs unsandboxed in the daemon. */
-export function stateWrites(kit: Kit, team: Team, role: RoleSpec, state: string): string[] {
-  return stateTargets(kit, role, skillDirsFor(team, role.role), rulesFor(team, role.role)).map((segment) => join(state, segment));
+/** Only what the role declares it writes: state also holds the desk's record, whose `gate` runs unsandboxed in the daemon. */
+export function stateWrites(role: RoleSpec, state: string): string[] {
+  return (role.writes ?? []).map((entry) => join(state, entry.replace(/\/$/, "")));
 }
 
 export function applyRole(kit: Kit, team: Team, config: AgentConfig, render: RenderPrompt, state?: string, servers: McpServers = {}): AgentConfig {
@@ -62,7 +61,7 @@ export function applyRole(kit: Kit, team: Team, config: AgentConfig, render: Ren
   }
   let providerOptions = config.providerOptions;
   if (harness.stateWrites?.delivery === "launch" && state) {
-    for (const path of stateWrites(kit, team, role, state)) providerOptions = appendAt(providerOptions, harness.stateWrites.path, path);
+    for (const path of stateWrites(role, state)) providerOptions = appendAt(providerOptions, harness.stateWrites.path, path);
   }
   if (harness.projectContextOption && config.cwd) providerOptions = appendAt(providerOptions, harness.projectContextOption, config.cwd);
   if (providerOptions !== config.providerOptions) next.providerOptions = providerOptions;

@@ -19,6 +19,8 @@ export function paseoConfigPath(homeDir = home()): string {
   return join(homeDir, ".paseo", "config.json");
 }
 
+export const DESK_OWNED = new Set(["ledger.json", "incidents.json", "project.json", "meta.json", "settings.json", "status.md", "events.log", "attention.log", "checkpoints.log", "handbacks", "gates", "archive"]);
+
 export function stateRoot(homeDir = home()): string {
   return join(homeDir, ".local", "share", "seatworks-v3");
 }

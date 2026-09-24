@@ -241,11 +241,11 @@ function writeModelCatalog(harness: HarnessSpec, dir: string, record: Recorder):
   return setting;
 }
 
-function stateWritesSetting(kit: Kit, team: Team, roleName: string, project?: SeatProject): Json {
+function stateWritesSetting(team: Team, roleName: string, project?: SeatProject): Json {
   const { role, harness } = team.roles[roleName]!;
   if (harness.stateWrites?.delivery !== "file" || !project) return {};
   const setting: Json = {};
-  setPath(setting, harness.stateWrites.path.split("."), stateWrites(kit, team, role, project.state));
+  setPath(setting, harness.stateWrites.path.split("."), stateWrites(role, project.state));
   return setting;
 }
 
@@ -360,7 +360,7 @@ export function materialize(kit: Kit, team: Team, roleName: string, homeDir = ho
   if (problems.length > 0) throw new Error(problems.join("; "));
   const record = recorder();
   mkdirSync(dir, { recursive: true });
-  const extra = layerSettings(writeModelCatalog(seat.harness, dir, record), stateWritesSetting(kit, team, roleName, project)) as Json;
+  const extra = layerSettings(writeModelCatalog(seat.harness, dir, record), stateWritesSetting(team, roleName, project)) as Json;
   writeRoleSettings(kit, seat.harness, seat.role, dir, homeDir, record, extra);
   writeFiles(kit, seat.harness, seat.role, dir, record);
   linkShared(seat.harness, dir, homeDir, record);

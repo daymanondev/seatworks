@@ -250,7 +250,7 @@ test("an agent configured in its own file format gets its catalog trimmed, its s
     "rules/all.rules": 'prefix_rule(pattern = ["git", "push"], decision = "forbidden")\n',
     "rules/lead.rules": 'prefix_rule(pattern = ["git", "commit"], decision = "forbidden")\n',
   });
-  // The grant is what the role's own content names under the project's state.
+  // The grant is what the role declares it writes under the project's state.
   writeFileSync(join(kit.dir, "content", "prompts", "LEAD.md"), "# Lead\n\nWrite a plan in {{state}}/plans/ first.\n");
   const base = resolveTeam(kit);
   const team = withHarness(base, "lead", kit.harnesses.cx!);

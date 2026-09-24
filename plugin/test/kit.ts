@@ -35,6 +35,7 @@ export function makeKit(): Kit {
         prompt: "prompts/LEAD.md",
         skills: null,
         hidesWords: ["supervisor"],
+        writes: ["plans/"],
       },
       {
         role: "peer",

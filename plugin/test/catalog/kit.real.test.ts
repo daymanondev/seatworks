@@ -234,8 +234,7 @@ test("the Supervisor can set its own cadence for reading the work, rather than t
 
 test("only the Supervisor may write the project's concept; every other role reads it or is told it", () => {
   const kit = loadKit(pluginRoot);
-  const team = resolveTeam(kit);
-  const writes = (role: string) => stateWrites(kit, team, kit.roles.find((entry) => entry.role === role)!, "/state");
+  const writes = (role: string) => stateWrites(kit.roles.find((entry) => entry.role === role)!, "/state");
   assert.ok(writes("supervisor").includes(join("/state", "CONTEXT.md")), "grilling writes what the Human settled there as it is settled");
   for (const role of kit.roles.filter((entry) => entry.role !== "supervisor")) {
     assert.ok(!writes(role.role).includes(join("/state", "CONTEXT.md")), `${role.role} could rewrite the Human's word`);

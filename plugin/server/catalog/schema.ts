@@ -125,6 +125,7 @@ const Role = z.strictObject({
   extraSkills: z.array(z.string().regex(/^[^:]+:[^:]+$/, { error: "is not written set:name" })).optional(),
   paseoTools: z.strictObject({ enabled: z.boolean().optional(), disabledTools: texts.optional(), allow: texts.optional() }).optional(),
   hidesWords: texts.optional(),
+  writes: z.array(z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.-]*\/?$/, { error: "is not one file, or one folder ending in /, under the project's state" })).optional(),
 });
 
 export const RolesFile = z.strictObject({

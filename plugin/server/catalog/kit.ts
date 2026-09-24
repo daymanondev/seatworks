@@ -5,6 +5,7 @@ import type { Attention } from "../../shared/views.ts";
 import { ATTENTION } from "./attention.ts";
 import { hiddenWordsIn } from "./hidden-words.ts";
 import type { FileKinds } from "../core/git.ts";
+import { DESK_OWNED } from "../core/paths.ts";
 import { EcosystemFile, HarnessFile, McpFile, PaseoFile, RolesFile } from "./schema.ts";
 
 type ThinkingSpec = { id: string; label: string; isDefault?: boolean };
@@ -102,6 +103,8 @@ export function loadKit(dir: string, stateDir?: string): Kit {
   });
   for (const role of roles) {
     if (!role.defaults) throw new Error(`role ${role.role} has no default harness`);
+    const owned = (role.writes ?? []).map((entry) => entry.replace(/\/$/, "")).filter((entry) => DESK_OWNED.has(entry));
+    if (owned.length > 0) throw new Error(`role ${role.role} writes ${owned.join(", ")}, which is the desk's own record`);
     if (!harnesses[role.defaults.harness]) throw new Error(`role ${role.role} defaults to harness ${role.defaults.harness}, which has no harness/${role.defaults.harness}/harness.json`);
   }
   const loaded = roles as RoleSpec[];
