@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import { can, harnessProblems, loadKit, roleNamed, roleThatCan, rolesThatCan, toolsOf } from "../../server/catalog/kit.ts";
+import { can, loadKit, roleNamed, roleThatCan, rolesThatCan, toolsOf } from "../../server/catalog/kit.ts";
 import { renderPrompt } from "../../server/catalog/content.ts";
+import { HarnessFile } from "../../server/catalog/schema.ts";
 import { tempDir } from "../tempdir.ts";
 
 const good = () => ({
@@ -18,25 +19,30 @@ const good = () => ({
   provider: { command: ["KIT/bin/seat-room", "acp"], profileModeId: "bypass" },
 });
 
-test("a harness that fills the contract has nothing to report", () => {
-  assert.deepEqual(harnessProblems("acme", good()), []);
-});
+/** Each field a harness file gets wrong, by its path: an unknown field by its own name. */
+function wrong(harness: object): string[] {
+  const read = HarnessFile.safeParse(harness);
+  if (read.success) return [];
+  return read.error.issues.flatMap((issue) => (issue.code === "unrecognized_keys" ? issue.keys : [issue.path.join(".")]));
+}
 
-test("a harness is refused for a field no contract knows, a missing one, or an id that isn't its directory", () => {
-  assert.deepEqual(harnessProblems("acme", { ...good(), skillDir: "skills" }), ["names skillDir, which is no harness field"]);
-  const { label, ...noLabel } = good();
-  assert.deepEqual(harnessProblems("acme", noLabel), ["has no label"]);
-  assert.deepEqual(harnessProblems("other", good()), ["calls itself acme but sits in harness/other"]);
+test("a harness is refused for a field no contract knows or a missing one, and one that fills it passes", () => {
+  assert.deepEqual(wrong(good()), []);
+  assert.deepEqual(wrong({ ...good(), skillDir: "skills" }), ["skillDir"]);
+  const { label: _label, ...noLabel } = good();
+  assert.deepEqual(wrong(noLabel), ["label"]);
 });
 
 test("the way a harness takes its prompt and its servers is checked, not assumed", () => {
-  assert.deepEqual(harnessProblems("acme", { ...good(), systemPrompt: "stdin" }), ["takes its prompt as stdin, which is neither config nor file"]);
-  assert.deepEqual(harnessProblems("acme", { ...good(), systemPrompt: "file" }), ["takes its prompt as a file but names no promptFile"]);
-  assert.deepEqual(harnessProblems("acme", { ...good(), mcp: { file: "mcp.json", delivery: "file", transports: ["stdio"] } }), ["delivers MCP servers in a file but names no mcp.key"]);
-  assert.deepEqual(harnessProblems("acme", { ...good(), settings: { file: "config.json", source: "settings.json" } }), ["has no settings.roleSource"]);
-  assert.deepEqual(harnessProblems("acme", { ...good(), projectContextOption: ["additionalDirectories"] }), ["gives projectContextOption without an option path"]);
-  assert.deepEqual(harnessProblems("acme", { ...good(), projectContextOption: "" }), ["gives projectContextOption without an option path"]);
-  assert.deepEqual(harnessProblems("acme", { ...good(), projectContextOption: "additionalDirectories" }), []);
+  assert.deepEqual(wrong({ ...good(), systemPrompt: "stdin" }), ["systemPrompt"]);
+  assert.deepEqual(wrong({ ...good(), systemPrompt: "file" }), ["promptFile"]);
+  assert.deepEqual(wrong({ ...good(), mcp: { file: "mcp.json", delivery: "file", transports: ["stdio"] } }), ["mcp.key"]);
+  assert.deepEqual(wrong({ ...good(), settings: { file: "config.json", source: "settings.json" } }), ["settings.roleSource"]);
+  assert.deepEqual(wrong({ ...good(), projectContextOption: ["additionalDirectories"] }), ["projectContextOption"]);
+  assert.deepEqual(wrong({ ...good(), projectContextOption: "" }), ["projectContextOption"]);
+  assert.deepEqual(wrong({ ...good(), projectContextOption: "additionalDirectories" }), []);
+  assert.deepEqual(wrong({ ...good(), exitPattern: "exit \\d+" }), ["exitPattern"], "a pattern that captures no exit code");
+  assert.deepEqual(wrong({ ...good(), mcpCall: "mcp__team__{tool}" }), ["mcpCall"], "a call name with nowhere for the server's name");
 });
 
 test("a role follows one other role that chooses for itself, and takes its defaults", () => {
@@ -57,6 +63,8 @@ test("a role follows one other role that chooses for itself, and takes its defau
   assert.throws(() => loadKit(dir), /role archivist follows archivist, which is no other role/);
   roles(follower(), { ...follower(), role: "echo", follows: "archivist" });
   assert.throws(() => loadKit(dir), /role echo follows archivist, which follows peer in turn/);
+  roles(follower({ extraSkills: ["council"] }));
+  assert.throws(() => loadKit(dir), /roles\.json is not as the kit reads it:[^]*is not written set:name[^]*extraSkills/, "an extra skill names its set as well");
 });
 
 test("loading a kit refuses a harness that breaks the contract, naming the field", () => {
@@ -66,15 +74,17 @@ test("loading a kit refuses a harness that breaks the contract, naming the field
   const write = (harness: Record<string, unknown>) => writeFileSync(join(dir, "harness", "acme", "harness.json"), JSON.stringify(harness));
 
   write({ ...good(), skillDir: "skills" });
-  assert.throws(() => loadKit(dir), /harness acme names skillDir, which is no harness field/);
+  assert.throws(() => loadKit(dir), /harness acme is not as the kit reads it:[^]*skillDir/);
+  write({ ...good(), id: "other" });
+  assert.throws(() => loadKit(dir), /harness acme calls itself other but sits in harness\/acme/);
 
   write(good());
   assert.deepEqual(Object.keys(loadKit(dir).harnesses), ["acme"]);
 });
 
 test("the shipped harnesses satisfy their own contract", () => {
-  const kit = loadKit(new URL("../..", import.meta.url).pathname);
-  for (const [id, harness] of Object.entries(kit.harnesses)) assert.deepEqual(harnessProblems(id, harness as unknown as Record<string, unknown>), [], `harness ${id}`);
+  const root = new URL("../../harness", import.meta.url).pathname;
+  for (const id of readdirSync(root)) assert.deepEqual(wrong(JSON.parse(readFileSync(join(root, id, "harness.json"), "utf-8"))), [], `harness ${id}`);
 });
 
 test("several seats can supervise one project, each for its own concern, declared as data", () => {

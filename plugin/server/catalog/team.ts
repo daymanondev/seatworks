@@ -81,7 +81,7 @@ function eligibleRoles(state: McpState, kit: Kit): string[] {
 
 export function transportOf(state: McpState): McpTransport {
   if (state.entry?.kind === "proxy") return "stdio";
-  return state.connect?.type ?? (state.entry?.server?.type as McpTransport | undefined) ?? "stdio";
+  return state.connect?.type ?? state.entry?.server?.type ?? "stdio";
 }
 
 export function connectToServer(connect: Connect): Record<string, unknown> | undefined {

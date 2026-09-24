@@ -62,7 +62,6 @@ export function skillSources(kit: Kit, role: RoleSpec, extra: Map<string, string
   }
   for (const extra of role.extraSkills ?? []) {
     const [set, name] = extra.split(":");
-    if (!set || !name) throw new Error(`role ${role.role} names extra skill "${extra}"; write it as set:name`);
     const dir = ownOr(kit, `skills/${set}/${name}`);
     if (!existsSync(join(dir, "SKILL.md"))) throw new Error(`role ${role.role} names extra skill ${extra}, but ${dir}/SKILL.md is missing`);
     found.set(name, dir);

@@ -131,7 +131,7 @@ only you can answer.
 
 ## Harness fields
 
-`harness/<agent>/harness.json`. An unknown field fails the load.
+`harness/<agent>/harness.json`, read against a schema: a field it doesn't know, at any depth, fails the load and is named.
 
 | Field | Drives |
 |---|---|
@@ -149,6 +149,7 @@ only you can answer.
 | `projectContextOption` | The provider option that receives the working directory |
 | `steers` | Whether mail may be steered into a running turn |
 | `exitPattern` | How the agent writes a failed exit, so the watch can tell failure from output |
+| `mcpCall`, `mcpServerField` | How the agent names a call to an MCP server, or the field that holds the server's name, so a call to the desk is known as one |
 | `checks` | Files the Health tab looks for |
 | `hasThinking` | Whether the agent takes a thinking level |
 | `provider` | Env, launch command, `forceFlags`, and the starting mode |
