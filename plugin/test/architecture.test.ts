@@ -14,7 +14,7 @@ const MAY_IMPORT: Record<string, string[]> = {
   client: ["shared", "@getpaseo/plugin", "@getpaseo/plugin/client"],
   "server/core": [],
   "server/domain": [],
-  "server/catalog": ["server/core"],
+  "server/catalog": ["server/core", "shared"],
   "server/desk": ["server/core", "server/domain", "server/catalog", "shared"],
   "server/desk/tools": ["server/core", "server/domain", "server/catalog", "server/desk"],
   "server/runtime/watch": ["server/core", "server/domain", "server/catalog", "server/desk"],
@@ -35,13 +35,13 @@ const NAMED = [
 const LIMITS = { file: 300, testFile: 400, function: 50 };
 
 const LONG_FILES: Record<string, number> = {
-  "client/data.ts": 504,
+  "client/data.ts": 446,
   "mcp/code.mjs": 308,
   "server/catalog/seats.ts": 394,
   "server/catalog/team.ts": 368,
   "server/desk/letters.ts": 343,
   "server/desk/slots.ts": 384,
-  "server/runtime/control.ts": 460,
+  "server/runtime/control.ts": 459,
   "server/runtime/runtime.ts": 434,
   "server/runtime/watch/facts.ts": 317,
   "test/runtime/facts.test.ts": 427,
@@ -50,8 +50,7 @@ const LONG_FILES: Record<string, number> = {
 };
 
 const LONG_FUNCTIONS: Record<string, number> = {
-  "client/data.ts useSeatworks": 249,
-  "client/data.ts useSeatworks.useEffect": 55,
+  "client/data.ts useSeatworks": 240,
   "client/flow.tsx FlowSection": 82,
   "client/health.tsx HealthSection": 94,
   "client/model-picker.tsx ModelPicker": 128,

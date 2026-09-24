@@ -4,7 +4,7 @@ import type { MigrateStep, MigrateView } from "../../shared/views.ts";
 import type { Kit } from "../catalog/kit.ts";
 import { staleProjectFiles } from "../catalog/project-files.ts";
 import { digest } from "../catalog/seats.ts";
-import { LayerSchema } from "../catalog/settings.ts";
+import { LayerSchema } from "../../shared/settings.ts";
 import { stateRoot } from "../core/paths.ts";
 import { readJson, writeJson } from "../core/store.ts";
 import type { Project } from "../desk/project.ts";

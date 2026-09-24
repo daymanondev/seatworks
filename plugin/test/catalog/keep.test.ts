@@ -80,7 +80,7 @@ const KEEP: Keep[] = [
   {
     id: "keep-19",
     title: "which role gets which MCP tools is settings",
-    file: "server/catalog/settings.ts",
+    file: "shared/settings.ts",
     check: "contains",
     anchor: "tools: z.record(z.string(), z.array(z.string())).optional(),",
     structure: ["the line is no longer unique, so it no longer proves the MCP server's field", (text, anchor) => text.indexOf(anchor) === text.lastIndexOf(anchor)],

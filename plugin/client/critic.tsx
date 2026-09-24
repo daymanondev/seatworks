@@ -3,7 +3,8 @@ import { SettingsCard, SettingsRow } from "@getpaseo/plugin/client/ui";
 import type { ReactElement } from "react";
 import { Text } from "react-native";
 import { sourceLabel } from "./bits.tsx";
-import type { CriticBy, Layer, TeamView } from "./data.ts";
+import type { CriticBy, Layer } from "../shared/settings.ts";
+import type { TeamView } from "../shared/views.ts";
 import { setCritic, sourceOf } from "./data.ts";
 import { TabBar } from "./tabs.tsx";
 

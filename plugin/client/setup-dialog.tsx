@@ -5,13 +5,15 @@ import { SettingsAction, SettingsCard, SettingsRow, SettingsSection, SettingsSel
 import { useEffect, useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { Button } from "./bits.tsx";
-import type { Catalog, Folders, Layer, PaseoProject, ProjectRow } from "./data.ts";
+import type { Layer } from "../shared/settings.ts";
+import type { CatalogView, Folders, ProjectRow } from "../shared/views.ts";
+import type { PaseoProject } from "./data.ts";
 import { harnessInForce, message, modelInForce, modelRow, setRole } from "./data.ts";
 import { TabBar } from "./tabs.tsx";
 
 type Props = {
   open: boolean;
-  catalog: Catalog;
+  catalog: CatalogView;
   available: PaseoProject[];
   projects: ProjectRow[];
   readSettings(slug: string): Promise<{ status: string; values?: Layer; machine?: Layer } | { error: string }>;

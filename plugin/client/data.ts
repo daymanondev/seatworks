@@ -1,54 +1,10 @@
 import { useRpc, usePaseo } from "@getpaseo/plugin/client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Check, FlowLane, FlowSeat, FlowView, WatchIncident, WatchView } from "../shared/views.ts";
 import { catalogRpc, doctorRpc, flowRpc, mcpParseRpc, pathsRpc, projectsAddRpc, projectsCandidatesRpc, projectsRemoveRpc, projectsRpc, settingsReadRpc, settingsWriteRpc, statusRpc, teamRpc } from "../shared/rpc.ts";
+import type { AttentionChoice, CriticBy, Layer, McpChoice, RoleChoice } from "../shared/settings.ts";
+import type { CatalogView, FlowView, ProjectRow, TeamView, WatchIncident } from "../shared/views.ts";
 
-export type { Check, FlowLane, FlowSeat, FlowView, WatchView };
-
-export type Scalar = string | number | boolean;
-type Connect = { type: "stdio" | "http" | "sse"; command?: string[]; env?: Record<string, string>; url?: string; headers?: Record<string, string> };
-type Parsed = { id: string; label: string; connect: Connect } | { error: string };
-export type SettingSpec = { type: "number" | "string" | "boolean"; label: string; default?: Scalar };
-type ModelView = { id: string; label: string; isDefault?: boolean; thinkingOptions?: { id: string; label: string; isDefault?: boolean }[] };
-
-export type Catalog = {
-  roles: { id: string; label: string; description: string; can: string[]; concern: string | null; defaults: { harness: string; model?: string; thinking?: string }; follows: string | null; harnesses: string[] }[];
-  harnesses: { id: string; label: string; models: ModelView[]; transports: string[] }[];
-  mcp: { id: string; label: string; description: string; kind: string; transport: string; settings: Record<string, SettingSpec>; defaults: { enabled: boolean }; roles: string[] }[];
-};
-
-export type TeamView = {
-  project: string | null;
-  errors: string[];
-  attention: Required<AttentionChoice>;
-  checkpoints: { risk: string; land: CheckpointMode; landApprove: "risky" | "every"; landLines: number; forced: string | null };
-  critic: { by: CriticBy };
-  rules: string;
-  mcp: Record<string, { label: string; enabled: boolean; roles: string[]; settings: Record<string, Scalar>; transport: string; template: boolean; connect: Connect | null; rule: string | null }>;
-  roles: Record<string, { harness: string; provider: string; model: string | null; thinking: string | null; mcp: string[]; tools: Record<string, string[]>; skills: string[]; rules: string }>;
-};
-
-type AttentionChoice = {
-  tickSeconds?: number; leadIdleMinutes?: number; askRemindMinutes?: number; maxReminders?: number;
-  watch?: boolean; destructive?: string; testPath?: string; repeatsAt?: number; reworksAt?: number; reviewsAt?: number; suppressed?: string;
-  longTurnMinutes?: number; incidentsPerDay?: number;
-};
-export type CheckpointMode = "off" | "shadow" | "on";
-export type CriticBy = "seat" | "off";
-export type RoleChoice = { harness?: string; model?: string; thinking?: string; rules?: string };
-export type McpChoice = { enabled?: boolean; removed?: boolean; label?: string; connect?: Connect; roles?: string[]; tools?: Record<string, string[]>; rule?: string; settings?: Record<string, Scalar> };
-export type Layer = { critic?: { by?: CriticBy }; checkpoints?: { risk?: string; land?: CheckpointMode; landApprove?: "risky" | "every"; landLines?: number }; roles?: Record<string, RoleChoice>; mcp?: Record<string, McpChoice>; rules?: string; attention?: AttentionChoice; flow?: { live?: boolean; everySeconds?: number } };
-
-export type ProjectRow = { slug: string; root: string };
 export type PaseoProject = { name: string; root: string };
-type Folder = { name: string; path: string; repository: boolean };
-/** `root` is the repository this folder belongs to when it is not itself that repository's top. */
-export type Folders = { path: string; parent: string | null; repository: boolean; root?: string | null; folders: Folder[] };
-type FlowResult = FlowView | { unchanged: true; revision: string } | { error: string };
-type SettingsRead = ({ status: "ready"; revision: string; values: Layer } | { status: "invalid"; revision: string; error: string }) & { machine: Layer };
-type WriteResult = { status: "saved"; revision: string; values: Layer } | { status: "conflict"; error: string } | { status: "invalid"; error: string };
-type AddResult = { slug: string; root: string } | { error: string };
-type RemoveResult = { removed: string } | { error: string };
 
 type Data =
   | { status: "loading" }
@@ -56,7 +12,7 @@ type Data =
   | {
       status: "ready";
       of: string;
-      catalog: Catalog;
+      catalog: CatalogView;
       team: TeamView;
       projects: ProjectRow[];
       known: PaseoProject[];
@@ -67,24 +23,19 @@ type Data =
       settingsError: string | null;
     };
 
-type Call<Input, Output> = (input: Input) => Promise<Output>;
-type Calls = {
-  catalog: Call<Record<string, never>, Catalog>;
-  projects: Call<Record<string, never>, ProjectRow[]>;
-  add: Call<{ root: string }, AddResult>;
-  remove: Call<{ project: string }, RemoveResult>;
-  candidates: Call<{ roots: string[] }, string[]>;
-  parseMcp: Call<{ text: string }, Parsed>;
-  settings: Call<{ project?: string }, SettingsRead>;
-  write: Call<{ project?: string; revision: string; values: Layer }, WriteResult>;
-  team: Call<{ project?: string }, TeamView>;
-  doctor: Call<{ project?: string }, Check[]>;
-  status: Call<{ project: string }, { text: string; error?: string }>;
-  flow: Call<{ project: string; since?: string; open?: string[] }, FlowResult>;
-  paths: Call<{ path?: string }, Folders | { error: string }>;
-};
-
 export const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
+/** The projects Paseo itself knows, which a setup screen offers; none when Paseo cannot say. */
+async function paseoProjects(paseo: ReturnType<typeof usePaseo>): Promise<PaseoProject[]> {
+  try {
+    const listed = (await paseo.projects.list()) as { projects?: { projectDisplayName?: string; projectRootPath?: string }[] };
+    return (listed.projects ?? [])
+      .filter((entry): entry is { projectDisplayName?: string; projectRootPath: string } => typeof entry.projectRootPath === "string")
+      .map((entry) => ({ name: entry.projectDisplayName ?? entry.projectRootPath, root: entry.projectRootPath }));
+  } catch {
+    return [];
+  }
+}
 
 export function useSeatworks(project?: string) {
   const bound = {
@@ -103,8 +54,8 @@ export function useSeatworks(project?: string) {
     paths: useRpc(pathsRpc),
   };
   const paseo = usePaseo();
-  const latest = useRef(bound as unknown as Calls);
-  latest.current = bound as unknown as Calls;
+  const latest = useRef(bound);
+  latest.current = bound;
   const [data, setData] = useState<Data>({ status: "loading" });
   const [saving, setSaving] = useState(false);
   // Set by a save, cleared by its reload: the controls stay locked until drawn from what it produced.
@@ -122,16 +73,6 @@ export function useSeatworks(project?: string) {
 
   useEffect(() => {
     let alive = true;
-    const paseoProjects = async (): Promise<PaseoProject[]> => {
-      try {
-        const listed = (await paseo.projects.list()) as { projects?: { projectDisplayName?: string; projectRootPath?: string }[] };
-        return (listed.projects ?? [])
-          .filter((entry): entry is { projectDisplayName?: string; projectRootPath: string } => typeof entry.projectRootPath === "string")
-          .map((entry) => ({ name: entry.projectDisplayName ?? entry.projectRootPath, root: entry.projectRootPath }));
-      } catch {
-        return [];
-      }
-    };
     const load = async (): Promise<void> => {
       const call = latest.current;
       const [catalog, projects, team, settings, known] = await Promise.all([
@@ -139,10 +80,11 @@ export function useSeatworks(project?: string) {
         call.projects({}),
         call.team({ project }),
         call.settings({ project }),
-        paseoProjects(),
+        paseoProjects(paseo),
       ]);
       const offerable = new Set(known.length > 0 ? await call.candidates({ roots: known.map((entry) => entry.root) }) : []);
       if (!alive) return;
+      if ("error" in team) throw new Error(team.error);
       if (settling.current) {
         settling.current = false;
         setSaving(false);
@@ -337,7 +279,7 @@ export function useSeatworks(project?: string) {
 }
 
 export function useFlow(project: string | undefined, everyMs = 5000, openKey = ""): { flow: FlowView | null; error: string | null } {
-  const call = useRpc(flowRpc) as unknown as Call<{ project: string; since?: string; open?: string[] }, FlowResult>;
+  const call = useRpc(flowRpc);
   const latest = useRef(call);
   latest.current = call;
   const [flow, setFlow] = useState<FlowView | null>(null);

@@ -1,4 +1,4 @@
-import type { Attention } from "../catalog/attention.ts";
+import type { Attention } from "../../shared/views.ts";
 import { seatOf } from "../catalog/kit.ts";
 import { type Finding, type Held, deliveryOf, hold, tell, unheard } from "../domain/incident.ts";
 import { type Incident, type Incidents, closeSeat, forget, settledAsNoise, sight, spentToday } from "./incidents.ts";

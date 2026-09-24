@@ -4,14 +4,15 @@ import { SettingsAction, SettingsCard, SettingsInput, SettingsRow, SettingsSecti
 import { useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { Chips, sourceLabel } from "./bits.tsx";
-import type { Catalog, Layer, McpChoice, Scalar, SettingSpec, TeamView } from "./data.ts";
+import type { Layer, McpChoice, Scalar } from "../shared/settings.ts";
+import type { CatalogView, SettingSpec, TeamView } from "../shared/views.ts";
 import { dropMcp, setMcp, sourceOf } from "./data.ts";
 import { TabBar } from "./tabs.tsx";
 
-type Entry = Catalog["mcp"][number];
+type Entry = CatalogView["mcp"][number];
 
 type Props = {
-  catalog: Catalog;
+  catalog: CatalogView;
   team: TeamView;
   values: Layer;
   machine: Layer;

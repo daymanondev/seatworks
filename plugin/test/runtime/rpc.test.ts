@@ -17,17 +17,18 @@ function served(paseo?: unknown) {
   const kit = makeKit();
   const host = new PaseoHost();
   const runtime = new Runtime(kit, host, { reloadDaemon: async () => true });
-  const handlers = new Map<string, (input: any) => any>();
-  // Paseo hands every handler the live daemon handle beside the input.
+  const handlers = new Map<string, (input: any) => Promise<any>>();
+  type Schema = { parse(value: unknown): unknown };
+  // Paseo hands every handler the live daemon handle beside the input; the panel checks each answer, as sent, against its schema.
   const server = {
-    handle: (contract: { name: string; input: { parse(value: unknown): unknown } }, handler: (input: unknown, context: { paseo: unknown }) => unknown) =>
-      handlers.set(contract.name, (input) => handler(contract.input.parse(input), { paseo })),
+    handle: (contract: { name: string; input: Schema; output: Schema }, handler: (input: unknown, context: { paseo: unknown }) => unknown) =>
+      handlers.set(contract.name, async (input) => contract.output.parse(JSON.parse(JSON.stringify(await handler(contract.input.parse(input), { paseo }))))),
   };
   const names = registerRpc(host.answering(server as never), runtime.control, () => {});
   const call = async (name: string, input: unknown = {}) => {
     const handler = handlers.get(name);
     assert.ok(handler, `no handler for ${name}`);
-    return JSON.parse(JSON.stringify(await handler(input)));
+    return handler(input);
   };
   return { names, call, host };
 }
@@ -59,6 +60,7 @@ test("the plugin serves the catalog, settings, projects, team and status over RP
   assert.deepEqual(catalog.roles.find((role: any) => role.id === "lead").harnesses, ["claude", "omp"]);
   assert.deepEqual(catalog.roles.find((role: any) => role.id === "scribe").harnesses, ["claude", "omp"]);
   assert.deepEqual(catalog.mcp.map((entry: any) => [entry.id, entry.transport]), [["ide", "stdio"], ["docs", "http"]]);
+  assert.match((await call("seatworks.team.read", { project: "nowhere-000000" })).error, /No project named nowhere-000000/, "a team for no project is a refusal, not a team missing its roles");
 });
 
 test("the daemon handle a panel call arrives with is kept, not thrown away", async () => {

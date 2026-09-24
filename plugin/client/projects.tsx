@@ -2,14 +2,14 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Avatar, Button, Rule } from "./bits.tsx";
-import type { Catalog, ProjectRow, TeamView } from "./data.ts";
+import type { CatalogView, ProjectRow, TeamView } from "../shared/views.ts";
 
 export const MACHINE = "machine";
 
 type Props = {
   projects: ProjectRow[];
   nameOf(slug: string, root: string): string;
-  catalog: Catalog;
+  catalog: CatalogView;
   team: TeamView;
   waiting: number;
   theme: PluginTheme;

@@ -79,7 +79,7 @@ These are mostly absences, so the code won't show them to you.
 | `server/runtime/` | The composition root and the loops: hooks, spool, outbox, patrol, turn reading, RPC, health |
 | `server/runtime/watch/` | The watch: the window over a timeline, the facts read from it and from each lane's record, and the findings they make |
 | `client/` | The Seatworks panel |
-| `shared/` | What the panel and server share: RPC contracts (`rpc.ts`) and views (`views.ts`) |
+| `shared/` | What the panel and server share, as zod schemas both take their types from: the RPC contracts (`rpc.ts`), each answer's shape (`views.ts`, which the panel checks every answer against) and the settings layer (`settings.ts`) |
 | `mcp/` | `team.mjs`, `code.mjs`, and `tools.json` (the tool sets and their schemas) |
 | `bin/` | `seat-room`, the launcher that refuses a seat the plugin did not configure |
 | `roles.json` | The SLP preset: roles, capabilities, tool sets, prompts, skills, defaults, attention values |

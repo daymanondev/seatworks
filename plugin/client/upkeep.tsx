@@ -55,10 +55,10 @@ function versionLine(view: UpdateView | null): { title: string; state: string } 
 }
 
 export function UpkeepSection({ theme }: { theme: PluginTheme }) {
-  const update = useRpc(updateRpc) as unknown as (input: { apply: boolean; fetch?: boolean }) => Promise<UpdateView>;
-  const migrate = useRpc(migrateRpc) as unknown as (input: { apply: boolean }) => Promise<MigrateView>;
-  const decide = useRpc(decideRpc) as unknown as (input: { unit: string; choice: "new" | "mine" | "seen" }) => Promise<MigrateView>;
-  const clean = useRpc(cleanRpc) as unknown as (input: { remove?: string[] }) => Promise<CleanView>;
+  const update = useRpc(updateRpc);
+  const migrate = useRpc(migrateRpc);
+  const decide = useRpc(decideRpc);
+  const clean = useRpc(cleanRpc);
   const [busy, setBusy] = useState<Busy>(null);
   const [error, setError] = useState<string | null>(null);
   const [updated, setUpdated] = useState<UpdateView | null>(null);

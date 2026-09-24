@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { CheckpointMode } from "../catalog/team.ts";
+import type { CheckpointMode } from "../../shared/settings.ts";
 import type { Project } from "./project.ts";
 import { appendRecord } from "./records.ts";
 

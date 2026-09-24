@@ -4,7 +4,7 @@ import { SettingsAction, SettingsCard, SettingsRow, SettingsSection } from "@get
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Text, View } from "react-native";
 import { Empty } from "./bits.tsx";
-import type { Check } from "./data.ts";
+import type { Check } from "../shared/views.ts";
 import { setFlow, useFlow, useSeatworks } from "./data.ts";
 import { type DetailTab, Detail } from "./detail.tsx";
 import { FlowSection } from "./flow.tsx";

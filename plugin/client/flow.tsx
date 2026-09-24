@@ -3,7 +3,8 @@ import { SettingsCard, SettingsRow, SettingsSection, SettingsSwitch } from "@get
 import { Fragment, memo, useMemo } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Empty } from "./bits.tsx";
-import { type FlowLane, type FlowSeat, type FlowView, countsInstead } from "./data.ts";
+import type { FlowLane, FlowSeat, FlowView } from "../shared/views.ts";
+import { countsInstead } from "./data.ts";
 import { ApprovalsCards } from "./approvals.tsx";
 import { IncidentsCard } from "./watching.tsx";
 

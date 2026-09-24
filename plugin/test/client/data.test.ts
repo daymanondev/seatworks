@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { type Layer, countsInstead, dropMcp, foldRoles, harnessInForce, incidentState, keptRoles, modelInForce, modelRow, setAttention, setRole } from "../../client/data.ts";
+import type { Layer } from "../../shared/settings.ts";
+import { countsInstead, dropMcp, foldRoles, harnessInForce, incidentState, keptRoles, modelInForce, modelRow, setAttention, setRole } from "../../client/data.ts";
 import type { WatchIncident } from "../../shared/views.ts";
 
 const held: Layer = {

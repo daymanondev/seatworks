@@ -4,99 +4,8 @@ import { dirname } from "node:path";
 import { z } from "zod";
 import { readJson, sortKeys, writeJson } from "../core/store.ts";
 import { errorText } from "../core/errors.ts";
-
-const Scalar = z.union([z.string(), z.number(), z.boolean()]);
-
-const RoleChoice = z.strictObject({
-  harness: z.string().min(1).optional(),
-  model: z.string().min(1).optional(),
-  thinking: z.string().min(1).optional(),
-  rules: z.string().optional(),
-});
-
-const Connect = z.strictObject({
-  type: z.enum(["stdio", "http", "sse"]),
-  command: z.array(z.string().min(1)).optional(),
-  env: z.record(z.string(), z.string()).optional(),
-  url: z.string().min(1).optional(),
-  headers: z.record(z.string(), z.string()).optional(),
-});
-
-const McpChoice = z.strictObject({
-  enabled: z.boolean().optional(),
-  removed: z.boolean().optional(),
-  label: z.string().min(1).optional(),
-  connect: Connect.optional(),
-  roles: z.array(z.string()).optional(),
-  tools: z.record(z.string(), z.array(z.string())).optional(),
-  rule: z.string().optional(),
-  settings: z.record(z.string(), Scalar).optional(),
-});
-
-export type Connect = z.infer<typeof Connect>;
-export type McpChoice = z.infer<typeof McpChoice>;
-
-const Pattern = z.string().min(1).refine(
-  (value) => {
-    try {
-      new RegExp(value, "i");
-      return true;
-    } catch {
-      return false;
-    }
-  },
-  { message: "that is not a pattern this machine can read" },
-);
-
-export const AttentionChoice = z.strictObject({
-  tickSeconds: z.number().int().min(5).optional(),
-  leadIdleMinutes: z.number().int().min(1).optional(),
-  askRemindMinutes: z.number().int().min(1).optional(),
-  maxReminders: z.number().int().min(0).optional(),
-  watch: z.boolean().optional(),
-  destructive: Pattern.optional(),
-  testPath: Pattern.optional(),
-  repeatsAt: z.number().int().min(2).optional(),
-  reworksAt: z.number().int().min(2).optional(),
-  reviewsAt: z.number().int().min(2).optional(),
-  suppressed: Pattern.optional(),
-  longTurnMinutes: z.number().int().min(1).optional(),
-  incidentsPerDay: z.number().int().min(0).optional(),
-});
-
-const FlowChoice = z.strictObject({
-  live: z.boolean().optional(),
-  everySeconds: z.number().int().min(2).max(120).optional(),
-});
-
-export const CHECKPOINT_MODES = ["off", "shadow", "on"] as const;
-const CheckpointsChoice = z.strictObject({
-  risk: Pattern.optional(),
-  land: z.enum(CHECKPOINT_MODES).optional(),
-  landApprove: z.enum(["risky", "every"]).optional(),
-  landLines: z.number().int().min(1).optional(),
-});
-
-const CriticChoice = z.strictObject({
-  by: z.enum(["seat", "off"]).optional(),
-});
-
-/** One shape for both layers: the machine's, and a project's over it. */
-export const LayerSchema = z.strictObject({
-  checkpoints: CheckpointsChoice.optional(),
-  critic: CriticChoice.optional(),
-  roles: z.record(z.string(), RoleChoice).optional(),
-  mcp: z.record(z.string(), McpChoice).optional(),
-  rules: z.string().optional(),
-  flow: FlowChoice.optional(),
-  attention: AttentionChoice.optional(),
-});
-
-export type Layer = z.infer<typeof LayerSchema>;
-
-type ReadResult = { status: "ready"; revision: string; values: Layer } | { status: "invalid"; revision: string; error: string };
-export type SettingsView = ReadResult & { machine: Layer };
-export type WriteResult = { status: "saved"; revision: string; values: Layer } | { status: "conflict"; error: string } | { status: "invalid"; error: string };
+import { type Layer, LayerSchema } from "../../shared/settings.ts";
+import type { LayerRead, WriteResult } from "../../shared/views.ts";
 
 export function revisionOf(values: unknown): string {
   return createHash("sha1").update(JSON.stringify(sortKeys(values ?? {}))).digest("hex").slice(0, 16);
@@ -121,7 +30,7 @@ function faultOf(file: string): string | undefined {
   return !held || typeof held !== "object" || Array.isArray(held) ? `${file} does not hold a settings object` : undefined;
 }
 
-export function readLayer(file: string): ReadResult {
+export function readLayer(file: string): LayerRead {
   const fault = faultOf(file);
   if (fault) return { status: "invalid", revision: revisionOf(readJson<unknown>(file, {})), error: `${fault}\nRepair the file by hand, then read it again.` };
   const raw = readJson<unknown>(file, {});

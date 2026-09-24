@@ -1,6 +1,6 @@
 import { isAbsolute } from "node:path";
 import { z } from "zod";
-import { AttentionChoice } from "./settings.ts";
+import { AttentionChoice } from "../../shared/settings.ts";
 
 const text = z.string().min(1);
 const texts = z.array(z.string());

@@ -1,37 +1,37 @@
 import type { z } from "zod";
 import { contracts } from "../../shared/rpc.ts";
-import type { Check } from "./doctor.ts";
-import type { SettingsView, WriteResult } from "../catalog/settings.ts";
-
-
-export interface Control {
-  catalog(): unknown;
-  readSettings(project?: string): SettingsView;
-  writeSettings(project: string | undefined, revision: string, values: unknown): WriteResult;
-  projects(): unknown;
-  addProject(root: string): unknown;
-  removeProject(project: string): Promise<unknown>;
-  candidateProjects(roots: string[]): unknown;
-  parseMcp(text: string): unknown;
-  team(project?: string): unknown;
-  doctor(project?: string): Promise<Check[]>;
-  status(project: string): Promise<unknown>;
-  flow(project: string, since?: string, open?: string[]): Promise<unknown>;
-  decideLand(project: string, lane: string, approve: boolean, note: string): Promise<unknown>;
-  listPaths(path?: string): unknown;
-  refreshModels(): Promise<unknown>;
-  decide(unit: string, choice: "new" | "mine" | "seen"): Promise<unknown>;
-  clean(remove?: string[]): Promise<unknown>;
-  update(apply: boolean, fetch?: boolean): Promise<unknown>;
-  migrate(apply: boolean): Promise<unknown>;
-}
 
 type Contract = { name: string; input: z.ZodType; output: z.ZodType };
-type Answer = (input: any) => unknown;
+type Out<C extends Contract> = z.input<C["output"]> | Promise<z.input<C["output"]>>;
+
+export interface Control {
+  catalog(): Out<typeof contracts.catalog>;
+  readSettings(project?: string): Out<typeof contracts.settingsRead>;
+  writeSettings(project: string | undefined, revision: string, values: unknown): Out<typeof contracts.settingsWrite>;
+  projects(): Out<typeof contracts.projects>;
+  addProject(root: string): Out<typeof contracts.projectsAdd>;
+  removeProject(project: string): Out<typeof contracts.projectsRemove>;
+  candidateProjects(roots: string[]): Out<typeof contracts.projectsCandidates>;
+  parseMcp(text: string): Out<typeof contracts.mcpParse>;
+  team(project?: string): Out<typeof contracts.team>;
+  doctor(project?: string): Out<typeof contracts.doctor>;
+  status(project: string): Out<typeof contracts.status>;
+  flow(project: string, since?: string, open?: string[]): Out<typeof contracts.flow>;
+  decideLand(project: string, lane: string, approve: boolean, note: string): Out<typeof contracts.landDecide>;
+  listPaths(path?: string): Out<typeof contracts.paths>;
+  refreshModels(): Out<typeof contracts.models>;
+  decide(unit: string, choice: "new" | "mine" | "seen"): Out<typeof contracts.decide>;
+  clean(remove?: string[]): Out<typeof contracts.clean>;
+  update(apply: boolean, fetch?: boolean): Out<typeof contracts.update>;
+  migrate(apply: boolean): Out<typeof contracts.migrate>;
+}
+
+/** Serves one contract: the handler takes what its input schema reads and gives what its output schema holds. */
+type Serve = <C extends Contract>(contract: C, answer: (input: z.output<C["input"]>) => Out<C>) => void;
 
 /** `called` runs before every answer, since a panel call is how the runtime learns someone is looking. */
-export function registerRpc(serve: (contract: Contract, answer: Answer) => void, control: Control, called: () => void): string[] {
-  const handle = (contract: Contract, answer: Answer) =>
+export function registerRpc(serve: Serve, control: Control, called: () => void): string[] {
+  const handle: Serve = (contract, answer) =>
     serve(contract, (input) => {
       called();
       return answer(input);

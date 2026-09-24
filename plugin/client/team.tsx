@@ -5,14 +5,15 @@ import { type ReactElement, useState } from "react";
 import { modelsRpc } from "../shared/rpc.ts";
 import { Text } from "react-native";
 import { sourceLabel } from "./bits.tsx";
-import type { Catalog, CheckpointMode, Layer, RoleChoice, TeamView } from "./data.ts";
+import type { CheckpointMode, Layer, RoleChoice } from "../shared/settings.ts";
+import type { CatalogView, ModelsRefreshed, TeamView } from "../shared/views.ts";
 import { message, modelRow, setAttention, setCheckpoint, setRole, sourceOf } from "./data.ts";
 import { ModelPicker } from "./model-picker.tsx";
 import { TabBar } from "./tabs.tsx";
 import { CriticSettings } from "./critic.tsx";
 
 type Props = {
-  catalog: Catalog;
+  catalog: CatalogView;
   team: TeamView;
   values: Layer;
   machine: Layer;
@@ -25,13 +26,12 @@ type Props = {
   reload(): void;
 };
 
-type Listed = Record<string, { at: string; error: string | null; count: number }>;
 
 /** The models are Paseo's: it asks each agent, and this asks Paseo to do it again. */
 function ModelsCard({ catalog, disabled, reload }: Pick<Props, "catalog" | "disabled" | "reload">) {
-  const refresh = useRpc(modelsRpc) as unknown as (input: object) => Promise<Listed>;
+  const refresh = useRpc(modelsRpc);
   const [busy, setBusy] = useState(false);
-  const [listed, setListed] = useState<Listed | null>(null);
+  const [listed, setListed] = useState<ModelsRefreshed | null>(null);
   const [error, setError] = useState<string | null>(null);
   const label = (id: string) => catalog.harnesses.find((entry) => entry.id === id)?.label ?? id;
   const failed = listed ? Object.entries(listed).filter(([, entry]) => entry.error) : [];
@@ -62,7 +62,7 @@ function ModelsCard({ catalog, disabled, reload }: Pick<Props, "catalog" | "disa
   );
 }
 
-type Role = Catalog["roles"][number];
+type Role = CatalogView["roles"][number];
 
 /** Rows, not a component: the card borders each child it gets, and the Critic's card wraps its own rows around these. */
 function roleRows({ catalog, team, values, machine, layer, theme, disabled, save, role }: Omit<Props, "active" | "onActive" | "reload"> & { role: Role }): ReactElement[] {

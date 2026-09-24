@@ -1,7 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { z } from "zod";
-import { ATTENTION, type Attention } from "./attention.ts";
+import type { Attention } from "../../shared/views.ts";
+import { ATTENTION } from "./attention.ts";
 import { hiddenWordsIn } from "./hidden-words.ts";
 import type { FileKinds } from "../core/git.ts";
 import { EcosystemFile, HarnessFile, McpFile, PaseoFile, RolesFile } from "./schema.ts";

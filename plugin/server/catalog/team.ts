@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Attention } from "./attention.ts";
+import type { Attention } from "../../shared/views.ts";
 import {
   type HarnessSpec,
   type Kit,
@@ -19,7 +19,7 @@ import {
   teamServer,
   toolsOf,
 } from "./kit.ts";
-import { type CHECKPOINT_MODES, type Connect, type Layer, type McpChoice } from "./settings.ts";
+import type { CheckpointMode, Connect, Layer, McpChoice } from "../../shared/settings.ts";
 
 type SettingValue = string | number | boolean;
 type McpState = {
@@ -45,8 +45,6 @@ export type Team = {
   rules: string;
   errors: string[];
 };
-
-export type CheckpointMode = (typeof CHECKPOINT_MODES)[number];
 
 /** A landing is only ever approved by the Human: landing is already the Supervisor's call, so it cannot also be the check on it. */
 export type Checkpoints = {
