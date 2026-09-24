@@ -37,6 +37,7 @@ export const HarnessFile = z
     mcpServerField: text.optional(),
     timeline: z
       .strictObject({
+        exitField: text.optional(),
         pseudoCalls: z.array(z.strictObject({ name: text, detail: text })).optional(),
         unparsed: z.strictObject({ input: text, error: pattern }).optional(),
       })

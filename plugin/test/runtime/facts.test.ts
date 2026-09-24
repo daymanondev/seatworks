@@ -69,6 +69,19 @@ test("a failed shell call is seen on every harness however it says so, once, and
   }
 });
 
+test("a command OpenCode reports as completed is read as failed from the exit code it keeps beside the call", () => {
+  // As Paseo maps an OpenCode shell call: its detail has no exit code, and the tool's own metadata rides on the item.
+  const exited = (code: number) => {
+    const row = again(piRow(15), `cat-${code}`, 2);
+    Object.assign(row.event.item!, { status: "completed", error: null, detail: { type: "shell", command: "cat ./does-not-exist.txt", output: "cat: ./does-not-exist.txt: No such file or directory\n" }, metadata: { exit: code, truncated: false } });
+    return row;
+  };
+  const quirks = kit.harnesses.opencode!.timeline;
+  assert.deepEqual(kinds(play([...opening(), exited(1)], rules(), undefined, quirks)), ["call-failed"]);
+  assert.deepEqual(kinds(play([...opening(), exited(0)], rules(), undefined, quirks)), []);
+  assert.deepEqual(kinds(play([...opening(), exited(1)], rules())), [], "a harness that names no such field is read by the call's own status");
+});
+
 test("an irreversible command is caught the moment its command is known, before the call finishes, and only once", () => {
   const rewritten = fixture("claude").map((message) => JSON.parse(JSON.stringify(message).replaceAll("sleep 4; echo step-one", "rm -rf build")) as StreamMessage);
   const facts = play(rewritten, rules()).filter((fact) => fact.kind === "destructive");

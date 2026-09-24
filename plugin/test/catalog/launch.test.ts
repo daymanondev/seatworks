@@ -110,11 +110,14 @@ test("providers outside the kit are left untouched", () => {
   assert.equal(applyRole(kit, team, { provider: "sw2-lead", cwd: "/repo" } as AgentConfig, render).model, undefined);
 });
 
-test("a seat's session gets its config directory and project variables", () => {
+test("a seat's session gets its harness's environment, its config directory and project variables", () => {
   const request = { agentId: "a", workspaceId: null, provider: "sw2-peer-omp", cwd: "/repo", reason: "create", purpose: "interactive", env: { KEEP: "1" } } as SessionOpen;
   const next = seatEnv(kit, request, "/seats/peer-omp-repo", { root: "/repo", state: "/state/repo" });
+  // Paseo may run one agent server for every seat of a harness, so only the session carries the seat's own environment.
   assert.deepEqual(next.env, {
     KEEP: "1",
+    SEATWORKS_HARNESS: "omp",
+    SEATWORKS_AGENT_BIN: "omp",
     PI_CODING_AGENT_DIR: "/seats/peer-omp-repo",
     SEATWORKS_ROLE: "peer",
     SEATWORKS_PROJECT: "/repo",

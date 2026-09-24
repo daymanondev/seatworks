@@ -69,6 +69,7 @@ export function applyRole(kit: Kit, team: Team, config: AgentConfig, render: Ren
   return next;
 }
 
+/** The harness's own env goes in too: Paseo may run one agent server for every seat of a harness, built from its built-in provider. */
 export function seatEnv(kit: Kit, request: SessionOpen, seatPath: string, project: { root: string; state: string }): SessionOpen {
   const seat = seatOf(kit, request.provider);
   if (!seat) return request;
@@ -76,6 +77,7 @@ export function seatEnv(kit: Kit, request: SessionOpen, seatPath: string, projec
     ...request,
     env: {
       ...request.env,
+      ...seat.harness.provider.env,
       [seat.harness.configDirEnv]: seatPath,
       SEATWORKS_ROLE: seat.role.role,
       SEATWORKS_PROJECT: project.root,

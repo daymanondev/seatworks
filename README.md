@@ -50,7 +50,7 @@ Roles are data in `plugin/roles.json`, not code. Each role's tools are in
 
 ## Supported agents
 
-Any role can sit on any of these four agents. You pick one per role in the panel, plus its model and
+Any role can sit on any of these five agents. You pick one per role in the panel, plus its model and
 thinking level where the agent offers them.
 
 | Agent | Before its first seat | Sandbox | Mail into a running turn |
@@ -59,10 +59,11 @@ thinking level where the agent offers them.
 | Codex | `codex login` once. The `codex` CLI must be on the machine that runs the daemon | yes | yes |
 | Pi | `pi` signed in, and `pi install npm:pi-mcp-adapter` once. That adapter is how a Pi seat reaches the desk | no | yes |
 | Oh My Pi | `omp` signed in once, outside any seat (`/login`) | no | no, it waits for the turn to end |
+| OpenCode | `opencode auth login` once, outside any seat | no | yes |
 
 Every seat reads your project's own instructions: Claude reads `CLAUDE.md`, and the others read
-`AGENTS.md`. Claude Code, Codex and Oh My Pi seats are denied `git push`, `gh`, `paseo` and starting
-other agents. A Pi seat is held only by the tools it is given. The shipped Claude settings answer in
+`AGENTS.md`. Claude Code, Codex, Oh My Pi and OpenCode seats are denied `git push`, `gh`, `paseo`
+and starting other agents. A Pi seat is held only by the tools it is given. The shipped Claude settings answer in
 Vietnamese: change `language` in `plugin/harness/claude/settings.json` for another language. The details are under
 [seat directories](docs/REFERENCE.md#seat-directories) and
 [known limits](docs/REFERENCE.md#known-limits).
@@ -137,9 +138,10 @@ Supervisor's chip in the **Team** tab. How it all works is in
 
 - **Opening an archived seat's history starts its agent again, and leaves it running.** Paseo
   resumes an archived agent to show its history, from the app or `paseo logs`, and never closes it.
-  A Pi seat leaves a `pi` process, an Oh My Pi seat an `omp` one. The plugin never reads an
-  archived seat itself. To be rid of them: `pkill -f "pi --mode rpc"` or `pkill -f "omp --mode rpc-ui"`,
-  with no seat of yours running.
+  A Pi seat leaves a `pi` process, an Oh My Pi seat an `omp` one, an OpenCode seat an
+  `opencode serve`. The plugin never reads an archived seat itself. To be rid of them:
+  `pkill -f "pi --mode rpc"`, `pkill -f "omp --mode rpc-ui"` or `pkill -f "opencode serve"`, with no
+  seat of yours running.
 - **An agent gets only the provider keys Paseo's daemon has.** A key set in your shell, such as
   `NVIDIA_API_KEY` for Pi, does not reach the daemon, so those models are neither listed nor usable.
   Put the key where the agent keeps its own (`~/.pi/agent/auth.json` for Pi).

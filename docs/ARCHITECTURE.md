@@ -94,7 +94,7 @@ All paths are under `plugin/`.
 
 1. **Plugin start.** `loadKit` reads `roles.json`, each `harness.json`, the MCP catalog and the tool
    sets. Then the plugin writes one Paseo provider and one agent profile per role and
-   agent. The shipped kit makes twenty: five roles on four agents. It reloads the daemon only when
+   agent. The shipped kit makes twenty-five: five roles on five agents. It reloads the daemon only when
    something changed.
 2. **Before `agent.create`.** `Seating.ensure` builds the seat directory. This covers settings, deny
    rules, the sandbox, MCP servers, skills linked to copies outside any repository, and the working
@@ -103,7 +103,7 @@ All paths are under `plugin/`.
    directory and sets `SEATWORKS_ROLE`, `SEATWORKS_PROJECT` and `SEATWORKS_STATE`. It also seeds the
    project's records, such as `notebook.md`, and writes the
    [team block](#the-concept-and-the-team-block) into the project.
-4. **`bin/seat-room`** checks the launch and then `exec`s Claude. Codex, Pi and Oh My Pi seats start
+4. **`bin/seat-room`** checks the launch and then `exec`s Claude. Codex, Pi, Oh My Pi and OpenCode seats start
    through Paseo's own providers.
 
 The content lint runs during the build. A role prompt, a working rule or a skill that uses a word
@@ -113,7 +113,7 @@ from the role's `hidesWords` fails the build. For example, a Peer may not read "
 The sandbox is derived from the content too. On Claude Code and Codex, a seat's shell may write under
 the project's state only where its prompt, skills or rules name that path (`{{state}}/…` or
 `$SEATWORKS_STATE/…`). The desk's own files are never granted, and only the Supervisor names
-`CONTEXT.md`. Pi and Oh My Pi have no sandbox.
+`CONTEXT.md`. Pi, Oh My Pi and OpenCode have no sandbox.
 
 What each agent's seat directory holds is in [the reference](REFERENCE.md#seat-directories).
 

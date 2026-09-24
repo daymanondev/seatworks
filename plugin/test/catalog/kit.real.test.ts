@@ -27,7 +27,7 @@ test("the shipped kit resolves to a complete team, and every role's seat builds 
   assert.deepEqual(team.errors, []);
   assert.deepEqual(kit.roles.map((role) => role.role).sort(), ["critic", "lead", "peer", "reviewer", "supervisor"]);
   assert.deepEqual(Object.keys(kit.mcp).sort(), ["code-search", "context7", "intellij-index"]);
-  const every = kit.roles.flatMap((role) => ["claude", "codex", "omp", "pi"].map((harness) => `${role.role}-${harness}`)).sort();
+  const every = kit.roles.flatMap((role) => ["claude", "codex", "omp", "opencode", "pi"].map((harness) => `${role.role}-${harness}`)).sort();
   assert.deepEqual(seatPairs(kit).map((pair) => `${pair.role.role}-${pair.harness.id}`).sort(), every, "every role can sit on every agent the kit ships");
   const home = tempDir("sw2-real-home-");
   const project = { slug: "demo-000000", state: "/state/demo" };
@@ -89,6 +89,16 @@ test("every role builds on every agent the kit ships, each in that agent's own t
       assert.ok(settings.disabledProviders?.includes("claude"), `${where}: the owner's own Claude setup does not load in a seat`);
       const servers = readConfig<Record<string, any>>(join(dir, harness.mcp.file), {}).mcpServers ?? {};
       assert.equal("team" in servers, Boolean(role.tools), `${where}: the desk's tools are in the file omp reads them from`);
+    }
+    if (harness.id === "opencode") {
+      const { bash, task, question, external_directory: outside } = settings.permission ?? {};
+      if (role.role === "critic") assert.equal(bash, "deny", `${where}: runs nothing`);
+      else {
+        assert.equal(Object.keys(bash)[0], "*", `${where}: the allow comes first, since the last rule that matches wins`);
+        assert.ok(bash["git push *"] === "deny" && bash["git -C * push *"] === "deny", `${where}: a seat does not push, with -C or without`);
+        assert.equal(bash["git commit *"] === "deny", ["supervisor", "lead", "reviewer"].includes(role.role), `${where}: commits only where the role may`);
+      }
+      assert.deepEqual([task, question, outside], ["deny", "deny", "allow"], `${where}: no subagents, no question that stops the turn, and nothing waiting on a person`);
     }
     if (harness.id === "pi") {
       assert.deepEqual(settings.packages, ["npm:pi-mcp-adapter"], `${where}: the desk's tools reach Pi only through the adapter`);

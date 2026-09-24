@@ -141,7 +141,7 @@ only you can answer.
 | Field | Drives |
 |---|---|
 | `id`, `label` | The harness's name, and the agent half of a provider's label |
-| `baseProvider` | The Paseo provider it extends: `claude`, `codex`, `pi` or `omp` |
+| `baseProvider` | The Paseo provider it extends: `claude`, `codex`, `pi`, `omp` or `opencode` |
 | `configDirEnv`, `profileRoot` | The variable that points the agent at its seat directory, and where those live |
 | `contextFile` | The file in the seat directory that gets the working rules |
 | `skillsDir` | Where skills are linked, each to its copy under `content/` |
@@ -153,7 +153,7 @@ only you can answer.
 | `projectContextOption` | The provider option that receives the working directory |
 | `steers` | Whether mail may be steered into a running turn |
 | `mcpCall`, `mcpServerField` | How the agent names a call to an MCP server, or the field that holds the server's name, so a call to the desk is known as one |
-| `timeline` | Where the agent's timeline differs from the rest: calls it sends that are not the seat's, and the marks of an input that was not JSON |
+| `timeline` | Where the agent's timeline differs from the rest: where it keeps a command's exit code when not in the call, calls it sends that are not the seat's, and the marks of an input that was not JSON |
 | `checks` | Files the Health tab looks for |
 | `provider` | Env, launch command, `forceFlags`, and the starting mode |
 
@@ -170,12 +170,16 @@ settings revision changes, its settings file is gone, or a login appeared since.
 | Claude Code | `~/.claude/profiles/…` | `settings.json` (deny rules, sandbox), `.claude.json` (its own MCP servers cleared), `skills/`, a `projects` link, `CLAUDE.md` for working rules | `bin/seat-room` with `--setting-sources user`, so the project's settings, hooks and skills stay out |
 | Codex | `~/.codex/seats/…` | `config.toml` (`model_provider` and `model_providers` from your own `~/.codex/config.toml`; `workspace-write`, or `read-only` for Reviewer and Critic; `approval_policy = "never"`; subagents off), `model-catalog.json`, `rules/seatworks.rules`, `skills/`, an `auth.json` link, `AGENTS.md` | Paseo's Codex provider |
 | Pi | `~/.pi/seats/…` | `settings.json` (`pi-mcp-adapter`, project trust off, tool lists for Reviewer and Critic), `mcp.json`, `skills/`, links to login, models and npm | Paseo's Pi provider |
+| OpenCode | `~/.config/opencode-seats/…` | `opencode/opencode.json` (your providers, permissions with command denials, subagents and questions off, autoupdate and sharing off), `opencode/AGENTS.md`, `opencode/skills/`, a link to your git config | Paseo's OpenCode provider, with its env given at each session |
 | Oh My Pi | `~/.omp/seats/…` | `config.yml` (command denials in `bash.patterns`, tool denials, subagents, questions, memory and other agents' config off), `mcp.json`, `AGENTS.md`, `skills/`, links to its login and models | Paseo's omp provider |
 
 - **Claude Code** still reads the project's `CLAUDE.md`: the working directory is passed as an
   additional directory.
 - **Codex** needs the `codex` CLI to build a seat, because the build asks it for its models.
 - **Oh My Pi** reads `config.yml` as YAML; the plugin writes it as JSON, which YAML reads too.
+- **OpenCode** uses `XDG_CONFIG_HOME` as its config variable, and Paseo runs one OpenCode server for
+  every seat, so a seat's own env reaches it only through the session. It keeps a failed command's
+  exit code beside the call, where the watch reads it.
 
 ## MCP servers
 
@@ -325,8 +329,9 @@ it:
 ## Known limits
 
 - **Oh My Pi can't be steered through Paseo.** Mail to a running omp seat waits for its turn to end.
-- **Pi and Oh My Pi have no sandbox.** Pi has no command rules either, so a Pi seat is held only by
-  its tools. Oh My Pi has command denials, such as `git push` and `gh`, but no path rules.
+- **Pi, Oh My Pi and OpenCode have no sandbox.** Pi has no command rules either, so a Pi seat is held
+  only by its tools. Oh My Pi and OpenCode have command denials, such as `git push` and `gh`, but no
+  path rules.
 - **Reading an archived seat's history leaves its agent running.** Paseo resumes the agent to serve
   it and never closes it; `paseo logs` or the app's history view does this. The watch stops rather
   than read a seat once it is archived.
