@@ -20,8 +20,7 @@ const MOVES = {
   stall: { from: ["running", "rework", "failed"], to: "stalled" },
   lose: { from: ["running", "rework"], to: "stalled" },
   resume: { from: ["stalled"], to: "running" },
-  cut: { from: ["waiting", ...IN_HAND, "queued", "merging"], to: "cut" },
-  drop: { from: ["waiting", ...IN_HAND, "queued"], to: "cut" },
+  cut: { from: ["waiting", ...IN_HAND, "queued"], to: "cut" },
 } satisfies Moves<TaskStatus>;
 
 export type TaskMove = keyof typeof MOVES;

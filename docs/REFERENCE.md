@@ -29,7 +29,7 @@ schema. A call that doesn't fit is refused, with what is wrong.
 | `start_review` | Seats a read-only reviewing role. It runs where the change is now: the task's copy, the lane's copy, or the task branch |
 | `accept` | Lane mode: marks the task merged in place and retires the Peer. It is refused if the lane copy is off its branch or dirty. Parallel mode: queues the task for merging |
 | `rework` | Sends the task back with a letter. It is refused while another task holds the lane copy |
-| `cut` | Stops the task and archives its Peer. It resets the lane copy to where the task started, when nothing merged there since |
+| `cut` | Stops the task and archives its Peer. It resets the lane copy to where the task started, when nothing merged there since. It is refused while the task's merge runs |
 | `report` | Reports to the Supervisor. With `ready`, it runs the lane gate first |
 | `ask` | A Lead asks the Supervisor. A Peer or Reviewer asks its Lead, or the Supervisor when the Lead is gone |
 | `done` | Hands the task back to the Lead, with a file. On a per-task-gate project, it runs the gate first. It is refused once the task is accepted, queued or cut |

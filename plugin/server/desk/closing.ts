@@ -178,7 +178,7 @@ async function retire(desk: DeskServices, project: Project, lane: Lane, args: Cl
     delete entry?.landApproval;
     const tasks: Task[] = [];
     for (const task of Object.values(current.tasks).filter((item) => item.lane === lane.id)) {
-      TASK.move(task, "drop");
+      TASK.move(task, "cut");
       tasks.push({ ...task });
     }
     return tasks;

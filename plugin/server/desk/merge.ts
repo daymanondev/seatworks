@@ -118,7 +118,7 @@ export class MergeQueue {
     await this.finish(project, task, lane, "merged", letters.merged(task, counts, outsideOwned(counts?.files ?? [], task.owned), gate));
   }
 
-  /** The record follows what the merge did and its Lead is told; a task cut while it merged stays cut, and nobody is told otherwise. */
+  /** The record follows what the merge did, and its Lead is told. */
   private async finish(project: Project, task: Task, lane: Lane, move: Outcome, text: string): Promise<void> {
     const moved = await this.ctx.moveTask(project, task.id, move);
     if (typeof moved !== "object") return;
