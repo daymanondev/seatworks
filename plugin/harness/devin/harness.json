@@ -16,6 +16,7 @@
     "key": "mcpServers",
     "rule": "List a server's tools once before your first call to it, so you can call them."
   },
+  "mcpCall": " from {server}$",
   "hasThinking": false,
   "exitPattern": "^Exited with code ([0-9]+)$",
   "settings": {

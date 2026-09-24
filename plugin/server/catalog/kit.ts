@@ -43,6 +43,7 @@ export type HarnessSpec = {
   stateWrites?: { path: string; delivery: "launch" | "file" };
   projectContextOption?: string;
   exitPattern?: string;
+  mcpCall?: string;
   settings: { file: string; source: string; roleSource: string; ownedPaths?: string[]; inherits?: { from: string; keys: string[] } };
   links?: { link: string; target: string; optional?: boolean }[];
   files?: Record<string, string[]>;
@@ -78,6 +79,7 @@ const HARNESS_FIELDS = new Set([
   "stateWrites",
   "projectContextOption",
   "exitPattern",
+  "mcpCall",
   "settings",
   "links",
   "files",
@@ -139,6 +141,7 @@ export function harnessProblems(id: string, raw: Record<string, unknown>): strin
     } catch {}
     if (typeof raw.exitPattern !== "string" || groups < 1) problems.push("gives an exitPattern that is not a pattern capturing the exit code");
   }
+  if (raw.mcpCall !== undefined && (typeof raw.mcpCall !== "string" || !raw.mcpCall.includes("{server}"))) problems.push("gives an mcpCall that does not say where the server's name goes");
   if (raw.systemPrompt !== undefined && raw.systemPrompt !== "config" && raw.systemPrompt !== "file") problems.push(`takes its prompt as ${String(raw.systemPrompt)}, which is neither config nor file`);
   if (raw.systemPrompt === "file" && !raw.promptFile) problems.push("takes its prompt as a file but names no promptFile");
   return problems;
@@ -583,7 +586,9 @@ export function paseoToolsPolicy(role: RoleSpec): { enabled?: boolean; disabledT
   return rest;
 }
 
+export const TEAM_SERVER = "team";
+
 export function teamServer(kit: Kit, role: RoleSpec, spool: string, node: string): McpServers {
   if (!role.tools) return {};
-  return { team: { type: "stdio", command: node, args: [join(kit.dir, "mcp", "team.mjs"), role.role, role.tools, spool] } };
+  return { [TEAM_SERVER]: { type: "stdio", command: node, args: [join(kit.dir, "mcp", "team.mjs"), role.role, role.tools, spool] } };
 }

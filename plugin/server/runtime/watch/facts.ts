@@ -62,6 +62,7 @@ export type Rules = {
   testPath: RegExp;
   suppressed: RegExp;
   exit?: RegExp;
+  desk?: RegExp;
   gates: string[];
   cwd?: string;
   temp?: string;
@@ -79,6 +80,11 @@ export function weakened(before: string, after: string): string | undefined {
   if (count(after, SKIPPED) > count(before, SKIPPED)) return "adds a skip marker";
   const [was, now] = [count(before, ASSERTION), count(after, ASSERTION)];
   return now < was ? `${was} assertions become ${now}` : undefined;
+}
+
+/** Calls to `server` as the harness names them: `pattern` holds `{server}` where the name goes. */
+export function callsTo(pattern: string | undefined, server: string): RegExp | undefined {
+  return pattern ? new RegExp(pattern.replaceAll("{server}", server.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))) : undefined;
 }
 
 export function failed(call: Call, exit?: RegExp): boolean {
@@ -229,7 +235,8 @@ export function onSettle(call: Call, rules: Rules, known?: (path: string) => str
   const facts: Fact[] = [];
   const detail = call.detail;
   const bad = failed(call, rules.exit);
-  if (bad) facts.push({ kind: isGate(call, rules.gates) ? "gate-failed" : "call-failed", level: "note", quote: flat(describe(call)) });
+  // The desk's refusals already told the seat why and what instead, and the desk records them.
+  if (bad && !rules.desk?.test(call.name)) facts.push({ kind: isGate(call, rules.gates) ? "gate-failed" : "call-failed", level: "note", quote: flat(describe(call)) });
   const writes = detail.type === "edit" || detail.type === "write";
   const both = writes && !bad ? sides(detail, known) : undefined;
   if (both) {

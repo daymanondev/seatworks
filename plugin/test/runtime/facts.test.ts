@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 import { loadKit } from "../../server/catalog/kit.ts";
 import type { Seen } from "../../server/core/ports.ts";
 import type { StreamMessage } from "../../server/core/stream.ts";
-import { DESTRUCTIVE, FACT_LEVELS, FACT_TITLES, type Fact, type Rules, SUPPRESSED, TEST_PATH, onDetail, stuck } from "../../server/runtime/watch/facts.ts";
+import { DESTRUCTIVE, FACT_LEVELS, FACT_TITLES, type Fact, type Rules, SUPPRESSED, TEST_PATH, callsTo, onDetail, stuck } from "../../server/runtime/watch/facts.ts";
+import { TEAM_SERVER } from "../../server/catalog/kit.ts";
 import { weigh } from "../../server/runtime/watch/jev/rules.ts";
 import { SeatWatch } from "../../server/runtime/watch/watches.ts";
 
@@ -419,4 +420,15 @@ test("removing only scratch files is not an irreversible command, and anything e
   assert.equal(kept?.kind, "destructive");
   assert.match(kept!.quote, /rm -rf src/);
   assert.equal(shell("rm -rf /tmp/a src").length, 1, "one real target among scratch ones is enough");
+});
+
+test("a refusal the desk gave a seat is not a failed call, on every harness that names its calls: the desk already said why and what instead", () => {
+  const failedCat = piRow(15);
+  // As each harness recorded a refused team call live.
+  for (const [harness, name] of [["claude", "mcp__team__start_task"], ["pi", "team_plan_tasks"], ["devin", "Calling done from team"]] as const) {
+    const refused = again(failedCat, "t", 2);
+    refused.event.item!.name = name;
+    const given = rules({ desk: callsTo(kit.harnesses[harness]!.mcpCall, TEAM_SERVER) });
+    assert.deepEqual(kinds(play([...opening(), refused, again(failedCat, "x", 3)], given)), ["call-failed"], harness);
+  }
 });

@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import type { PluginHookContext, PluginLifecycleEvents, PluginServerContext } from "@getpaseo/plugin/server";
 import { renderPrompt } from "../catalog/content.ts";
-import { type Kit, type RoleSpec, can, seatOf } from "../catalog/kit.ts";
+import { type Kit, type RoleSpec, TEAM_SERVER, can, seatOf } from "../catalog/kit.ts";
 import { type Listed, type ModelCache, applyModels, fetchModels, listingProviders } from "../catalog/models.ts";
 import { type AgentConfig, type SessionOpen, applyRole, seatEnv } from "../catalog/launch.ts";
 import { applyReconcile, reloadDaemon } from "../catalog/providers.ts";
@@ -31,7 +31,7 @@ import { Seating } from "./seating.ts";
 import { spoolDirs, takeRequests, writeReply } from "./spool.ts";
 import { TeamSource } from "./team-source.ts";
 import { TurnRules } from "./turns.ts";
-import { FACT_TITLES, type Fact } from "./watch/facts.ts";
+import { FACT_TITLES, type Fact, callsTo } from "./watch/facts.ts";
 import { type Finding, type Verdict, decide } from "./watch/findings.ts";
 import { weigh } from "./watch/jev/rules.ts";
 import { keepAssessment, lastKept, readTally } from "./watch/jev/assessments.ts";
@@ -196,6 +196,7 @@ export class Runtime {
         testPath: new RegExp(attention.testPath, "i"),
         suppressed: new RegExp(attention.suppressed, "i"),
         exit: harness.exitPattern ? new RegExp(harness.exitPattern) : undefined,
+        desk: callsTo(harness.mcpCall, TEAM_SERVER),
         gates: gateCommands(seat.cwd, loadConfig(project.state).gate),
         cwd: seat.cwd,
         temp: tmpdir(),
