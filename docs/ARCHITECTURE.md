@@ -171,8 +171,10 @@ a single message.
 ## The watch
 
 **What is watched.** Every live seat whose role can be `watched`: Leads and Peers in the preset,
-never a Reviewer. `core/stream.ts` joins Paseo's live timeline with its paged history, and folds it
-into a window of at most 80 entries per seat: calls, words, thoughts, instructions and errors.
+never a Reviewer. `core/stream.ts` joins Paseo's live timeline with its paged history, reading back
+what a join, a gap or a reconnect missed, and folds it into a window of at most 80 entries per seat:
+calls, words, thoughts, instructions and errors. A seat whose subscription fails is followed again on
+the next round.
 
 **Facts, in code.** Every turn is read for facts, and every lane's record for shapes that span
 turns. Each fact has a level:

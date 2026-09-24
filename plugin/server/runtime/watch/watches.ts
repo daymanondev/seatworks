@@ -34,7 +34,8 @@ export class SeatWatch {
     return this.placed()?.rules;
   }
 
-  see(seen: Seen, now = Date.now()): Fact[] {
+  see(seen: Exclude<Seen, { kind: "lost" }>, now = Date.now()): Fact[] {
+    if (seen.kind === "idle") return this.idle();
     if (seen.kind === "reset") {
       this.window.clear();
       this.recovery.reset();
@@ -82,6 +83,15 @@ export class SeatWatch {
     this.startedAt = at;
     this.current = this.context();
     this.told.clear();
+    return [];
+  }
+
+  /** A turn whose end went unseen, as across a gap, is closed without judging how it ended. */
+  private idle(): Fact[] {
+    if (!this.running) return [];
+    this.running = false;
+    this.startedAt = 0;
+    this.window.closeRunning();
     return [];
   }
 
@@ -199,8 +209,11 @@ export class Watches {
     for (const id of [...this.followed.keys()]) this.drop(id);
   }
 
+  /** A lost stream leaves the seat unfollowed, so the next round follows it again. */
   private seen(watch: SeatWatch, seen: Seen): void {
-    this.found(watch, watch.see(seen));
+    if (seen.kind !== "lost") return this.found(watch, watch.see(seen));
+    if (this.followed.get(watch.seat.id)?.watch === watch) this.followed.delete(watch.seat.id);
+    this.log(`${watch.seat.id} is no longer watched: ${seen.error}`);
   }
 
   private found(watch: SeatWatch, facts: Fact[]): void {

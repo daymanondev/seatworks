@@ -74,22 +74,30 @@ runs in a HOME of its own, and a `console.error` the test did not ask for fails 
   prefix, often two clauses. E.g. "Let the work decide how many agents run, not a quota". Never
   `fix:`/`feat:` or a file name.
 
-## Paseo 0.8 facts that are easy to get wrong
+## Paseo 0.9 facts that are easy to get wrong
 
 - A plugin gives an agent tools via `mcpServers` in `before('agent.create')`, and cannot change them
-  later. Afterwards only `modelId`, `modeId`, `thinkingOptionId`, `featureValues` are mutable.
+  later. Afterwards only the model, mode, thinking option and feature values change, and the name
+  and labels through `update_agent`.
 - `toolPolicy` is `{preapproved}` only (suppresses prompts). `mcpServers` adds tools;
   `providers.<id>.paseoTools.disabledTools` removes built-ins.
 - `before('agent.create')` can't see `labels` (payload is `.pick({config, env}).strict()`): a seat's
   role lives in its provider string. Pass `labels` to `paseo.agents.create()` instead. Labels are an
   open, server-side queryable `Record<string,string>`.
 - `systemPrompt` is creation-only: a prompt change reaches a seat on its next creation.
-- The timeline can be read live mid-turn (`agents.ref(id).timeline.subscribe()`), prose and
-  reasoning included. `timeline.append` writes a durable item into an agent's own timeline.
+- History comes back projected whatever the request asks: a tool call is one entry in its latest
+  state and a run of text chunks one message. An entry's `seqEnd` can run past the entries after it,
+  and an `after` page returns whole entries, restating rows before its cursor.
+- `timeline.subscribe()` delivers live events only, prose and reasoning included. After a reconnect
+  it sends `subscription_restored` and none of what was missed; a failed one sends `error` and is
+  released. `timeline.append` writes a durable item into an agent's own timeline.
+- The plugin's own client reconnects by itself, and its socket holds no lease.
 - SDK settings are host-scoped only (runtime throw), hence the plugin's own revision-checked store.
 - Only `before` hooks (`agent.create`, `agent.session_open`, `workspace.create`) can refuse, by
-  throwing. All hooks time out at 30 s, and on those three a timeout cancels the user's action: no
-  unbounded I/O there.
+  throwing. Every hook call times out at 30 s, and on those three the timeout fails the user's
+  action: no unbounded I/O there.
+- The daemon and the app both check `requirements.paseo` in `paseo-plugin.json`, and refuse to load a
+  plugin whose range leaves them out.
 - Paseo already ships `worktree.setup`/`teardown`, `create_heartbeat`, a PTY API and a
   `paseo.parent-agent-id` label. Look for a native facility before building one.
 

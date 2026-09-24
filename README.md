@@ -71,7 +71,7 @@ Vietnamese: change `language` in `plugin/harness/claude/settings.json` for anoth
 
 You need:
 
-- Paseo `>=0.8.0 <0.9.0`
+- Paseo `>=0.9.1 <0.10.0`
 - Node.js 24 or newer. There is no build step.
 - `git` and `jq`
 - the CLI of each agent you use, signed in

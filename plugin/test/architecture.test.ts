@@ -79,7 +79,6 @@ const LONG_FUNCTIONS: Record<string, number> = {
   "server/catalog/team.ts resolveRole": 60,
   "server/core/paseo-adapter.ts seatsOn": 61,
   "server/core/paseo-adapter.ts workspacesOn": 57,
-  "server/core/stream.ts follow": 121,
   "server/desk/flow.ts flowView": 100,
   "server/desk/status.ts statusText": 104,
   "server/desk/tools/lead.ts startReview": 71,

@@ -20,12 +20,16 @@ export type SeatSpec = {
   labels: Record<string, string>;
 };
 
-export type StreamRow = { item: Record<string, unknown>; seq: number; epoch: string; turnId: string | null; replay: boolean };
+/** One timeline entry, whole: `seqStart` is its first source row and `seq` its last, so one read back after a gap can restate rows already told. */
+export type StreamRow = { item: Record<string, unknown>; seqStart: number; seq: number; epoch: string; turnId: string | null; replay: boolean };
 
+/** `idle`: when the seat was last read it was in no turn, so a turn whose end went unseen is over; `lost`: the stream failed and stopped. */
 export type Seen =
   | { kind: "row"; row: StreamRow }
   | { kind: "turn"; phase: "started" | "completed" | "failed" | "canceled"; turnId: string | null; error?: string; at?: number }
-  | { kind: "reset" };
+  | { kind: "idle" }
+  | { kind: "reset" }
+  | { kind: "lost"; error: string };
 
 export type Stream = { readonly ready: Promise<void>; stop(): void };
 

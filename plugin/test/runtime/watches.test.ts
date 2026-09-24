@@ -67,6 +67,19 @@ test("a seat the round no longer sees is let go, and one that failed to join is 
   assert.equal(broken.subscriptions, 2);
 });
 
+test("a seat whose stream failed is followed again the next round", async () => {
+  const timelines = new Map<string, FakeTimeline>();
+  const watches = new Watches({ kit, seats: seatsWith(timelines), context: () => undefined, found: () => {}, log: () => {} });
+  const peer = seat("p1", "sw2-peer-devin/swe-2-max");
+  watches.sync([peer]);
+  await settle();
+  timelines.get("p1")!.fail("socket closed");
+  await settle();
+  assert.equal(watches.get("p1"), undefined, "a stream Paseo released is not held as followed");
+  watches.sync([peer]);
+  assert.equal(timelines.get("p1")!.subscriptions, 2);
+});
+
 test("what a seat is watched against is read again until the ledger has placed it", () => {
   // A Peer's first turn starts before start_task places it, so an empty first read must not be kept.
   let placed = false;

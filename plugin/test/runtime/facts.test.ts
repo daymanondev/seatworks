@@ -30,14 +30,14 @@ const rules = (extra: Partial<Rules> = {}): Rules => ({
   ...extra,
 });
 
-function toSeen(message: StreamMessage, epochs: Map<string, number>): Seen | undefined {
+function toSeen(message: StreamMessage, epochs: Map<string, number>): Exclude<Seen, { kind: "lost" }> | undefined {
   const { event } = message;
   if (event.type === "turn_started") return { kind: "turn", phase: "started", turnId: event.turnId ?? null };
   if (event.type === "turn_completed") return { kind: "turn", phase: "completed", turnId: event.turnId ?? null };
   if (event.type !== "timeline" || typeof message.seq !== "number") return undefined;
   if (!epochs.has(message.epoch!)) epochs.set(message.epoch!, epochs.size);
   const replay = epochs.get(message.epoch!)! > 0;
-  return { kind: "row", row: { item: event.item!, seq: message.seq, epoch: message.epoch!, turnId: event.turnId ?? null, replay } };
+  return { kind: "row", row: { item: event.item!, seqStart: message.seq, seq: message.seq, epoch: message.epoch!, turnId: event.turnId ?? null, replay } };
 }
 
 /** `handed` is the outcome of a hand-back the turn made, if it made one. */
@@ -266,7 +266,7 @@ test("a message steered into a long turn does not make it long again", () => {
   const t0 = Date.parse("2026-09-19T10:00:00Z");
   watch.see({ kind: "turn", phase: "started", turnId: "t" }, t0);
   assert.equal(watch.longTurn(t0 + 40 * 60_000, 30).length, 1);
-  watch.see({ kind: "row", row: { item: { type: "user_message", text: "Also check the README" }, seq: 1, epoch: "e", turnId: "t", replay: false } }, t0 + 40 * 60_000);
+  watch.see({ kind: "row", row: { item: { type: "user_message", text: "Also check the README" }, seqStart: 1, seq: 1, epoch: "e", turnId: "t", replay: false } }, t0 + 40 * 60_000);
   assert.deepEqual(watch.longTurn(t0 + 45 * 60_000, 30), []);
 });
 
@@ -365,7 +365,7 @@ test("Claude's task notifications are kept in the window as pseudo calls, which 
   const watch = new SeatWatch({ id: "s1", provider: "sw2-peer-claude", cwd: "/work" }, () => ({ rules: rules(), handedBack: () => undefined, placed: true }));
   for (const message of claudeTurn2()) {
     if (message.event.type !== "timeline") continue;
-    watch.see({ kind: "row", row: { item: message.event.item!, seq: message.seq!, epoch: message.epoch!, turnId: message.event.turnId ?? null, replay: false } });
+    watch.see({ kind: "row", row: { item: message.event.item!, seqStart: message.seq!, seq: message.seq!, epoch: message.epoch!, turnId: message.event.turnId ?? null, replay: false } });
   }
   assert.ok(watch.window.units.some((unit) => unit.kind === "call" && unit.call.name === "task_notification" && unit.call.pseudo));
 });

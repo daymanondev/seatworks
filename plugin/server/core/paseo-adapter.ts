@@ -79,8 +79,8 @@ export function seatsOn(bound: Bound): Seats {
       await ref(id).send(text, { messageId: deskId(kinds), ...(steer ? { activeTurnBehavior: "steer" } : {}) });
     },
     async typed(id: string): Promise<string[]> {
-      // The projected timeline holds one row per call, so a whole session fits.
-      const page = await ref(id).timeline.refetch({ direction: "tail", limit: 0, projection: "projected" });
+      // Paseo projects history, one row per call, so a whole session fits.
+      const page = await ref(id).timeline.refetch({ direction: "tail", limit: 0 });
       return page.entries.flatMap(({ item }) => {
         if (item.type === "user_message" && typeof item.text === "string") return sentBy(item)[0] === "person" ? [item.text] : [];
         // What the person chose when a seat asked them is their word too.

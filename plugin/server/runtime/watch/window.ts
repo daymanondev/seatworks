@@ -57,6 +57,7 @@ export class Window {
   private instruction: { text: string; from: string[] } = { text: "", from: [] };
   private instructionAt = -1;
   private pushed = 0;
+  private seq = 0;
 
   constructor() {
     this.limit = UNITS;
@@ -65,14 +66,16 @@ export class Window {
   add(row: StreamRow): Change {
     const item = row.item;
     const type = text(item.type);
+    const restated = row.seqStart <= this.seq;
+    this.seq = Math.max(this.seq, row.seq);
     if (type === "tool_call") return this.called(row);
     if (type === "user_message") {
       this.instruction = { text: text(item.text), from: sentBy(item) };
       this.push({ kind: "user", text: this.instruction.text });
       this.instructionAt = this.pushed - 1;
     }
-    else if (type === "assistant_message") this.join("said", text(item.text), text(item.messageId) || undefined);
-    else if (type === "reasoning") this.join("thought", text(item.text));
+    else if (type === "assistant_message") this.join("said", text(item.text), restated, text(item.messageId) || undefined);
+    else if (type === "reasoning") this.join("thought", text(item.text), restated);
     else if (type === "compaction") this.push({ kind: "compaction" });
     else if (type === "error") this.push({ kind: "error", text: text(item.message) || text(item.text) });
     return { detailed: false, settled: false };
@@ -92,6 +95,7 @@ export class Window {
     this.instruction = { text: "", from: [] };
     this.instructionAt = -1;
     this.pushed = 0;
+    this.seq = 0;
   }
 
   sinceInstruction(): Unit[] {
@@ -138,11 +142,12 @@ export class Window {
     return { call: seen, detailed, settled };
   }
 
-  private join(kind: "said" | "thought", piece: string, messageId?: string): void {
+  /** A message read back after a gap comes whole, so it replaces the part already told instead of following it. */
+  private join(kind: "said" | "thought", piece: string, restated: boolean, messageId?: string): void {
     if (!piece) return;
     const last = this.units[this.units.length - 1];
     if (last?.kind === kind && (kind === "thought" || (last as { messageId?: string }).messageId === messageId)) {
-      last.text += piece;
+      last.text = restated ? piece : last.text + piece;
       return;
     }
     this.push(kind === "said" ? { kind, text: piece, ...(messageId ? { messageId } : {}) } : { kind, text: piece });

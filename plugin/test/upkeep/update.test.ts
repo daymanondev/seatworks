@@ -117,5 +117,5 @@ test("an install that fails puts the checkout back where it was", async () => {
 test("a copy Paseo installed from Git is left to Paseo's own update", async () => {
   const { ctx } = world();
   const view = await checkUpdate({ ...ctx, dir: "/home/me/.paseo/plugins/seatworks-v2/abc/checkout/plugin", managedRoot: "/home/me/.paseo/plugins" });
-  assert.equal(view.blocked, "Paseo installed this copy from Git: run `paseo plugin update seatworks-v2`.");
+  assert.equal(view.blocked, "Paseo installed this copy from Git: run `paseo plugin update seatworks-v2 --ref <branch>`, naming the branch it came from, since without --ref Paseo takes the remote's default branch.");
 });
