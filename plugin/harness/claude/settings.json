@@ -18,6 +18,8 @@
       "Monitor",
       "TaskOutput",
       "TaskStop",
+      "TeamCreate",
+      "TeamDelete",
       "PushNotification",
       "ReportFindings",
       "Artifact",
