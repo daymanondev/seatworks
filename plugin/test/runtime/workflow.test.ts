@@ -58,7 +58,7 @@ test("a lane works serially in the project's own copy and hands it back on its b
   const accepted = await h.call(lane.lead!, "lead", "accept", { task: "L1-T1" });
   assert.equal(accepted.ok, true, accepted.text);
   assert.equal(h.ledger().tasks["L1-T1"]!.status, "merged");
-  assert.ok(h.agents.get(task1.peer!)!.archivedAt);
+  assert.equal(h.agents.get(task1.peer!)!.archivedAt, null, "its Peer stays in the copy for the next task");
 
   await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Break it", goal: "g", acceptance: ["a"], owned: ["BROKEN"], outOfScope: ["the rest of the repository"] }] });
   const task2 = h.ledger().tasks["L1-T3"]!;

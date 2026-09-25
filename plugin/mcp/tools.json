@@ -626,6 +626,10 @@
                   "type": "boolean",
                   "description": "Run beside the lane's writer in a separate working copy. Only for an independent write set."
                 },
+                "fresh": {
+                  "type": "boolean",
+                  "description": "Start it on a new Peer rather than the one kept in the lane's working copy, when what that one learned would mislead it. Not with parallel."
+                },
                 "after": {
                   "type": "array",
                   "items": {
@@ -723,7 +727,7 @@
     },
     {
       "name": "accept",
-      "description": "Accept a handed-back task. One in the lane's copy is already on the lane branch; a parallel task merges into it, and MERGED or MERGE FAILED comes as mail. Whether a task must be green alone is the project's choice: the gate runs on the whole lane when you report it ready unless your directive says per task.",
+      "description": "Accept a handed-back task. One in the lane's copy is already on the lane branch, and its Peer stays for the next task there; a parallel task merges in, and MERGED or MERGE FAILED comes as mail. The gate runs on the whole lane at ready, unless your directive says per task.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -817,6 +821,21 @@
         "required": [
           "task",
           "reason"
+        ]
+      }
+    },
+    {
+      "name": "release",
+      "description": "Let go of the Peer kept from a task you accepted in the lane's working copy, once what it learned will not help the next task there: it is archived, and the next task starts a new Peer. The lane's Peers all go when it closes.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "task"
         ]
       }
     },

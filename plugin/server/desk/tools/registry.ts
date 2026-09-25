@@ -19,6 +19,7 @@ import { landLane } from "./land-lane.ts";
 import { openLane } from "./open-lane.ts";
 import { record } from "./record.ts";
 import { recordHumanAnswer } from "./record-human-answer.ts";
+import { releasePeer } from "./release.ts";
 import { replaceLead } from "./replace-lead.ts";
 import { resumeLane } from "./resume-lane.ts";
 import { report } from "./report.ts";
@@ -44,6 +45,7 @@ export const TOOLS: ToolDef[] = [
   rework,
   amendTask,
   cut,
+  releasePeer,
   report,
   askOwner,
   askLead,

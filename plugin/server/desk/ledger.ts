@@ -82,7 +82,7 @@ export type Task = {
   updatedAt: number;
   handback?: Handback;
   after?: string[];
-  opening?: { role: string };
+  opening?: { role: string; fresh?: boolean };
   held?: { why: string; tried?: boolean };
   amended?: Amendment[];
   reworks?: number;
@@ -117,7 +117,7 @@ type Restoring = { writers: string[]; base: string; branch: string; landed?: boo
 
 export type Slot = { id: string; path: string; workspaceId?: string; lane?: string; task?: string; createdAt: number; releasing?: Releasing };
 
-export type AgentRef = { id: string; role: string; lane?: string; task?: string; recordedAt?: number; spokeAt?: number };
+export type AgentRef = { id: string; role: string; lane?: string; task?: string; startedAs?: string; recordedAt?: number; spokeAt?: number };
 
 export type Ledger = {
   seq: { lane: number; ask: number; slot?: number; question?: number };
@@ -261,8 +261,10 @@ export function laneOnHold(state: string, agentId: string): Lane | undefined {
   return lane?.onHold && lane.status !== "closed" ? lane : undefined;
 }
 
+/** The task a Peer or reviewer is on now: its binding names it, and one Peer can carry a lane's tasks in turn. */
 export function taskOfPeer(ledger: Ledger, agentId: string): Task | undefined {
-  return Object.values(ledger.tasks).find((task) => task.peer === agentId);
+  const task = ledger.tasks[ledger.agents[agentId]?.task ?? ""];
+  return task?.peer === agentId ? task : undefined;
 }
 
 export function openAsksTo(ledger: Ledger, agentId: string): Ask[] {

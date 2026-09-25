@@ -180,6 +180,7 @@ test("the list carries what each seat was asked", async () => {
   const { project, services, supervisor } = desk();
   const ledger = emptyLedger();
   ledger.tasks["L1-T1"] = { id: "L1-T1", lane: "L1", kind: "code", mode: "lane", title: "Empty cart message", goal: "show the empty cart message", acceptance: ["empty cart renders it"], owned: ["src/cart/**"], outOfScope: ["checkout"], peer: "peer-1", status: "working", openedAt: 1, updatedAt: 1, silent: 0 } as never;
+  ledger.agents["peer-1"] = { id: "peer-1", role: "peer", lane: "L1", task: "L1-T1" };
   mkdirSync(project.state, { recursive: true });
   saveLedger(project.state, ledger);
   await notice(services, project, { id: "peer-1", provider: "sw2-peer-claude/claude-opus-5" }, [stuck]);

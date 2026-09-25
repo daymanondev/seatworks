@@ -12,7 +12,7 @@ import { type Project, serialOnlyOf } from "../project.ts";
 import { defineTool } from "../services.ts";
 import { startWaiting } from "../waiting.ts";
 
-const Asked = z.strictObject({ key: z.string(), title: z.string().max(60), goal: z.string(), acceptance: z.array(z.string()), owned: z.array(z.string()), outOfScope: z.array(z.string()), context: z.string().optional(), skills: z.array(z.string()).optional(), parallel: z.boolean().optional(), after: z.array(z.string()).optional(), role: z.string().optional() });
+const Asked = z.strictObject({ key: z.string(), title: z.string().max(60), goal: z.string(), acceptance: z.array(z.string()), owned: z.array(z.string()), outOfScope: z.array(z.string()), context: z.string().optional(), skills: z.array(z.string()).optional(), parallel: z.boolean().optional(), fresh: z.boolean().optional(), after: z.array(z.string()).optional(), role: z.string().optional() });
 
 /** The role that takes a task, or why none can: a skill it lacks is refused here, since the Lead's context does not list them. */
 function workRoleFor(ctx: DeskContext, project: Project, args: Args): RoleSpec | string {
@@ -49,7 +49,7 @@ function recordTask(ledger: Ledger, lane: Lane, args: Args, parallel: boolean, w
     status: "waiting",
     after: waits.after,
     // Who takes it, kept for when it starts: the call that asked for it is long gone by then.
-    opening: { role: waits.role },
+    opening: { role: waits.role, ...(args.fresh === true ? { fresh: true } : {}) },
     openedAt: now,
     updatedAt: now,
     silent: 0,
@@ -69,6 +69,7 @@ export const addTasks = defineTool({
     const roles = new Map<string, string>();
     for (const task of args.tasks) {
       const key = task.key.trim().toUpperCase();
+      if (task.fresh && task.parallel) return no(`${key}: fresh is for a task in the lane's working copy: a parallel task always starts a Peer of its own.`);
       const role = workRoleFor(ctx, project, task);
       if (typeof role === "string") return no(`${key}: ${role}`);
       roles.set(key, role.role);
@@ -94,7 +95,8 @@ export const addTasks = defineTool({
     const now = loadLedger(project.state).tasks;
     const lines = plan.map((task) => {
       const entry = now[ids.get(task.key)!]!;
-      const state = entry.held ? `held: ${clip(entry.held.why, 200)}` : entry.status === "waiting" ? `waits for ${entry.after!.join(", ")}` : `${entry.status}${entry.peer ? `, Peer ${entry.peer}` : ""}`;
+      const kept = entry.peer ? Object.values(now).filter((other) => other.id !== entry.id && other.peer === entry.peer).at(-1) : undefined;
+      const state = entry.held ? `held: ${clip(entry.held.why, 200)}` : entry.status === "waiting" ? `waits for ${entry.after!.join(", ")}` : `${entry.status}${entry.peer ? `, Peer ${entry.peer}${kept ? `, kept from ${kept.id}` : ""}` : ""}`;
       return `- ${task.key} is ${entry.id} ${entry.title}: ${state}`;
     });
     return ok(`Added; each task starts by itself once what it waits for is accepted, and hand-backs arrive as mail.\n${lines.join("\n")}`);

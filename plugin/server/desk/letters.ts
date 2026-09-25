@@ -15,7 +15,7 @@ export const ended = (text: string) => (/[.!?]$/.test(text.trim()) ? text.trim()
 
 /** Every kind of letter the desk mails. A letter's key starts with its kind, and so does the id Paseo shows for the message. */
 type Kind =
-  | "answer" | "answeredFor" | "ask" | "amended" | "baseconflict" | "canland" | "case" | "detour" | "done" | "escalate" | "failed" | "gone"
+  | "answer" | "answeredFor" | "ask" | "amended" | "baseconflict" | "brief" | "canland" | "case" | "detour" | "done" | "escalate" | "failed" | "gone"
   | "halfopen" | "held" | "hold" | "humananswered" | "humanwrote" | "idle" | "incident" | "land" | "landback" | "landheld" | "later" | "leadgone" | "merge" | "message" | "moment"
   | "notstarted" | "nudge" | "opened" | "permission" | "reconcile" | "remind" | "report" | "resumed" | "rework" | "silent" | "started" | "unanswered";
 

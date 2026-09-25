@@ -6,6 +6,7 @@ import { no, ok, str } from "../context.ts";
 import { gateNote } from "../gates.ts";
 import { loadLedger, othersLeft } from "../ledger.ts";
 import { mergeLetters } from "../merge-letters.ts";
+import { closeIncidentsOf } from "../notice.ts";
 import { holderOf } from "../opening.ts";
 import { defineTool } from "../services.ts";
 import { startWaiting } from "../waiting.ts";
@@ -23,7 +24,7 @@ export const accept = defineTool({
   name: "accept",
   input: z.strictObject({ task: z.string() }),
   async handle(desk, caller, args) {
-    const { ctx, agents, merges } = desk;
+    const { ctx, merges } = desk;
     const { project } = caller;
     const found = laneTask(loadLedger(project.state), caller, str(args.task));
     if (typeof found === "string") return no(found);
@@ -63,13 +64,13 @@ export const accept = defineTool({
     if (typeof updated !== "object") return no(`${task.id} is ${updated ?? "gone"}.`);
     const last = othersLeft(loadLedger(project.state), task).length === 0;
     await ctx.post(lane.lead, mergeLetters.merged(task, counts, outsideOwned(counts?.files ?? [], task.owned), gate, last));
-    await agents.retire(project, updated, lane.branch);
+    // Its task is settled, so what the watch told about it is too: the next task starts with a clean book.
+    if (task.peer) closeIncidentsOf(desk, project, task.peer);
     ctx.event(project, { kind: "task.accepted", task: task.id, mode: "lane" });
     await startWaiting(desk, project, true);
+    const where = counts && counts.files.length === 0 ? `it changed nothing, so ${lane.branch} stands where it did` : `its commits are already on ${lane.branch}`;
     return ok(
-      counts && counts.files.length === 0
-        ? `${task.id} is accepted; it changed nothing, so ${lane.branch} stands where it did. The working copy is free for the next task.`
-        : `${task.id} is accepted; its commits are already on ${lane.branch}. The working copy is free for the next task.`,
+      `${task.id} is accepted; ${where}. The working copy is free for the next task. Its Peer stays in the copy with what it learned: the next task there goes to it unless you add that one fresh, and release lets it go.`,
     );
   },
 });

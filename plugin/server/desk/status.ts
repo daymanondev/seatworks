@@ -1,6 +1,7 @@
 import type { SeatView } from "../core/paseo.ts";
 import { AT_WORK } from "../domain/task.ts";
-import { type Lane, type Ledger, ownCopyHolder } from "./ledger.ts";
+import { keptPeer } from "./kept.ts";
+import { type Lane, type Ledger, type Task, ownCopyHolder } from "./ledger.ts";
 import { type LaneHome, type Project, type ProjectConfig, laneHomeFor, projectOf } from "./project.ts";
 
 const minutes = (now: number, at: number | string) => Math.max(0, Math.round((now - (typeof at === "string" ? Date.parse(at) : at)) / 60_000));
@@ -10,6 +11,15 @@ function seatLine(seats: Map<string, SeatView>, id: string | undefined, now: num
   const seat = seats.get(id);
   if (!seat) return `${id} gone`;
   return seat.status === "idle" ? `${id} idle ${minutes(now, seat.updatedAt)} min` : `${id} ${seat.status}`;
+}
+
+/** How a task stands on its line: who works it, what it waits for, its hand-back, and the Peer kept from it for the next task. */
+function taskDetail(ledger: Ledger, task: Task, seats: Map<string, SeatView>, now: number): string {
+  if (AT_WORK.includes(task.status)) return `, Peer ${seatLine(seats, task.peer, now)}`;
+  if (task.status === "waiting") return `${task.after?.length ? `, after ${task.after.join(", ")}` : ""}${task.held ? `. Not started: ${task.held.why}` : ""}`;
+  const kept = keptPeer(ledger, task.lane);
+  const keeps = kept?.task === task.id && seats.has(kept.id) ? `; its Peer ${seatLine(seats, kept.id, now)} is kept for the next task in the copy` : "";
+  return `${task.handback ? `, hand-back ${minutes(now, task.handback.at)} min ago` : ""}${keeps}`;
 }
 
 /** What the status tool read from the project's own checkout; `work` is undefined when git could not say. */
@@ -125,16 +135,7 @@ export function statusText(
     lines.push(`## ${lane.id} ${lane.title}`, "", `Branch ${lane.branch}${lane.onBranch ? ", carried on in the project's own copy" : ` off ${lane.base}`}. Lead ${seatLine(seats, lane.lead, now)}.${detour}`, ...laneNotes(lane, now), ...(copy ? laneAim(lane) : []), "");
     const tasks = Object.values(ledger.tasks).filter((task) => task.lane === lane.id);
     if (tasks.length === 0) lines.push("- no tasks yet");
-    for (const task of tasks) {
-      const detail = AT_WORK.includes(task.status)
-        ? `, Peer ${seatLine(seats, task.peer, now)}`
-        : task.status === "waiting"
-          ? `${task.after?.length ? `, after ${task.after.join(", ")}` : ""}${task.held ? `. Not started: ${task.held.why}` : ""}`
-          : task.handback
-            ? `, hand-back ${minutes(now, task.handback.at)} min ago`
-            : "";
-      lines.push(`- ${task.id} ${task.title}: ${task.status}${detail}`);
-    }
+    for (const task of tasks) lines.push(`- ${task.id} ${task.title}: ${task.status}${taskDetail(ledger, task, seats, now)}`);
     lines.push("");
   }
   const pending = lanes.filter((lane) => lane.status === "waiting");
