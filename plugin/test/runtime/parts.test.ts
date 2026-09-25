@@ -69,7 +69,7 @@ test("what a Peer and a Lead read carries none of the words hidden from them", (
   assert.ok(hides("peer").length > 0 && hides("lead").length > 0, "both roles hide words to check for");
   assert.deepEqual(hiddenWordsIn(peerText, hides("peer")), []);
   const opening = directive({ ...lane, writeSet: ["src/discounts/**"], contracts: ["src/orders.ts"] }, { gate: "npm test runs on the whole lane when you report it ready", serial: ["package-lock.json"], concept: "/state/CONTEXT.md" });
-  const leadText = [opening, letters.conflict(task, ["a.js"], lane.branch).text, letters.stalled(task, "bye", 2).text, letters.reconciled(lane, task, "agent-9", "stop using the old client", sending).text].join("\n");
+  const leadText = [opening, ...(["left", "clean", { not: "it has uncommitted changes" }] as const).map((settling) => letters.conflict(task, ["a.js"], lane.branch, settling).text), letters.stalled(task, "bye", 2).text, letters.reconciled(lane, task, "agent-9", "stop using the old client", sending).text].join("\n");
   assert.deepEqual(hiddenWordsIn(leadText, hides("lead")), []);
 });
 

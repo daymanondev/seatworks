@@ -16,7 +16,7 @@ export const ended = (text: string) => (/[.!?]$/.test(text.trim()) ? text.trim()
 
 /** Every kind of letter the desk mails. A letter's key starts with its kind, and so does the id Paseo shows for the message. */
 type Kind =
-  | "answer" | "answeredFor" | "ask" | "amended" | "canland" | "detour" | "done" | "escalate" | "failed" | "gone"
+  | "answer" | "answeredFor" | "ask" | "amended" | "baseconflict" | "canland" | "detour" | "done" | "escalate" | "failed" | "gone"
   | "halfopen" | "held" | "hold" | "humanwrote" | "idle" | "incident" | "land" | "landback" | "landheld" | "later" | "leadgone" | "merge" | "message" | "moment"
   | "notstarted" | "nudge" | "opened" | "permission" | "reconcile" | "remind" | "report" | "resumed" | "rework" | "silent" | "started" | "unanswered";
 
@@ -114,12 +114,15 @@ export const letters = {
     return mail("merge", [task.id, Date.now()], lines.join("\n"));
   },
 
-  conflict(task: Task, conflicts: string[], laneBranch: string): Letter {
-    const text = [
-      `MERGE CONFLICT ${task.id} (${task.title}) with ${laneBranch}.`,
-      `Files: ${conflicts.join(", ") || "unknown"}`,
-      "The lane branch is unchanged. Send rework to merge the lane branch into the task branch and resolve, or cut the task.",
-    ].join("\n");
+  /** `settling` is how bringing the lane branch into the task's own copy went, since no seat may run git merge: left with its conflicts, clean, or not begun. */
+  conflict(task: Task, conflicts: string[], laneBranch: string, settling: "left" | "clean" | { not: string }): Letter {
+    const next =
+      settling === "left"
+        ? `The desk began merging ${laneBranch} into the task's branch in its own copy and left the conflicts there: send rework asking its Peer to settle them and commit the merge with git commit, then accept it again; or cut the task.`
+        : settling === "clean"
+          ? `The desk merged ${laneBranch} into the task's branch in its own copy without conflicts: accept it again.`
+          : `The desk could not begin merging ${laneBranch} into the task's branch in its own copy, because ${settling.not}: send rework asking its Peer to commit what is left there, then accept it again; or cut the task.`;
+    const text = [`MERGE CONFLICT ${task.id} (${task.title}) with ${laneBranch}.`, `Files: ${conflicts.join(", ") || "unknown"}`, `The lane branch is unchanged. ${next}`].join("\n");
     return mail("merge", [task.id, Date.now()], text);
   },
 

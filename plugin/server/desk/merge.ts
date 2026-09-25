@@ -101,10 +101,19 @@ export class MergeQueue {
     const merged = await mergeBranch(cwd, task.branch, `Merge ${task.id}: ${task.title}`);
     if (!merged.ok) {
       return merged.conflicts.length > 0
-        ? finish("conflict", letters.conflict(task, merged.conflicts, lane.branch))
+        ? finish("conflict", letters.conflict(task, merged.conflicts, lane.branch, await this.settleIn(task, lane)))
         : finish("fail", letters.mergeFailed(task, "git merge failed", merged.message));
     }
     await this.landed(project, task, lane, cwd, merged);
+  }
+
+  /** No seat may run git merge, so the task's own copy is given the lane branch to settle against, conflicts and all. */
+  private async settleIn(task: Task, lane: Lane): Promise<"left" | "clean" | { not: string }> {
+    if (!task.worktree) return { not: "its copy is not on record" };
+    const copy = await workState(task.worktree);
+    if (copy !== "clean") return { not: copy === "dirty" ? "it has uncommitted changes" : "git could not read it" };
+    const merged = await mergeBranch(task.worktree, lane.branch, `Bring ${lane.branch} into ${task.branch ?? task.id}`, true);
+    return merged.ok ? "clean" : merged.conflicts.length > 0 ? "left" : { not: merged.message.split("\n")[0] || "git merge failed" };
   }
 
   /** A merge git made, recorded and told with what it changed. */

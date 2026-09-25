@@ -1,12 +1,12 @@
 import { existsSync, mkdirSync, readdirSync, rmSync, rmdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { addWorktree, branchExists, cleanState, contains, currentBranch, excludeFromGit, git, landedRef, removeWorktree } from "../core/git.ts";
+import { addWorktree, branchExists, cleanState, contains, currentBranch, git, landedRef, mergeUnderWay, removeWorktree } from "../core/git.ts";
 import { workState } from "../catalog/project-files.ts";
 import type { Workspace, Workspaces } from "../core/ports.ts";
 import { worktreeRoot } from "../core/paths.ts";
 import type { DeskContext } from "./context.ts";
+import { closeIndexes, openIndexes } from "./indexes.ts";
 import { type Ledger, type Slot, loadLedger, nextSlotId } from "./ledger.ts";
-import { clip } from "../core/text.ts";
 import type { Project } from "./project.ts";
 import { errorText } from "../core/errors.ts";
 
@@ -31,7 +31,7 @@ export class Slots {
       const reused = await this.checkOut(project, picked, branch, base);
       const workspaceId = picked.workspaceId ?? (await this.createWorkspace(project, picked));
       this.ctx.event(project, { kind: "slot.taken", slot: picked.id, branch, ...holder });
-      this.index(project, picked, reused);
+      openIndexes(this.ctx, project, picked, reused);
       return { ...picked, workspaceId };
     } catch (error) {
       this.free(project, picked.id);
@@ -44,7 +44,7 @@ export class Slots {
     if (copy !== "clean") {
       throw new Error(
         copy === "dirty"
-          ? "the project's own working copy has uncommitted changes, so a lane cannot take it over; commit or stash them, or open the lane with isolate true"
+          ? "the project's own working copy has uncommitted changes, so a lane cannot take it over; ask the Human to commit or stash them, or open the lane with isolate true"
           : `git could not read the project's own working copy at ${project.root}, so a lane cannot take it over`,
       );
     }
@@ -91,7 +91,7 @@ export class Slots {
 
   private async takeOwnCopy(project: Project): Promise<{ path: string; workspaceId: string }> {
     const workspaceId = (await this.projectWorkspace(project)).id;
-    this.index(project, { id: "main", path: project.root, createdAt: Date.now() }, true);
+    openIndexes(this.ctx, project, { id: "main", path: project.root }, true);
     return { path: project.root, workspaceId };
   }
 
@@ -119,6 +119,8 @@ export class Slots {
    */
   async restore(project: Project, base: string, left?: string): Promise<boolean> {
     if (left && (await currentBranch(project.root)) !== left) return true;
+    // One under way here is the desk's own, left for the lane to settle: no seat may begin one, and the lane is closing without it.
+    if (await mergeUnderWay(project.root)) await git(project.root, ["merge", "--abort"]);
     const copy = await cleanState(project.root);
     if (copy !== "clean") {
       const why = copy === "dirty" ? "it has uncommitted changes" : "git could not read it";
@@ -220,7 +222,7 @@ export class Slots {
     const slot = loadLedger(project.state).slots[slotId];
     let kept: string | undefined;
     if (slot) {
-      this.unindex(project, slot);
+      closeIndexes(this.ctx, project, slot);
       if (existsSync(slot.path)) {
         await git(slot.path, ["switch", "--detach"]);
         await removeWorktree(project.root, slot.path);
@@ -356,23 +358,5 @@ export class Slots {
     return this.ctx.transact(project, (ledger) => {
       delete ledger.slots[slotId];
     });
-  }
-
-  /** Each copy `index` opened got a window of its own in the IDE, and nothing closed one. */
-  private unindex(project: Project, slot: Slot): void {
-    for (const index of this.ctx.indexes(project)) {
-      void index.close(slot.path).then(
-        (result) => this.ctx.event(project, { kind: "index.closed", server: index.id, slot: slot.id, ok: result.ok, detail: clip(result.text, 200) }),
-        (error) => this.ctx.event(project, { kind: "index.closed", server: index.id, slot: slot.id, ok: false, detail: clip(errorText(error), 200) }),
-      );
-    }
-  }
-
-  private index(project: Project, slot: Slot, reused: boolean): void {
-    for (const index of this.ctx.indexes(project)) {
-      for (const pattern of index.gitExclude) excludeFromGit(project.root, pattern);
-      const work = index.open(slot.path).then((opened) => (opened.ok && reused ? index.sync(slot.path) : opened));
-      void work.then((result) => this.ctx.event(project, { kind: "index.opened", server: index.id, slot: slot.id, reused, ok: result.ok, detail: clip(result.text, 200) }));
-    }
   }
 }

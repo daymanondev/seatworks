@@ -57,7 +57,7 @@ export function directive(lane: Lane, { gate, serial, concept, issue }: { gate: 
     ...(serial.length > 0 ? [`One writer at a time: ${serial.slice(0, SHOWN_SERIAL).join(", ")}${serial.length > SHOWN_SERIAL ? ` and ${serial.length - SHOWN_SERIAL} more` : ""}. A task that writes any of these works in the lane's working copy, not in parallel.`] : []),
     "",
     lane.onBranch
-      ? `Lane branch: ${lane.branch}, the Human's own, carried on where it is; closing the lane merges it nowhere. Your working copy is on it; tasks merge into it. Anything uncommitted there when the lane opened is the Human's work in progress: before changing anything, commit it as found in a commit of its own that says so, then build on it; never discard it.`
+      ? `Lane branch: ${lane.branch}, the Human's own, carried on where it is; closing the lane merges it nowhere. Your working copy is on it; tasks merge into it. Anything uncommitted there when the lane opened is the Human's work in progress, never to be discarded: have the first task working there commit it as found, in a commit of its own that says so, before it changes anything.`
       : `Lane branch: ${lane.branch}, off ${lane.base}. Your working copy is on it; tasks merge into it.`,
     `Gate: ${gate}`,
   ];

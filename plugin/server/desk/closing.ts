@@ -1,4 +1,4 @@
-import { headSha, isAncestor, landLane, landedRef, mergeBranch } from "../core/git.ts";
+import { headSha, isAncestor, landLane, landedRef, mergeBranch, mergeUnderWay } from "../core/git.ts";
 import { midTurn } from "../core/paseo.ts";
 import { LANE } from "../domain/lane.ts";
 import { TASK } from "../domain/task.ts";
@@ -8,7 +8,6 @@ import { askFirstHits, changeOf, landFacts } from "./landing.ts";
 import { type Lane, type Ledger, type Task, findLane, loadLedger, tasksOf } from "./ledger.ts";
 import { landLetters } from "./land-letters.ts";
 import { type Project, loadConfig } from "./project.ts";
-import type { Roster } from "./roster.ts";
 import type { DeskServices } from "./services.ts";
 import { seatingKey } from "./opening.ts";
 import { openWaiting } from "./waiting.ts";
@@ -18,12 +17,15 @@ type Closed = ToolReply & { blocked?: string };
 type Closing = { lane: string; land: boolean; reason?: string; overGate?: boolean };
 
 /**
- * Merges base into the lane in its own copy; never under a seat mid-turn there, and an unseen seat counts as writing.
- * `why` is what stops it, for anyone; `then` is what the Supervisor can do about it.
+ * Merges base into the lane in its own copy; never under a seat mid-turn there, and an unseen seat counts as writing. One that
+ * stops on conflicts is left in the copy, and its Lead told to have it settled. `why` is what stops landing; `then`, what can be done.
  */
-async function bringBaseIn(roster: Roster, ledger: Ledger, lane: Lane): Promise<{ why: string; then: string; writers?: string[] } | undefined> {
+async function bringBaseIn(desk: DeskServices, project: Project, ledger: Ledger, lane: Lane): Promise<{ why: string; then: string; writers?: string[] } | undefined> {
+  const { ctx, roster } = desk;
   if (!lane.worktree) return { why: `it has no working copy on record to merge ${lane.base} into`, then: "Drop it with drop_lane." };
   if (await isAncestor(lane.worktree, lane.base, lane.branch)) return undefined;
+  const settle = "land_lane it again once the Lead reports it ready, or drop_lane it.";
+  if (await mergeUnderWay(lane.worktree)) return { why: `the merge of ${lane.base} into ${lane.branch} left in its copy is not settled yet`, then: `Its Lead has it to settle; ${settle}` };
   const writers = [lane.lead, ...tasksOf(ledger, lane.id).filter((task) => task.mode !== "parallel").map((task) => task.peer)];
   const writing = await Promise.all(
     writers.map(async (id) => {
@@ -44,10 +46,16 @@ async function bringBaseIn(roster: Roster, ledger: Ledger, lane: Lane): Promise<
       writers: busy,
     };
   }
-  const merged = await mergeBranch(lane.worktree, lane.base, `Bring ${lane.base} into ${lane.branch}`);
+  const merged = await mergeBranch(lane.worktree, lane.base, `Bring ${lane.base} into ${lane.branch}`, true);
   if (merged.ok) return undefined;
-  const why = merged.conflicts.length > 0 ? `conflicts in ${merged.conflicts.join(", ")}` : merged.message;
-  return { why: `${lane.base} has moved on and does not merge into ${lane.branch}: ${why}`, then: `Nothing was changed. Message its Lead to merge ${lane.base} into the lane and settle it, or drop_lane it.` };
+  if (merged.conflicts.length === 0) return { why: `${lane.base} has moved on and does not merge into ${lane.branch}: ${merged.message}`, then: "Nothing was changed. Message its Lead, or drop_lane it." };
+  // What it was reported ready as is not what it holds now.
+  ctx.transact(project, (current) => {
+    const entry = current.lanes[lane.id];
+    if (entry) delete entry.ready;
+  });
+  await ctx.post(lane.lead, landLetters.baseConflict(lane, merged.conflicts));
+  return { why: `${lane.base} has moved on and conflicts with ${lane.branch} in ${merged.conflicts.join(", ")}`, then: `The merge is left in the lane's copy, and its Lead has a letter to have it settled; ${settle}` };
 }
 
 /** What a lane lands under as one commit or a merge: its title, its outcome and the tasks that went into it. */
@@ -123,7 +131,7 @@ async function stillHeld(desk: DeskServices, project: Project, lane: Lane, held:
 
 /** Lands an open lane for `by`, or says what kept it from landing: a hold for the Human, base that will not merge, a red gate. */
 async function land(desk: DeskServices, project: Project, ledger: Ledger, lane: Lane, by: string, overGate: boolean): Promise<Closed | { how: string; note: string }> {
-  const { ctx, roster } = desk;
+  const { ctx } = desk;
   const held = lane.landApproval;
   const tip = await headSha(project.root, lane.branch);
   // A commit after the hold makes it a lane nobody has looked at: it is checked again from the start.
@@ -136,7 +144,7 @@ async function land(desk: DeskServices, project: Project, ledger: Ledger, lane: 
   const waits = held && !held.approved && held.head === tip ? await stillHeld(desk, project, lane, held) : undefined;
   if (waits) return waits;
   // Land before closing: a closed lane cannot be closed again, so a landing that cannot happen is refused while open.
-  const synced = await bringBaseIn(roster, ledger, lane);
+  const synced = await bringBaseIn(desk, project, ledger, lane);
   if (synced?.writers) {
     ctx.transact(project, (current) => {
       const entry = current.lanes[lane.id];

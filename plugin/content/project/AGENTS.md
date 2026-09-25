@@ -28,7 +28,7 @@ and a disagreement is settled with evidence, not with rank.
   every caller and test with it; add no shim, adapter, re-export, dual path, flag or stub to keep an
   old shape alive.
 - **Git:** commit only where your instructions say you may. Never push, switch or move branches,
-  rewrite history, or merge: landing work is not an agent's job here.
+  rewrite history, or run a merge yourself: landing work is not an agent's job here.
 - **Mail:** letters, answers and hand-backs arrive as messages between your turns. When you are
   waiting for one, end your turn; the answer wakes you.
 - **The record outweighs the claim.** What was run, what it printed and what changed settle a

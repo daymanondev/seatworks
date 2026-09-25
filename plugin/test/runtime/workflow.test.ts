@@ -875,20 +875,6 @@ test("the gate that lets a lane land runs on the lane with main's newer work in 
   assert.equal(h.git(h.root, "show", "main:b/b.txt"), "b/b.txt\n");
 });
 
-test("a lane main cannot be merged into is refused and stays open, its copy as it was", async () => {
-  const { h, sup, lanes, work } = await threeLanes("true");
-  work(lanes.L2!, "shared.txt", "b side\n");
-  work(lanes.L3!, "shared.txt", "c side\n");
-  assert.equal((await h.call(sup, "supervisor", "land_lane", { lane: "L3" })).ok, true);
-  const before = h.git(lanes.L2!.worktree!, "rev-parse", "HEAD");
-  const second = await h.call(sup, "supervisor", "land_lane", { lane: "L2" });
-  assert.equal(second.ok, false, second.text);
-  assert.match(second.text, /shared\.txt/);
-  assert.equal(h.ledger().lanes.L2!.status, "open", "refused before anything was closed, so it can still land");
-  assert.equal(h.git(lanes.L2!.worktree!, "rev-parse", "HEAD"), before);
-  assert.equal(h.git(lanes.L2!.worktree!, "status", "--porcelain"), "");
-});
-
 test("a lane closed in the project's own copy keeps that copy until its Lead stops, and the next lane waits for it or takes a copy of its own", async () => {
   const h = harness();
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");

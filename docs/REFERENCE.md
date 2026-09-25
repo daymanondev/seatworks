@@ -100,7 +100,7 @@ letter, never written by hand where it is posted.
 |---|---|
 | Opening a seat | OWNER DIRECTIVE, TASK, REVIEW |
 | Between seats | MESSAGE, RECONCILE, ASK, ANSWER to your ask, ANSWERED FOR YOU, STILL OPEN, UNANSWERED, HUMAN WROTE |
-| Work moving | HANDBACK, REWORK, AMENDED, MERGED, MERGE FAILED, MERGE CONFLICT, REPORT, CAN LAND, CLEARED |
+| Work moving | HANDBACK, REWORK, AMENDED, MERGED, MERGE FAILED, MERGE CONFLICT, BASE CONFLICT, REPORT, CAN LAND, CLEARED |
 | Landing held for the Human | LAND HELD, LANDED, HELD AGAIN, CHANGED, APPROVED, SENT BACK, LAND SENT BACK |
 | Waiting and starting again | WAITING, OPENED, NOT OPENED, NOT STARTED, LEAD GONE |
 | A lane stopped | HOLD, RESUMED |
@@ -112,7 +112,8 @@ CAN LAND tells whoever tried to land a lane under a seat mid-turn that the turn 
 tells a seat that the plugin stopped before the call it was told to wait for by mail had finished.
 RECONCILE tells a Lead what the Supervisor sent its Peer. HUMAN WROTE tells whoever supervises what the Human
 typed straight into a Lead's or Peer's chat. ANSWERED FOR YOU tells a seat that someone
-else answered an ask addressed to it. HOLD is the one letter sent past the outbox, cutting a running turn
+else answered an ask addressed to it. MERGE CONFLICT and BASE CONFLICT tell a Lead that the desk began a merge no seat may run
+and left its conflicts in the copy of whoever settles them: the task's own, or the lane's, for a Peer to settle and commit. HOLD is the one letter sent past the outbox, cutting a running turn
 short where the seat's agent allows it. ARCHITECTURE, STRUGGLING and TURNING wake whoever supervises at
 the three moments SLP names, as the desk sees them: a Lead widening what a task owns; a task sent back a
 second time, or stalled; a Lead changing what a task is for. OPENED, WAITING for a lane that opened by

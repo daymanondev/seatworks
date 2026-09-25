@@ -22,6 +22,11 @@ export const landLetters = {
     return mail("landheld", [lane.id, head], `LAND HELD ${lane.id} (${lane.title}): the Human looks at it before it lands. ${reason} Commit nothing more on the lane until they decide: approved, it lands and the lane closes; sent back, LAND SENT BACK brings their note. A new commit means it is looked at again from the start.`);
   },
 
+  /** No seat may run git merge, so landing began bringing the base in and left what stopped it for a Peer to settle. */
+  baseConflict(lane: Lane, conflicts: string[]): Letter {
+    return mail("baseconflict", [lane.id, conflicts.join(",")], `BASE CONFLICT ${lane.id} (${lane.title}): ${lane.base} moved on, and merging it into ${lane.branch} stopped on conflicts in ${conflicts.join(", ")}. The merge is left in your working copy. Give a Peer a task owning those files to settle them and commit the merge with git commit, then report the lane ready again: landing waits for it.`);
+  },
+
   landSentBack(lane: Lane, note: string, head: string): Letter {
     return mail("landback", [lane.id, head], `LAND SENT BACK ${lane.id} (${lane.title}): ${ended(note || "the Human gave no reason; ask what to change")} The lane stays open; report it ready again once that is dealt with.`);
   },

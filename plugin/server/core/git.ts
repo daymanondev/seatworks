@@ -95,15 +95,21 @@ export async function removeWorktree(root: string, path: string | undefined): Pr
 
 type MergeResult = { ok: true; before: string; after: string } | { ok: false; conflicts: string[]; message: string };
 
-export async function mergeBranch(cwd: string, branch: string, message: string): Promise<MergeResult> {
+/** `leave` keeps a merge stopped on conflicts in place for a seat to settle and commit, since no seat may run git merge; anything else that stops it is undone. */
+export async function mergeBranch(cwd: string, branch: string, message: string, leave = false): Promise<MergeResult> {
   const before = await headSha(cwd);
   if (!before) return { ok: false, conflicts: [], message: "the lane working copy has no HEAD" };
   const run = await git(cwd, ["-c", "user.name=seatworks", "-c", "user.email=seatworks@localhost", "merge", "--no-ff", "-m", message, branch], 120_000);
   if (run.code === 0) return { ok: true, before, after: (await headSha(cwd)) ?? before };
   const unmerged = await git(cwd, ["diff", "--name-only", "--diff-filter=U"]);
   const conflicts = unmerged.stdout.split("\n").map((line) => line.trim()).filter(Boolean);
-  await git(cwd, ["merge", "--abort"]);
+  if (!leave || conflicts.length === 0) await git(cwd, ["merge", "--abort"]);
   return { ok: false, conflicts, message: (run.stdout + run.stderr).trim().slice(-1500) };
+}
+
+/** A merge begun in the copy and neither committed nor undone: no seat may begin one, so it is one the desk left for a seat to settle. */
+export async function mergeUnderWay(cwd: string): Promise<boolean> {
+  return (await git(cwd, ["rev-parse", "-q", "--verify", "MERGE_HEAD"])).code === 0;
 }
 
 /** HEAD as the merge that brought `branch` in, if it is one: a merge a stop cut off after git made it. */

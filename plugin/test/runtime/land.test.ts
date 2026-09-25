@@ -262,7 +262,7 @@ test("a lane asked to carry on the Human's branch works on it where it is, keeps
   assert.deepEqual(h.git(h.root, "branch", "--format=%(refname:short)").trim().split("\n").sort(), ["fix/login", "main"]);
   assert.equal(readFileSync(join(h.root, "b.txt"), "utf-8"), "bee, still being edited\n", "the Human's uncommitted edit is where they left it");
   assert.equal(h.agents.get(lane.lead!)!.cwd, h.project.root);
-  assert.match(h.agents.get(lane.lead!)!.prompt ?? "", /fix\/login, the Human's own[\s\S]*commit it as found in a commit of its own/, "the Human's work in progress stays theirs, apart from the lane's");
+  assert.match(h.agents.get(lane.lead!)!.prompt ?? "", /fix\/login, the Human's own[\s\S]*have the first task working there commit it as found, in a commit of its own/, "the Human's work in progress stays theirs, apart from the lane's");
   assert.notEqual(loadConfig(h.project.state).base, "fix/login", "a branch carried on is not made the project's base");
 
   const second = await h.call(sup, "supervisor", "open_lane", { title: "Also here", ...scope, onBranch: true });

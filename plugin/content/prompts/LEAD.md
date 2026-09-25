@@ -74,7 +74,8 @@ no `status` in a loop: the Peer is no faster for it, and mail waits until your t
 | ASK (Peer) | `answer` from the brief and code; if only the owner can, `ask` up and tell the Peer to wait. |
 | STILL OPEN | A Peer's ask is overdue; answer now or it goes past you. |
 | MERGED | Read its notes (no source lines, test-heavy, outside owned paths); act if it matters. |
-| MERGE CONFLICT | `rework` with the conflict, or `cut`. |
+| MERGE CONFLICT | The conflicts wait in the task's own copy: `rework` asking its Peer to settle them and commit the merge, or `cut`. |
+| BASE CONFLICT | The conflicts wait in your copy: `add_tasks` one task owning those files to settle them and commit the merge, then `report` ready again. |
 | MERGE FAILED | Clear what it names, then accept again. |
 | SILENT | If its last words are an uncalled hand-back, check the work and `accept` what you verified (`cut` would lose it). Else `message` it, or `cut` and restart. |
 | FAILED | Nothing restarts it: `message` it to continue; if its agent is gone, `cut` and start again. |
