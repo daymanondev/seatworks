@@ -1,0 +1,10 @@
+{
+  "tools": {
+    "approval": {
+      "bash": "deny",
+      "edit": "deny",
+      "write": "deny",
+      "ast_edit": "deny"
+    }
+  }
+}

@@ -5,8 +5,9 @@ import type { Caller, DeskContext, ToolReply } from "./context.ts";
 import type { MergeQueue } from "./merge.ts";
 import type { Roster } from "./roster.ts";
 import type { Slots } from "./slots.ts";
+import type { Watcher } from "./watcher.ts";
 
-export type DeskServices = { ctx: DeskContext; roster: Roster; slots: Slots; agents: Agents; merges: MergeQueue };
+export type DeskServices = { ctx: DeskContext; roster: Roster; slots: Slots; agents: Agents; merges: MergeQueue; watcher: Watcher };
 
 /** A tool as the desk serves it: `input` is what its handler reads, and it must be the schema the calling seat was shown. */
 export type ToolDef = {

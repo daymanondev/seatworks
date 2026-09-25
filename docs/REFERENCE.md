@@ -22,6 +22,7 @@ pages in), the seat's bridge shows that set as the field's choices.
 | Supervisor | `open_lane` `message` `answer` `land_lane` `drop_lane` `amend_lane` `hold_lane` `resume_lane` `ask_human` `record_human_answer` `replace_lead` `set_project` `status` `incidents` `mark_incident` `record` |
 | Lead | `add_tasks` `start_review` `message` `answer` `accept` `rework` `amend_task` `cut` `ask` `report` `status` `incidents` `mark_incident` `record` `note` |
 | Peer, Reviewer | `done` `ask` |
+| Watcher | `judge` `record` |
 <!-- end -->
 
 | Verb | Effect |
@@ -42,19 +43,20 @@ pages in), the seat's bridge shows that set as the field's choices.
 | `rework` | Sends the task back with a letter. It is refused while another task holds the lane copy |
 | `amend_task` | Changes what a task asks while its Peer works, keeping what it asked before and why. The Peer reads it at its next turn. A parallel task's new owned paths are checked as a start would check them |
 | `cut` | Stops the task and archives its Peer. It resets the lane copy to where the task started, when nothing merged there since. It is refused while the task's merge runs |
-| `report` | Reports to the Supervisor. With `ready`, it runs the lane gate first, and the report carries what the lane's reviews leave standing: no review of the whole lane, a latest review that did not accept, a task accepted over its own review's changes. `land_lane` gives the same as evidence |
+| `report` | Reports to the Supervisor. With `ready`, it runs the lane gate first, and the report carries what the lane's reviews leave standing: no review of the whole lane, a latest review that did not accept, a task accepted over its own review's changes, or handed back again after them and accepted with no review since. Where review changes stand that nothing on record answers, its `Next:` asks the Supervisor to check with the Lead before landing. `land_lane` gives the same as evidence |
 | `ask` | A Lead asks the Supervisor, with the default it works on meanwhile. A Peer asks its Lead with its best guess, which the letter shows as its default; a Reviewer asks with what it tried. Either goes to the Supervisor when the Lead is gone |
 | `done` | Hands the task back to the Lead, with a file; the commit is read from the branch, and files changed outside the task's owned paths are named in it and to the Peer. A review hands back its verdict, its answer to the focus and each finding (severity, place, failure, fix), and `changes` or `reopen` needs at least one; it is refused until it answers each risk rule question its brief carries. On a per-task-gate project, it runs the gate first. It is refused once the task is accepted, queued or cut |
 | `message` | The Supervisor messages a lane or a task, and a Lead messages a task in its own lane. It is refused, like `rework`, `answer`, `amend_task` and `amend_lane`, when the text names or quotes an open incident about the seat it goes to |
 | `answer` | Closes an open ask. The Supervisor may answer any ask, others only their own |
 | `incidents` | Lists the 50 most recent open or unmarked incidents, with each one's brief. With `closed`, it adds the 20 most recently marked. A Lead sees only its own lane's |
 | `mark_incident` | Marks an incident `useful`, `noise` or `unknown`, with an optional note, and closes it. Noise also silences the same words on that seat and kind from then on |
-| `record` | What a lane's Lead, or a task's Peer or reviewer, ran, read, changed and said, one numbered step a line, without output or diffs. A Lead reads only its own lane's tasks. Once the seat is archived it shows what the desk kept instead, since Paseo starts an archived agent again to read its history |
+| `record` | What a lane's Lead, or a task's Peer or reviewer, ran, read, changed and said, one numbered step a line, without output or diffs. A Lead reads only its own lane's tasks; the Watcher reads any. Once the seat is archived it shows what the desk kept instead, since Paseo starts an archived agent again to read its history |
+| `judge` | The Watcher answers a case: every question once, by name, with `yes`, `no`, `unsure` or a choice's name, and a why. Anything else is refused and nothing is kept. The answers go to the project's `assessments.log`, like a sensor's |
 | `note` | Writes a page into a folder the caller's role declares under the project's state (the Lead's: `plans`, `council`, `ultra-review`, `repo-refresh`), replacing one of the same name, and answers with its path. It never writes into the repository. The Lead has no file-editing tools, except on Codex, where only its prompt keeps it from editing |
 | `status` | Lanes, tasks, working copies and open asks. A Lead sees its own lane. Asked again with nothing changed, it says only that |
 
 Behaviour depends on a role's capabilities (`supervise`, `lead`, `work`, `write`, `review`,
-`watched`), never its name.
+`watched`, `judge`, `page`), never its name.
 
 ## Records
 
@@ -290,10 +292,18 @@ The watch also asks what a code fact cannot read, one condition at a time, at th
 | `claims_checks_pass` | a hand-back the desk did not gate is `unverified` or `claim-contradicted` | the hand-back: does it say the checks pass? |
 | `review_ran_invariant` | a review accepts a change a risk rule reaches | its report, once per invariant: was it checked by running code? |
 
-`attention.judge` names who answers, `off` or a sensor in `catalog/sensor/`, and each question in `catalog/checks.json`
-has its wording, thresholds and mode. Every question ships `shadow`: the answer is kept in the project's
-`assessments.log`, and no seat reads it. A first change before any look is a fact of its own, `edit-before-look`, a
-note that opens `instruction_kind` and nothing else.
+`attention.judge` names who answers: `off`, a sensor in `catalog/sensor/` asked over HTTP (the preset's `jev`), or a
+role that can `judge`, the Watcher, a seat. Each question in `catalog/checks.json` has its wording, thresholds and
+mode. Every question ships `shadow`: the answer is kept in the project's `assessments.log`, and no seat reads it. A
+first change before any look is a fact of its own, `edit-before-look`, a note that opens `instruction_kind` and
+nothing else.
+
+Judged by the Watcher, the desk seats one per project when a case first needs it, in the project's own workspace and
+always under its Supervisor (a seat with no parent would have its first reply pushed to the Human's phone), and mails
+it each case as a CASE letter: the fields the desk read, and the questions with what each answer means. It answers
+with `judge`, and `record` lets it read the seat a case is about; it has no other tool, and no MCP server unless one
+names it. A case unanswered for 15 minutes, or whose Watcher is gone, is kept as unasked; the patrol lets an idle
+Watcher go once no lane is open or the watch is judged by something else. With no Supervisor seated, no Watcher is.
 
 ## Settings
 

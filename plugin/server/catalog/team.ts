@@ -11,6 +11,7 @@ import {
   type SensorSpec,
   PASEO_SERVER,
   TEAM_SERVER,
+  can,
   supportsRole,
   agentDefault,
 } from "./kit.ts";
@@ -29,8 +30,8 @@ type McpState = {
   settings: Record<string, SettingValue>;
 };
 type RoleSeat = { role: RoleSpec; harness: HarnessSpec; model?: ModelSpec; thinking?: string; rules: string; mcp: string[] };
-/** Who answers the watch's questions, as the settings chose: a sensor, and its key where a settings layer keeps one. */
-type JudgeChoice = { id: string; sensor: SensorSpec; key?: string };
+/** Who answers the watch's questions, as the settings chose: a sensor, and its key where a settings layer keeps one, or a seat of a role that can judge. */
+type JudgeChoice = { id: string; sensor: SensorSpec; key?: string } | { id: string; role: string };
 export type Team = {
   roles: Record<string, RoleSeat>;
   mcp: Record<string, McpState>;
@@ -54,6 +55,13 @@ function eligibleRoles(state: McpState, kit: Kit): string[] {
 export function transportOf(state: McpState): McpTransport {
   if (state.entry?.kind === "proxy") return "stdio";
   return state.connect?.type ?? state.entry?.server?.type ?? "stdio";
+}
+
+/** The roles a server goes to: those named, where it can serve them, or else each it can serve but a judge, which answers from its case and the record. */
+function rolesOf(state: McpState, kit: Kit, named: string[] | undefined, errors: string[]): string[] {
+  const eligible = eligibleRoles(state, kit);
+  for (const role of named ?? []) if (!eligible.includes(role)) errors.push(`${state.label} can't be given to the ${role} role: it has nothing for that role`);
+  return (named ?? eligible.filter((role) => !can(kit.roles.find((entry) => entry.role === role), "judge"))).filter((role) => eligible.includes(role));
 }
 
 function resolveMcp(kit: Kit, layers: Layer[], errors: string[]): Record<string, McpState> {
@@ -96,11 +104,7 @@ function resolveMcp(kit: Kit, layers: Layer[], errors: string[]): Record<string,
       continue;
     }
     const state: McpState = { id, label, entry, connect, rule, tools, enabled, roles: [], settings };
-    const eligible = eligibleRoles(state, kit);
-    for (const role of roles ?? []) {
-      if (!eligible.includes(role)) errors.push(`${label} can't be given to the ${role} role: it has nothing for that role`);
-    }
-    state.roles = (roles ?? eligible).filter((role) => eligible.includes(role));
+    state.roles = rolesOf(state, kit, roles, errors);
     states[id] = state;
   }
   return states;
@@ -206,8 +210,10 @@ export function resolveTeam(kit: Kit, machine: Layer = {}, project: Layer = {}, 
 function judgeOf(kit: Kit, id: string, layers: Layer[], errors: string[]): JudgeChoice | undefined {
   if (id === "off") return undefined;
   const sensor = kit.sensors[id];
+  const judges = kit.roles.filter((role) => can(role, "judge")).map((role) => role.role);
   if (!sensor) {
-    errors.push(`The watch is set to be judged by ${id}, which is neither off nor a sensor the kit knows (${Object.keys(kit.sensors).join(", ") || "none"})`);
+    if (judges.includes(id)) return { id, role: id };
+    errors.push(`The watch is set to be judged by ${id}, which is neither off, a sensor the kit knows nor a role that can judge (${[...Object.keys(kit.sensors), ...judges].join(", ") || "none"})`);
     return undefined;
   }
   const key = layers.map((layer) => layer.sensor?.[id]?.key).filter(Boolean).at(-1);

@@ -12,6 +12,7 @@ import { cut } from "./cut.ts";
 import { done, doneReview } from "./done.ts";
 import { incidents } from "./incidents.ts";
 import { holdLane } from "./hold-lane.ts";
+import { judgeCase } from "./judge.ts";
 import { message } from "./message.ts";
 import { note } from "./note.ts";
 import { landLane } from "./land-lane.ts";
@@ -56,4 +57,5 @@ export const TOOLS: ToolDef[] = [
   markIncident,
   record,
   note,
+  judgeCase,
 ];

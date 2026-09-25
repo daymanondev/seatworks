@@ -1,0 +1,9 @@
+{
+  "permission": {
+    "edit": "deny",
+    "webfetch": "deny",
+    "bash": {
+      "*": "deny"
+    }
+  }
+}

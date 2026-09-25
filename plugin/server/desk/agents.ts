@@ -44,6 +44,7 @@ export class Agents {
     const workspace = await this.slots.projectWorkspace(project);
     const started = await this.workspaces.seat(workspace.id, {
       config,
+      parent: options.parent,
       title: options.title,
       prompt: options.prompt,
       labels: { ...this.marks(role, project), ...options.labels },

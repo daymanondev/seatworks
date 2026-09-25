@@ -52,11 +52,14 @@ export class Roster {
         gone = true;
       } catch {}
     }
-    const found = (await this.seats.open())
-      .filter((seat) => this.holds(seat, "supervise", project))
-      .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
     // Not the preferred id: it may be the seat just read as archived, and every letter to it would be held forever.
-    return found[0]?.id ?? (gone ? undefined : preferred);
+    return (await this.holderOf(project, "supervise")) ?? (gone ? undefined : preferred);
+  }
+
+  /** The project's open seat, the one heard from last, whose role can `capability`. */
+  async holderOf(project: Project, capability: string): Promise<string | undefined> {
+    const found = (await this.seats.open()).filter((seat) => this.holds(seat, capability, project)).sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+    return found[0]?.id;
   }
 
   private holds(seat: SeatView, capability: string, project: Project): boolean {

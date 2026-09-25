@@ -27,6 +27,7 @@ import { type DeskServices, type ToolDef, servedBy } from "./services.ts";
 import { Slots } from "./slots.ts";
 import { type Noticed, closeIncidentsOf, notice, retell } from "./notice.ts";
 import { openWaiting, startWaiting } from "./waiting.ts";
+import { Watcher } from "./watcher.ts";
 
 type DeskOptions = {
   kit: Kit;
@@ -47,13 +48,13 @@ const ANSWER_WITHIN_MS = 240_000;
 export class Desk {
   readonly projects: Map<string, Project>;
   readonly human: Human;
+  readonly watcher: Watcher;
   private readonly services: DeskServices;
   private readonly intents: Intents;
   private readonly tools: ToolDef[];
   /** Whether a call from this seat is still being worked on — which is not silence. */
   inFlight(agentId: string): boolean {
-    for (const key of this.running.keys()) if (key.startsWith(`${agentId}\n`)) return true;
-    return false;
+    return [...this.running.keys()].some((key) => key.startsWith(`${agentId}\n`));
   }
 
   private readonly running = new Map<string, { reply: Promise<ToolReply>; started: number }>();
@@ -71,7 +72,8 @@ export class Desk {
     const roster = new Roster(options.kit, options.seats, this.intents);
     const slots = new Slots(ctx, options.workspaces);
     const agents = new Agents(ctx, roster, slots, options.workspaces);
-    this.services = { ctx, roster, slots, agents, merges: new MergeQueue(ctx, agents) };
+    this.watcher = new Watcher(ctx, roster, agents);
+    this.services = { ctx, roster, slots, agents, merges: new MergeQueue(ctx, agents), watcher: this.watcher };
     this.tools = options.tools;
     this.projects = ctx.projects;
     this.human = new Human(this.services);
