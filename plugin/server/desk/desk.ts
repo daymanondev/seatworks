@@ -19,7 +19,8 @@ import { landLetters } from "./land-letters.ts";
 import { type Letter, letters } from "./letters.ts";
 import { Intents } from "./intents.ts";
 import { tidyRecords } from "./records.ts";
-import { fileRecords, keepArchived, takeFinished } from "./archive.ts";
+import { archiveFinished } from "./archive.ts";
+import { reapKept } from "./kept.ts";
 import { MergeQueue } from "./merge.ts";
 import { type Project, projectOf } from "./project.ts";
 import { Roster } from "./roster.ts";
@@ -163,9 +164,9 @@ export class Desk {
     }
   }
 
-  /** In the round: finish a teardown whose writers are not seats any more. */
+  /** In the round: finish a teardown whose writers are not seats any more, and put away a copy kept for a Lead that is gone. */
   reapSlots(project: Project, live: Set<string>): Promise<void> {
-    return this.services.slots.reap(project, live);
+    return reapKept(this.services, project, live);
   }
 
   setTask(project: Project, taskId: string, change: (task: Task) => void): Task | undefined {
@@ -182,19 +183,8 @@ export class Desk {
     await startWaiting(this.services, project, false);
   }
 
-  /** Checked on a plain read first, so a round with nothing to archive does not rewrite the ledger; records follow once it is saved. */
   async archiveFinished(project: Project, gone: (agentId: string) => boolean): Promise<void> {
-    const taken = takeFinished(loadLedger(project.state), gone)
-      ? this.services.ctx.transact(project, (ledger) => {
-          const found = takeFinished(ledger, gone);
-          if (found) keepArchived(project.state, found);
-          return found;
-        })
-      : undefined;
-    const filed = fileRecords(project.state, loadLedger(project.state));
-    if (taken || filed.length > 0) {
-      this.services.ctx.event(project, { kind: "ledger.archived", lanes: taken?.lanes.map((entry) => entry.lane!.id) ?? [], agents: taken?.agents.length ?? 0, asks: taken?.asks.length ?? 0, records: filed.length });
-    }
+    archiveFinished(this.services, project, gone);
   }
 
   async sweep(project: Project, busy = false): Promise<void> {

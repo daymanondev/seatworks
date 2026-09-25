@@ -25,10 +25,11 @@ async function fromOwner(desk: DeskServices, caller: Caller, ledger: Ledger, sen
   const { ctx, roster } = desk;
   const lane = findLane(ledger, sending.to);
   if (lane) {
-    if (lane.status !== "open" || !lane.lead) return no(`Lane ${lane.id} has no running Lead.`);
+    // A Lead kept after its lane closed is still there to ask about it.
+    if (lane.status === "waiting" || !lane.lead) return no(`Lane ${lane.id} has no running Lead.`);
     if (!(await roster.seated(lane.lead))) return no(unread(`The Lead of ${lane.id} (${lane.lead})`));
     const refused = repeatsIncident(caller.project.state, lane.lead, text);
-    return refused ? no(refused) : ok(await handTo(desk, { target: lane.lead, from: "the owner", who: `the Lead of ${lane.id}` }, sending, text));
+    return refused ? no(refused) : ok(await handTo(desk, { target: lane.lead, from: "the owner", who: `the Lead ${lane.status === "closed" ? "kept from" : "of"} ${lane.id}` }, sending, text));
   }
   const task = findTask(ledger, sending.to);
   if (!task?.peer) return no(`There is no lane or task ${sending.to}.`);

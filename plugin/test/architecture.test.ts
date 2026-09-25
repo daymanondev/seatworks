@@ -42,7 +42,7 @@ const LONG_FILES: Record<string, number> = {
   "server/runtime/runtime.ts": 380,
   "test/runtime/facts.test.ts": 401,
   "test/runtime/intake.test.ts": 559,
-  "test/runtime/workflow.test.ts": 1637,
+  "test/runtime/workflow.test.ts": 1619,
 };
 
 const LONG_FUNCTIONS: Record<string, number> = {
@@ -60,7 +60,7 @@ const LONG_FUNCTIONS: Record<string, number> = {
   "mcp/code.mjs stdioBackend": 70,
   "server/adapters/paseo/agents.ts workspacesOn": 57,
   "server/catalog/team.ts resolveRole": 60,
-  "server/desk/status.ts statusText": 94,
+  "server/desk/status.ts statusText": 86,
   "server/runtime/doctor.ts doctor": 77,
   "server/runtime/watch/history.ts deskFacts": 54,
 };

@@ -4,7 +4,7 @@ import { oldBlockIn } from "../../catalog/project-files.ts";
 import { currentBranch, headSha, uncommittedPaths } from "../../core/git.ts";
 import { hash } from "../../core/text.ts";
 import { ok } from "../context.ts";
-import { laneOfLead, loadLedger } from "../ledger.ts";
+import { leadLaneOf, loadLedger } from "../ledger.ts";
 import { loadConfig } from "../project.ts";
 import { defineTool } from "../services.ts";
 import { type OwnCopy, statusText } from "../status.ts";
@@ -21,7 +21,9 @@ export const status = defineTool({
   async handle({ ctx, roster }, caller) {
     const ledger = loadLedger(caller.project.state);
     const seats = new Map((await roster.open()).map((seat) => [seat.id, seat]));
-    const lane = can(caller.role, "lead") ? laneOfLead(ledger, caller.id)?.id : undefined;
+    const led = can(caller.role, "lead") ? leadLaneOf(ledger, caller.id) : undefined;
+    if (led?.status === "closed") return ok(`Lane ${led.id} (${led.title}) is closed${led.landed ? " and landed" : ""}. You are kept on with what you know of it until the owner releases you: nothing of it is yours to do.`);
+    const lane = led?.id;
     const copy = can(caller.role, "supervise") ? await ownCopy(caller.project.root) : undefined;
     const text = statusText(caller.project, ledger, loadConfig(caller.project.state), seats, Date.now(), { laneId: lane, copy });
     if (ctx.statusSeen.get(caller.id) === hash(text)) return ok("Nothing has changed since you last asked: end your turn, and mail wakes you when something does.");

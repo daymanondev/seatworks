@@ -159,7 +159,7 @@
     },
     {
       "name": "drop_lane",
-      "description": "Close a lane without landing, when the Human no longer wants it or it cannot go on: its agents are archived, its copy is put away, and its branch is kept for the Human. A lane still waiting is dropped before anything starts for it.",
+      "description": "Close a lane without landing, when the Human no longer wants it or it cannot go on: its Peers are archived, its branch is kept for the Human, and its Lead stays with any copy of its own until you release it. A lane still waiting is dropped before anything starts for it.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -387,6 +387,21 @@
           "role": {
             "type": "string",
             "description": "Optional role to lead it, when the kit has more than one that can lead. Left out, the kit's first."
+          }
+        },
+        "required": [
+          "lane"
+        ]
+      }
+    },
+    {
+      "name": "release",
+      "description": "Let go of the Lead kept from a closed lane, once its work is done or the Human asks: it is archived after the turn it is in, and the copy it kept is put away, with a landed lane's branch.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "lane": {
+            "type": "string"
           }
         },
         "required": [

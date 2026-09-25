@@ -1,12 +1,15 @@
 import { headSha, isAncestor, landLane, landedRef, mergeBranch, mergeUnderWay } from "../core/git.ts";
 import { midTurn } from "../core/paseo.ts";
+import { ASK } from "../domain/ask.ts";
 import { LANE } from "../domain/lane.ts";
 import { TASK } from "../domain/task.ts";
 import { type ToolReply, no, ok, str } from "./context.ts";
 import { laneGate } from "./gates.ts";
 import { askFirstHits, changeOf, landFacts } from "./landing.ts";
 import { type Lane, type Ledger, type Task, findLane, loadLedger, tasksOf } from "./ledger.ts";
+import { keptLetters } from "./kept-letters.ts";
 import { landLetters } from "./land-letters.ts";
+import { closeIncidentsOf } from "./notice.ts";
 import { type Project, loadConfig } from "./project.ts";
 import type { DeskServices } from "./services.ts";
 import { seatingKey } from "./opening.ts";
@@ -174,7 +177,15 @@ async function land(desk: DeskServices, project: Project, ledger: Ledger, lane: 
   return { how: `${result.how}${gate.ok ? "" : ", over a red gate"}`, note: check.note };
 }
 
-/** Closes the lane on record, cuts what it still had going, and puts away its seats and copy, each once nothing is writing there. */
+/** Where the lane's copy stands once it closes: on a carried-on branch, kept with its Lead, going away, or the Human's going back. */
+function copyNote(lane: Lane, kept: boolean, writers: string[]): string {
+  if (lane.onBranch) return `The project's own copy stays on ${lane.branch}.`;
+  if (lane.slot && kept) return `Its working copy ${lane.slot} stays with its Lead.`;
+  const where = lane.slot ? "Its working copy is put away" : `The project's own copy goes back to ${lane.base}`;
+  return writers.length > 0 ? `${where} once ${writers.join(" and ")} finish the turn they are in.` : lane.slot ? "Its working copy is put away." : `The project's own copy is back on ${lane.base}.`;
+}
+
+/** Closes the lane on record and cuts what it still had going: its Peers go, and its Lead stays with any copy of its own until released. */
 async function retire(desk: DeskServices, project: Project, lane: Lane, args: Closing, landed: { how: string; note: string }): Promise<Closed> {
   const { ctx, roster, slots, agents } = desk;
   const retired = ctx.transact(project, (current) => {
@@ -182,6 +193,8 @@ async function retire(desk: DeskServices, project: Project, lane: Lane, args: Cl
     if (entry && LANE.move(entry, "close")) Object.assign(entry, { landed: args.land === true || undefined, closedAt: Date.now() });
     delete entry?.landApproval;
     delete entry?.onHold;
+    // Nobody in the lane is left to answer them, and a kept Lead would be reminded of them for nothing.
+    for (const ask of Object.values(current.asks)) if (ask.lane === lane.id && ASK.move(ask, "answer")) ask.answer = `Lane ${lane.id} closed before this was answered.`;
     const tasks: Task[] = [];
     for (const task of Object.values(current.tasks).filter((item) => item.lane === lane.id)) {
       TASK.move(task, "cut");
@@ -189,35 +202,33 @@ async function retire(desk: DeskServices, project: Project, lane: Lane, args: Cl
     }
     return tasks;
   });
-  const kept: string[] = [];
+  const branches: string[] = [];
   for (const task of retired) {
     const branch = await agents.retire(project, task, lane.branch);
-    if (branch) kept.push(branch);
+    if (branch) branches.push(branch);
   }
-  await roster.archive(lane.lead);
-  // Mid-turn seats are still writing in the lane's copy; it goes when their turn ends, not under them.
-  const writers = [lane.lead, ...retired.filter((task) => task.mode !== "parallel").map((task) => task.peer)].filter(
-    (id): id is string => typeof id === "string" && roster.archiving(id),
-  );
-  // A branch carried on is the Human's: nothing switches the copy off it or deletes it.
-  if (!lane.onBranch) {
+  const look = lane.lead ? await roster.look(lane.lead).catch(() => undefined) : undefined;
+  const kept = Boolean(look && !look.archivedAt);
+  // Mid-turn seats are still writing in the lane's copy, the kept Lead included; it goes back when their turn ends, not under them.
+  const peers = retired.filter((task) => task.mode !== "parallel").map((task) => task.peer).filter((id): id is string => typeof id === "string" && roster.archiving(id));
+  const writers = [...new Set([...(kept && midTurn(look!.status) ? [lane.lead!] : []), ...peers])];
+  // A branch carried on is the Human's, and a copy of the lane's own stays with a kept Lead until it is released.
+  if (!lane.onBranch && (!lane.slot || !kept)) {
     const drop = args.land === true ? { dropBranch: lane.branch, into: landedRef(lane.id) } : {};
     const branch = await slots.putAway({ project, slot: lane.slot, restore: lane.base, lane: lane.id, branch: lane.branch, ...drop }, writers);
-    if (branch) kept.push(branch);
+    if (branch) branches.push(branch);
   }
+  if (lane.lead) closeIncidentsOf(desk, project, lane.lead);
+  if (kept) await ctx.post(lane.lead, keptLetters.closed(lane, args.land === true, landed.how));
   if (lane.detourOf) {
     const waiting = loadLedger(project.state).lanes[lane.detourOf];
     if (waiting?.status === "open" && waiting.lead) await ctx.post(waiting.lead, landLetters.detourLanded(lane, waiting, landed.how));
   }
   ctx.event(project, { kind: "lane.closed", lane: lane.id, land: args.land === true, landing: landed.how, reason: str(args.reason), writers });
-  const copy = lane.onBranch
-    ? `The project's own copy stays on ${lane.branch}.`
-    : writers.length > 0
-      ? `Its working copy is put away once ${writers.join(" and ")} finish the turn they are in.`
-      : "Its working copy is free for the next lane.";
-  const branches = kept.length > 0 ? ` ${kept.join(" and ")} ${kept.length === 1 ? "holds commits" : "hold commits"} nothing else has and ${kept.length === 1 ? "is" : "are"} kept.` : "";
+  const seats = kept ? `Its Peers are archived, and its Lead ${lane.lead} stays until you release it.` : "Its Peers are archived, and its Lead is gone.";
+  const held = branches.length > 0 ? ` ${branches.join(" and ")} ${branches.length === 1 ? "holds commits" : "hold commits"} nothing else has and ${branches.length === 1 ? "is" : "are"} kept.` : "";
   await openWaiting(desk, project, true);
-  return ok(`Lane ${lane.id} closed and its agents archived; ${landed.how}. ${copy}${branches}${landed.note}`);
+  return ok(`Lane ${lane.id} closed; ${landed.how}. ${seats} ${copyNote(lane, kept, writers)}${held}${landed.note}`);
 }
 
 /**

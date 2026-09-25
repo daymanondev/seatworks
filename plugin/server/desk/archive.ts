@@ -5,8 +5,10 @@ import { lastBytes } from "../core/gate.ts";
 import { appendRolling } from "../core/rolling.ts";
 import { IN_QUEUE } from "../domain/task.ts";
 import type { Question } from "../domain/question.ts";
-import type { AgentRef, Ask, Lane, Ledger, Task } from "./ledger.ts";
+import { type AgentRef, type Ask, type Lane, type Ledger, type Task, loadLedger } from "./ledger.ts";
+import type { Project } from "./project.ts";
 import { laneRecords } from "./records.ts";
+import type { DeskServices } from "./services.ts";
 
 export const KEEP_CLOSED_LANES = 20;
 const ARCHIVE_KEEP_BYTES = 64 * 1024 * 1024;
@@ -154,4 +156,19 @@ export function fileRecords(state: string, ledger: Ledger, keepBytes = ARCHIVE_K
     if (total > keepBytes) rmSync(join(dir, name), { force: true });
   }
   return moved;
+}
+
+/** Checked on a plain read first, so a round with nothing to archive does not rewrite the ledger; records follow once it is saved. */
+export function archiveFinished(services: DeskServices, project: Project, gone: (agentId: string) => boolean): void {
+  const taken = takeFinished(loadLedger(project.state), gone)
+    ? services.ctx.transact(project, (ledger) => {
+        const found = takeFinished(ledger, gone);
+        if (found) keepArchived(project.state, found);
+        return found;
+      })
+    : undefined;
+  const filed = fileRecords(project.state, loadLedger(project.state));
+  if (taken || filed.length > 0) {
+    services.ctx.event(project, { kind: "ledger.archived", lanes: taken?.lanes.map((entry) => entry.lane!.id) ?? [], agents: taken?.agents.length ?? 0, asks: taken?.asks.length ?? 0, records: filed.length });
+  }
 }

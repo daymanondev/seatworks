@@ -82,8 +82,15 @@ function fakePaseo() {
         agent.pending.splice(at, 1);
         agent.answered.push({ requestId, response });
       },
-      async archive() { if (agent) Object.assign(agent, { archivedAt: new Date().toISOString(), status: "closed" }); },
+      async archive() { archiveWithChildren(id); },
     };
+  };
+  // Paseo 0.9.2 archives an agent's children with it, and theirs (live probe, v3 LEDGER D79).
+  const archiveWithChildren = (id: string): void => {
+    const agent = agents.get(id);
+    if (!agent || agent.archivedAt) return;
+    Object.assign(agent, { archivedAt: new Date().toISOString(), status: "closed" });
+    for (const child of agents.values()) if (child.labels["paseo.parent-agent-id"] === id) archiveWithChildren(child.id);
   };
   const add = (provider: string, cwd: string, title: string, status = "idle", prompt?: string, labels: Record<string, string> = {}) => {
     const id = `agent-${++count}`;

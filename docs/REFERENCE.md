@@ -19,7 +19,7 @@ pages in), the seat's bridge shows that set as the field's choices.
 <!-- drawn from the code: verbs -->
 | Role | Tools |
 |---|---|
-| Supervisor | `open_lane` `message` `answer` `land_lane` `drop_lane` `amend_lane` `hold_lane` `resume_lane` `ask_human` `record_human_answer` `replace_lead` `set_project` `status` `incidents` `mark_incident` `record` |
+| Supervisor | `open_lane` `message` `answer` `land_lane` `drop_lane` `amend_lane` `hold_lane` `resume_lane` `ask_human` `record_human_answer` `replace_lead` `release` `set_project` `status` `incidents` `mark_incident` `record` |
 | Lead | `add_tasks` `start_review` `message` `answer` `accept` `rework` `amend_task` `cut` `release` `ask` `report` `status` `incidents` `mark_incident` `record` `note` |
 | Peer, Reviewer | `done` `ask` |
 | Watcher | `judge` `record` |
@@ -28,8 +28,8 @@ pages in), the seat's bridge shows that set as the field's choices.
 | Verb | Effect |
 |---|---|
 | `open_lane` | Records the lane, takes a working copy and seats a Lead, with a directive that names `CONTEXT.md` once it exists. It can read a GitHub issue. It refuses a lane whose declared write set or `contracts` overlap an open lane's write set, or that reaches a path the project keeps to one writer. Before a lane takes the project's own checkout while it holds uncommitted work or sits on a branch other than the base, the Human decides where it works: the call says it (`onBranch`, `isolate` true or false) or the project's `laneHome` does, else it is refused with the choices |
-| `land_lane` | Waits for queued merges, then [lands the lane](ARCHITECTURE.md#a-lane): it cuts leftover tasks, archives their seats and the Lead, and puts the copy away. Landing over a red gate takes `overGate` and a reason. A lane that changes a path in the project's `askFirst` waits for the Human's approval instead |
-| `drop_lane` | Waits for queued merges, then closes the lane without landing, with a reason: it cuts leftover tasks, archives their seats and the Lead, puts the copy away, and keeps the branch. A waiting lane is dropped before anything starts |
+| `land_lane` | Waits for queued merges, then [lands the lane](ARCHITECTURE.md#a-lane): it cuts leftover tasks and archives their Peers. Its Lead stays, with any copy of its own, until `release`; a lane in the project's own copy puts it back on base once no seat is mid-turn there. Landing over a red gate takes `overGate` and a reason. A lane that changes a path in the project's `askFirst` waits for the Human's approval instead |
+| `drop_lane` | Waits for queued merges, then closes the lane without landing, with a reason: it cuts leftover tasks, archives their Peers and keeps the branch. Its Lead stays, with any copy of its own, until `release`. A waiting lane is dropped before anything starts |
 | `amend_lane` | Changes what an open or waiting lane is asked, keeping what it was asked before and why. Its Lead is told, and a READY it reported no longer stands. A write set or `contracts` that would overlap an open lane's is refused |
 | `replace_lead` | Seats a new Lead on an open lane whose Lead is gone, where the lane stands. A Lead Paseo already started for it is taken on instead, and the asks waiting on the old Lead move to the new one |
 | `ask_human` | The Supervisor puts a decision only the Human can make on their question queue: 2–4 choices, a recommendation, and what goes ahead while they are silent by class. `reversible` goes on at once; `costly` goes on until the lane reports ready, where the desk puts the lane on hold if it is still unanswered; `irreversible` puts the lane on hold now. Refused past `questionsPerDay` questions in a day across all projects |
@@ -43,18 +43,18 @@ pages in), the seat's bridge shows that set as the field's choices.
 | `rework` | Sends the task back with a letter. It is refused while another task holds the lane copy |
 | `amend_task` | Changes what a task asks while its Peer works, keeping what it asked before and why. The Peer reads it at its next turn. A parallel task's new owned paths are checked as a start would check them |
 | `cut` | Stops the task and archives its Peer. It resets the lane copy to where the task started, when nothing merged there since. It is refused while the task's merge runs |
-| `release` | The Lead lets go of the Peer kept from a task it accepted in the lane's copy: it is archived, and the next task there starts a new Peer. It is refused for a task not yet accepted, a Peer that went on to another task, a parallel task, whose Peer goes with its copy once merged, and a review, whose reviewer goes when it is cut |
+| `release` | The Lead lets go of the Peer kept from a task it accepted in the lane's copy: it is archived, and the next task there starts a new Peer. It is refused for a task not yet accepted, a Peer that went on to another task, a parallel task, whose Peer goes with its copy once merged, and a review, whose reviewer goes when it is cut. The Supervisor lets go of the Lead kept from a closed lane: it is archived after the turn it is in, and the copy it kept is put away once nobody writes there, a landed lane's branch with it. A kept Lead archived in Paseo has its copy put away by the next round |
 | `report` | Reports to the Supervisor. With `ready`, it runs the lane gate first, and the report carries what the lane's reviews leave standing: no review of the whole lane, a latest review that did not accept, a task accepted over its own review's changes, or handed back again after them and accepted with no review since. Where review changes stand that nothing on record answers, its `Next:` asks the Supervisor to check with the Lead before landing. `land_lane` gives the same as evidence |
 | `ask` | A Lead asks the Supervisor, with the default it works on meanwhile. A Peer asks its Lead with its best guess, which the letter shows as its default; a Reviewer asks with what it tried. Either goes to the Supervisor when the Lead is gone |
 | `done` | Hands the task back to the Lead, with a file; the commit is read from the branch, and files changed outside the task's owned paths are named in it and to the Peer. A review hands back its verdict, its answer to the focus and each finding (severity, place, failure, fix), and `changes` or `reopen` needs at least one; it is refused until it answers each risk rule question its brief carries. On a per-task-gate project, it runs the gate first. It is refused once the task is accepted, queued or cut |
-| `message` | The Supervisor messages a lane or a task, and a Lead messages a task in its own lane. It is refused, like `rework`, `answer`, `amend_task` and `amend_lane`, when the text names or quotes an open incident about the seat it goes to |
+| `message` | The Supervisor messages a lane, the Lead kept from a closed one included, or a task, and a Lead messages a task in its own lane. It is refused, like `rework`, `answer`, `amend_task` and `amend_lane`, when the text names or quotes an open incident about the seat it goes to |
 | `answer` | Closes an open ask. The Supervisor may answer any ask, others only their own |
 | `incidents` | Lists the 50 most recent open or unmarked incidents, with each one's brief. With `closed`, it adds the 20 most recently marked. A Lead sees only its own lane's |
 | `mark_incident` | Marks an incident `useful`, `noise` or `unknown`, with an optional note, and closes it. Noise also silences the same words on that seat and kind from then on |
 | `record` | What a lane's Lead, or a task's Peer or reviewer, ran, read, changed and said, one numbered step a line, without output or diffs. A Lead reads only its own lane's tasks; the Watcher reads any. Once the seat is archived it shows what the desk kept instead, since Paseo starts an archived agent again to read its history. A task whose Peer went on to the next task says so, since the steps shown are that task's too |
 | `judge` | The Watcher answers a case: every question once, by name, with `yes`, `no`, `unsure` or a choice's name, and a why. Anything else is refused and nothing is kept. The answers go to the project's `assessments.log`, like a sensor's |
 | `note` | Writes a page into a folder the caller's role declares under the project's state (the Lead's: `plans`, `council`, `ultra-review`, `repo-refresh`), replacing one of the same name, and answers with its path. It never writes into the repository. The Lead has no file-editing tools, except on Codex, where only its prompt keeps it from editing |
-| `status` | Lanes, tasks, working copies and open asks. A Lead sees its own lane. Asked again with nothing changed, it says only that |
+| `status` | Lanes, tasks, working copies, open asks, and the Leads kept after their lane closed. A Lead sees its own lane, and the Peer kept from its last task; a kept Lead only that it is kept. Asked again with nothing changed, it says only that |
 
 Behaviour depends on a role's capabilities (`supervise`, `lead`, `work`, `write`, `review`,
 `watched`, `judge`, `page`), never its name.
@@ -111,6 +111,7 @@ the Lead or whoever supervises because the Lead is gone, whether the task merged
 | Landing held for the Human | LAND HELD, LANDED, HELD AGAIN, CHANGED, APPROVED, SENT BACK, LAND SENT BACK |
 | Waiting and starting again | WAITING, OPENED, NOT OPENED, NOT STARTED, LEAD GONE |
 | A lane stopped | HOLD, RESUMED |
+| A seat kept on after its work | LANE CLOSED |
 | The desk noticing | SILENT, FAILED, WAITING FOR PERMISSION, LANE IDLE, INCIDENT, the bare nudge |
 | A question for the Watcher | CASE |
 | A moment to look | ARCHITECTURE, STRUGGLING, TURNING |
@@ -126,8 +127,8 @@ short where the seat's agent allows it. ARCHITECTURE, STRUGGLING and TURNING wak
 the three moments SLP names, as the desk sees them: a Lead widening what a task owns; a task sent back a
 second time, or stalled; a Lead changing what a task is for. OPENED, WAITING for a lane that opened by
 itself, LANDED and SENT BACK ask nothing of the Supervisor, and WAITING for a task that started by itself,
-LAND HELD and a MERGED with nothing to note while other tasks remain ask nothing of a Lead, so they wait
-for the next letter that does.
+LAND HELD, LANE CLOSED and a MERGED with nothing to note while other tasks remain ask nothing of a Lead, so they
+wait for the next letter that does. A task handed to the Peer kept in the lane's copy reaches it as a TASK letter, its brief.
 
 ## Mail
 

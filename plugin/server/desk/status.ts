@@ -1,6 +1,6 @@
 import type { SeatView } from "../core/paseo.ts";
 import { AT_WORK } from "../domain/task.ts";
-import { keptPeer } from "./kept.ts";
+import { keptCopy, keptPeer } from "./kept.ts";
 import { type Lane, type Ledger, type Task, ownCopyHolder } from "./ledger.ts";
 import { type LaneHome, type Project, type ProjectConfig, laneHomeFor, projectOf } from "./project.ts";
 
@@ -20,6 +20,14 @@ function taskDetail(ledger: Ledger, task: Task, seats: Map<string, SeatView>, no
   const kept = keptPeer(ledger, task.lane);
   const keeps = kept?.task === task.id && seats.has(kept.id) ? `; its Peer ${seatLine(seats, kept.id, now)} is kept for the next task in the copy` : "";
   return `${task.handback ? `, hand-back ${minutes(now, task.handback.at)} min ago` : ""}${keeps}`;
+}
+
+/** Leads kept after their lane closed, for whoever supervises to release: how long each has sat idle, and the copy it holds. */
+function keptLines(ledger: Ledger, seats: Map<string, SeatView>, now: number): string[] {
+  const kept = Object.values(ledger.lanes).filter((lane) => lane.status === "closed" && lane.lead && seats.has(lane.lead) && ledger.agents[lane.lead]?.lane === lane.id);
+  if (kept.length === 0) return [];
+  const line = (lane: Lane) => `- ${lane.id} ${lane.title}, ${lane.landed ? "landed" : "dropped"}: Lead ${seatLine(seats, lane.lead, now)}${keptCopy(ledger, lane) ? `, in ${lane.slot}` : ""}. release lane ${lane.id} once its work is done or the Human asks.`;
+  return ["## Kept Leads", "", ...kept.map(line), ""];
 }
 
 /** What the status tool read from the project's own checkout; `work` is undefined when git could not say. */
@@ -149,6 +157,7 @@ export function statusText(
   }
   if (pending.length > 0) lines.push("");
   if (!laneId) {
+    lines.push(...keptLines(ledger, seats, now));
     const slots = Object.values(ledger.slots ?? {});
     if (slots.length > 0) {
       lines.push("## Working copies", "");

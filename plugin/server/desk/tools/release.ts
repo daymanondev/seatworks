@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { no, ok, str } from "../context.ts";
-import { loadLedger } from "../ledger.ts";
+import { releaseKept } from "../kept.ts";
+import { findLane, loadLedger } from "../ledger.ts";
 import { defineTool } from "../services.ts";
 import { laneTask } from "./lane-task.ts";
 
@@ -25,5 +26,18 @@ export const releasePeer = defineTool({
     await roster.archive(peer);
     ctx.event(project, { kind: "seat.released", seat: peer, of: task.id });
     return ok(`The Peer kept from ${task.id} is released; the next task in the lane's working copy starts a new one.`);
+  },
+});
+
+/** Whoever supervises lets go of the Lead kept from a closed lane, and of the copy it kept. */
+export const releaseLead = defineTool({
+  name: "release",
+  input: z.strictObject({ lane: z.string() }),
+  async handle(desk, caller, args) {
+    const lane = findLane(loadLedger(caller.project.state), str(args.lane));
+    if (!lane) return no(`There is no lane ${str(args.lane)}.`);
+    if (lane.status !== "closed") return no(`Lane ${lane.id} is ${lane.status}: land_lane or drop_lane it first. replace_lead swaps a Lead that is gone.`);
+    const released = await releaseKept(desk, caller.project, lane);
+    return released ? ok(released) : no(`Lane ${lane.id}'s Lead is gone already, and nothing of it is kept.`);
   },
 });

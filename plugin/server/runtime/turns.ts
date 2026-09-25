@@ -2,7 +2,7 @@ import { type Kit, type RoleSpec, can, seatOf, worksTasks } from "../catalog/kit
 import type { PermissionRequested, Seats, TurnEnded } from "../core/ports.ts";
 import { DECIDED, TASK } from "../domain/task.ts";
 import type { Desk } from "../desk/desk.ts";
-import { type Ledger, laneOfLead, laneOnHold, loadLedger, taskOfPeer } from "../desk/ledger.ts";
+import { type Ledger, laneOfLead, laneOnHold, leadLaneOf, loadLedger, taskOfPeer } from "../desk/ledger.ts";
 import { letters } from "../desk/letters.ts";
 import { type Project, projectOf } from "../desk/project.ts";
 import { deniedCall, lastToolCall, outputText } from "./timeline.ts";
@@ -78,7 +78,7 @@ export class TurnRules {
     const project = projectOf(seat.cwd);
     const ledger = loadLedger(project.state);
     const task = taskOfPeer(ledger, seat.id);
-    const lane = task ? ledger.lanes[task.lane] : laneOfLead(ledger, seat.id);
+    const lane = task ? ledger.lanes[task.lane] : leadLaneOf(ledger, seat.id);
     if (!lane) return;
     const to = await this.deps.desk.supervisorFor(project, lane.opener);
     await this.deps.desk.post(to, letters.humanWrote(lane, task, seat.id, text));

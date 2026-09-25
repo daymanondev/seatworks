@@ -15,7 +15,7 @@ export const ended = (text: string) => (/[.!?]$/.test(text.trim()) ? text.trim()
 
 /** Every kind of letter the desk mails. A letter's key starts with its kind, and so does the id Paseo shows for the message. */
 type Kind =
-  | "answer" | "answeredFor" | "ask" | "amended" | "baseconflict" | "brief" | "canland" | "case" | "detour" | "done" | "escalate" | "failed" | "gone"
+  | "answer" | "answeredFor" | "ask" | "amended" | "baseconflict" | "brief" | "canland" | "case" | "closed" | "detour" | "done" | "escalate" | "failed" | "gone"
   | "halfopen" | "held" | "hold" | "humananswered" | "humanwrote" | "idle" | "incident" | "land" | "landback" | "landheld" | "later" | "leadgone" | "merge" | "message" | "moment"
   | "notstarted" | "nudge" | "opened" | "permission" | "reconcile" | "remind" | "report" | "resumed" | "rework" | "silent" | "started" | "unanswered";
 
@@ -245,11 +245,14 @@ export const letters = {
 
   /** Words the Human wrote straight into a Lead's or Peer's chat, fenced as data. */
   humanWrote(lane: Lane, task: Task | undefined, seat: string, text: string): Letter {
-    const who = task ? `the Peer on ${task.id} (${task.title})` : `the Lead of ${lane.id} (${lane.title})`;
+    const closed = lane.status === "closed";
+    const who = task ? `the Peer on ${task.id} (${task.title})` : `the Lead ${closed ? "kept from" : "of"} ${lane.id} (${lane.title})`;
     const lines = [`HUMAN WROTE to ${who} directly, past you:`, "<human>", outside("human", text, 1500), "</human>", ...(task ? ["", "Its Lead was not told."] : [])];
-    const next = task
-      ? "If it changes what the task or the lane is asked, carry it in: tell the Lead, amend_lane, or settle it with the Human."
-      : "If it changes what the lane is asked, carry it in with amend_lane; if it settles the concept, write it into CONTEXT.md.";
+    const next = closed
+      ? `Lane ${lane.id} is closed: if it asks for more work, open a lane for it; if it settles the concept, write it into CONTEXT.md.`
+      : task
+        ? "If it changes what the task or the lane is asked, carry it in: tell the Lead, amend_lane, or settle it with the Human."
+        : "If it changes what the lane is asked, carry it in with amend_lane; if it settles the concept, write it into CONTEXT.md.";
     return mail("humanwrote", [seat, hash(text)], lines.join("\n"), next);
   },
 

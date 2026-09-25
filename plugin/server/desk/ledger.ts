@@ -243,6 +243,12 @@ export function laneOfLead(ledger: Ledger, agentId: string): Lane | undefined {
   return Object.values(ledger.lanes).find((lane) => lane.lead === agentId && lane.status === "open");
 }
 
+/** The lane a seat leads by its binding, closed ones included: a Lead kept after its lane closed still answers for it. */
+export function leadLaneOf(ledger: Ledger, agentId: string): Lane | undefined {
+  const lane = ledger.lanes[ledger.agents[agentId]?.lane ?? ""];
+  return lane?.lead === agentId ? lane : undefined;
+}
+
 /** The seats working in a lane: its Lead, then the Peer or reviewer of each task not yet settled. */
 export function laneSeats(ledger: Ledger, lane: Lane): { seat: string; task?: Task }[] {
   const working = Object.values(ledger.tasks).filter((task) => task.lane === lane.id && task.peer && !SETTLED.includes(task.status));

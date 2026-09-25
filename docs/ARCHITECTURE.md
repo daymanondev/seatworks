@@ -147,7 +147,9 @@ treated as empty.
 **Two task modes.**
 
 - **Lane mode**, the default. The task shares the lane's copy and branch. `accept` marks it merged
-  in place.
+  in place, and its Peer stays in the copy for the lane's next task there. That task goes to it
+  unless the Lead adds it `fresh`, it needs another role, or the team now starts the role otherwise;
+  the Lead `release`s a Peer it no longer needs.
 - **Parallel mode.** The task gets its own slot and `task/…` branch. `accept` queues it, and one merge
   queue per project merges branches into their lane, one at a time. The queue is the tasks' status in
   the ledger, so a restart picks it up: a merge cut off midway is undone and run again, and one git had
@@ -170,10 +172,15 @@ its reviews leave standing) goes with the REPORT letter and the reply as evidenc
 touches a path the project's risk rules name (the kit's cover migrations, schemas and SQL) carries
 their questions, and its verdict is refused until it answers them.
 
+**Who stays.** Closing a lane lets its Peers go. Its Lead stays, with the lane's copy of its own if
+it had one, until whoever supervises releases it or it is archived in Paseo, which archives a
+Supervisor's Leads with it; the next round then puts that copy away. Your checkout goes back to base
+at close.
+
 **Teardown** waits for seats that are still mid-turn. The pending release is recorded in the ledger,
 and a seat waiting to be archived in `intents.json`, so a daemon restart loses neither: the first
-round after it treats every turn that ended meanwhile as ending then. Your checkout goes back to base. A landed lane's branch is
-deleted, and one closed without landing is kept for you.
+round after it treats every turn that ended meanwhile as ending then. A landed lane's branch is
+deleted with its copy, and one closed without landing is kept for you.
 
 **The first gate.** The first `open_lane` of a project with no recorded gate detects one from the
 project's files, for example `npm test` or `cargo test`. `set_project` changes it.

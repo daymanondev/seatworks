@@ -38,7 +38,7 @@
     {
       "role": "lead",
       "label": "Lead",
-      "description": "Owns one lane: splits it into tasks, starts Peers, accepts and integrates",
+      "description": "Owns a lane: splits it into tasks, starts Peers, accepts and integrates; stays on after it closes until released",
       "defaults": {
         "harness": "claude",
         "model": "claude-opus-5",
