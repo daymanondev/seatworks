@@ -226,10 +226,10 @@ export const UpdateView = z.object({
 });
 export type UpdateView = z.infer<typeof UpdateView>;
 
-const MigrateStep = z.object({ kind: z.enum(["settings", "block", "seat"]), where: z.string(), what: z.string(), detail: z.array(z.string()), auto: z.boolean() });
+const MigrateStep = z.object({ kind: z.enum(["settings", "seat"]), where: z.string(), what: z.string(), detail: z.array(z.string()), auto: z.boolean() });
 export type MigrateStep = z.infer<typeof MigrateStep>;
 /** Guides and records are only told about, never replaced. */
-const ContentChange = z.object({ unit: z.string(), kind: z.enum(["guide", "record", "prompt", "skill", "team"]), change: z.enum(["added", "changed", "removed"]), kept: z.boolean(), keepable: z.boolean() });
+const ContentChange = z.object({ unit: z.string(), kind: z.enum(["guide", "record", "prompt", "skill"]), change: z.enum(["added", "changed", "removed"]), kept: z.boolean(), keepable: z.boolean() });
 export type ContentChange = z.infer<typeof ContentChange>;
 export const MigrateView = z.object({ stamp: z.string(), since: z.string(), steps: z.array(MigrateStep), done: z.array(z.string()), content: z.array(ContentChange) });
 export type MigrateView = z.infer<typeof MigrateView>;

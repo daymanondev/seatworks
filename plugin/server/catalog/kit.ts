@@ -3,7 +3,6 @@ import { basename, join } from "node:path";
 import { z } from "zod";
 import type { Attention } from "../../shared/views.ts";
 import { ATTENTION } from "./attention.ts";
-import { hiddenWordsIn } from "./hidden-words.ts";
 import type { FileKinds } from "../core/git.ts";
 import { DESK_OWNED } from "../core/paths.ts";
 import { EcosystemFile, HarnessFile, McpFile, PaseoFile, RolesFile } from "./schema.ts";
@@ -29,7 +28,6 @@ export type Kit = {
   harnesses: Record<string, HarnessSpec>;
   mcp: Record<string, McpEntry>;
   toolSets: Record<string, Record<string, ArgSchema>>;
-  team?: string;
   own?: string;
   attention: Attention;
   ecosystem: Ecosystem;
@@ -116,7 +114,6 @@ export function loadKit(dir: string, stateDir?: string): Kit {
     harnesses,
     mcp: loadMcp(dir),
     toolSets: loadToolSets(dir),
-    team: loadTeam(dir, loaded, own),
     own,
     attention: { ...ATTENTION, destructive: ecosystem.watch.destructive, testPath: ecosystem.watch.testPath, suppressed: ecosystem.watch.suppressed, ...raw.attention },
     ecosystem,
@@ -161,21 +158,6 @@ function shippedOrOwn(dir: string, own: string | undefined, path: string): strin
 
 export function ownOr(kit: Kit, path: string): string {
   return shippedOrOwn(kit.dir, kit.own, path);
-}
-
-/** The team block again, after the owner chose whose copy of it to keep. */
-export function reloadTeam(kit: Kit): void {
-  kit.team = loadTeam(kit.dir, kit.roles, kit.own);
-}
-
-/** Every seat reads AGENTS.md, so the block is held to every role's hidden words at once. */
-function loadTeam(dir: string, roles: RoleSpec[], own?: string): string | undefined {
-  const file = shippedOrOwn(dir, own, "project/AGENTS.md");
-  if (!existsSync(file)) return undefined;
-  const text = readFileSync(file, "utf-8");
-  const hidden = hiddenWordsIn(text, [...new Set(roles.flatMap((role) => role.hidesWords ?? []))]);
-  if (hidden.length > 0) throw new Error(`content/project/AGENTS.md is read by every role and shows words some must not see: ${hidden.join(", ")}`);
-  return text;
 }
 
 /** Another role's preset for this agent, else Paseo's first: Paseo's own default cannot be read back, since the plugin sets it. */

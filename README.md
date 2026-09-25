@@ -91,11 +91,11 @@ the clone's branch has. **Update** moves forward only, runs `npm install` when t
 and reloads the plugin. It waits until no seat runs in any project, because every project moves to
 the new version at once. Below the version, one row for each thing that needs you:
 
-- A changed **prompt**, **skill** or **team block**: **Use new**, or **Keep mine** to go on with the
+- A changed **prompt** or **skill**: **Use new**, or **Keep mine** to go on with the
   version you had. Yours is copied to `~/.local/share/seatworks-v3/own/` for you to edit by hand, and
   you are still told when the original changes.
 - Changed **guides** and **records**: named only, for you to read in git.
-- Settings this version cannot read, a stale `AGENTS.md` block, seats still on an older version.
+- Settings this version cannot read, and seats still on an older version.
 
 **Clean up** lists seat folders, working copies and copies nobody uses any more, and removes only
 what you pick.
@@ -111,10 +111,10 @@ what you pick.
 The desk seats everyone else as the work needs them. The first lane works in your checkout, and each
 later one in a working copy of its own.
 
-**Your project's `AGENTS.md`.** The first time a seat opens, the plugin writes the team's shared
-rules into your `AGENTS.md`, in a marked `seatworks` block. It replaces that block whole and never
-touches your own text. `CLAUDE.md` gets a pointer to `AGENTS.md`. Commit both once, because a lane in
-its own working copy sees only what is committed.
+**Your project's `AGENTS.md` stays yours.** The plugin writes nothing into your project's files: the
+team's shared rules are in each role's own prompt. If an earlier version wrote a marked `seatworks`
+block into your `AGENTS.md` (and a pointer into `CLAUDE.md`), the Supervisor asks you to delete it and
+commit that.
 
 The panel has four tabs: **Team** (agents and the watch), **Flow** (lanes, tasks and questions,
 live), **MCP** (optional servers per role) and **Health**. Everything the desk keeps lives under

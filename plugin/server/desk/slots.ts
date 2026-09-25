@@ -1,7 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, rmSync, rmdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { addWorktree, branchExists, cleanState, contains, currentBranch, git, landedRef, mergeUnderWay, removeWorktree } from "../core/git.ts";
-import { workState } from "../catalog/project-files.ts";
+import { addWorktree, branchExists, cleanState, contains, currentBranch, git, landedRef, mergeUnderWay, pristineState, removeWorktree } from "../core/git.ts";
 import type { Workspace, Workspaces } from "../core/ports.ts";
 import { worktreeRoot } from "../core/paths.ts";
 import type { DeskContext } from "./context.ts";
@@ -40,7 +39,7 @@ export class Slots {
   }
 
   async inPlace(project: Project, branch: string, base: string): Promise<{ path: string; workspaceId: string }> {
-    const copy = await workState(project.root);
+    const copy = await pristineState(project.root);
     if (copy !== "clean") {
       throw new Error(
         copy === "dirty"
@@ -268,7 +267,7 @@ export class Slots {
     if (!(await branchExists(project.root, base))) throw new Error(`the base branch ${base} does not exist`);
     if (await branchExists(project.root, branch)) throw new Error(`the branch ${branch} already exists`);
     if (existsSync(join(slot.path, ".git"))) {
-      const held = await workState(slot.path);
+      const held = await pristineState(slot.path);
       if (held !== "clean") throw new Error(held === "dirty" ? `working copy ${slot.id} has uncommitted changes` : `git could not read working copy ${slot.id} at ${slot.path}`);
       const run = await git(slot.path, ["switch", "-c", branch, base]);
       if (run.code !== 0) throw new Error(run.stderr.trim() || "git switch failed");

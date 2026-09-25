@@ -1,8 +1,7 @@
-import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { MigrateStep, MigrateView } from "../../shared/views.ts";
 import type { Kit } from "../catalog/kit.ts";
-import { staleProjectFiles } from "../catalog/project-files.ts";
 import { digest } from "../catalog/seats.ts";
 import { LayerSchema } from "../../shared/settings.ts";
 import { stateRoot } from "../core/paths.ts";
@@ -114,28 +113,6 @@ function settingsSteps(ctx: MigrateContext): Step[] {
   });
 }
 
-function blockSteps(ctx: MigrateContext): Step[] {
-  const body = ctx.kit.team;
-  if (!body) return [];
-  return ctx.known.flatMap<Step>((project) => {
-    if (!existsSync(project.root)) return [];
-    const stale = staleProjectFiles(project.root, body);
-    if (stale.length === 0) return [];
-    return [
-      {
-        kind: "block",
-        where: project.slug,
-        what: `Write this version's team block into ${stale.map(({ name }) => name).join(" and ")}`,
-        detail: ["Commit it afterwards: a lane's working copy is made from what is committed."],
-        auto: true,
-        apply: () => {
-          for (const { file, wanted } of staleProjectFiles(project.root, body)) writeFileSync(file, wanted);
-        },
-      },
-    ];
-  });
-}
-
 function seatSteps(ctx: MigrateContext, since: string): MigrateStep[] {
   const old = ctx.live.filter((seat) => seat.provider.startsWith(ctx.kit.prefix) && seat.createdAt && seat.createdAt < since);
   const bySlug = new Map<string, LiveSeat[]>();
@@ -151,7 +128,7 @@ function seatSteps(ctx: MigrateContext, since: string): MigrateStep[] {
 
 function plan(ctx: MigrateContext): { stamp: Stamp; steps: Step[] } {
   const stamp = stampKit(ctx.kit, ctx.home, ctx.now);
-  return { stamp, steps: [...settingsSteps(ctx), ...blockSteps(ctx), ...seatSteps(ctx, stamp.since)] };
+  return { stamp, steps: [...settingsSteps(ctx), ...seatSteps(ctx, stamp.since)] };
 }
 
 const view = (stamp: Stamp, steps: MigrateStep[], done: string[]): MigrateView => ({

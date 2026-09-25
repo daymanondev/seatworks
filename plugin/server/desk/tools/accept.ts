@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { fileKinds } from "../../catalog/kit.ts";
-import { currentBranch, diffCounts, git, outsideOwned } from "../../core/git.ts";
-import { workState } from "../../catalog/project-files.ts";
+import { currentBranch, diffCounts, git, outsideOwned, pristineState } from "../../core/git.ts";
 import { IN_QUEUE, TASK } from "../../domain/task.ts";
 import { no, ok, str } from "../context.ts";
 import { gateNote } from "../gates.ts";
@@ -46,7 +45,7 @@ export const accept = defineTool({
       );
     }
     if (!lane.worktree) return no(`Lane ${lane.id} has no working copy.`);
-    const copy = await workState(lane.worktree);
+    const copy = await pristineState(lane.worktree);
     if (copy === "unknown") return no(`git could not read the lane's working copy at ${lane.worktree}, so the desk cannot tell whether anything is uncommitted there.`);
     if (copy === "dirty") {
       // Named correctly: the uncommitted work may be another task's, and reworking this one would wake its Peer into it.

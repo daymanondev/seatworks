@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, realpathSync, rmSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { type Kit, can, providerId, reloadTeam, rolesThatCan, seatOf, supportsRole } from "../catalog/kit.ts";
+import { type Kit, can, providerId, rolesThatCan, seatOf, supportsRole } from "../catalog/kit.ts";
 import { layerValues, readLayer, writeLayer } from "../catalog/settings.ts";
 import type { Connect, Layer } from "../../shared/settings.ts";
 import { type Team, resolveTeam, rulesFor, skillDirsFor, templateRoles, transportOf } from "../catalog/team.ts";
@@ -428,8 +428,7 @@ export class SettingsControl implements Control {
 
   async decide(unit: string, choice: "new" | "mine" | "seen"): Promise<MigrateView> {
     await decide(this.deps.kit, stateRoot(), unit, choice);
-    // The team block is read once a load, and a seat's skills when it is built: both follow the answer now.
-    reloadTeam(this.deps.kit);
+    // A seat's skills are read when it is built: the next one follows the answer.
     this.deps.seating.forget();
     return this.migrate(false);
   }

@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { configFault } from "../../core/config-file.ts";
-import { branchExists, currentBranch } from "../../core/git.ts";
-import { blockUncommitted, uncommittedWork } from "../../catalog/project-files.ts";
+import { branchExists, currentBranch, uncommittedPaths } from "../../core/git.ts";
 import { type Args, type Caller, no, ok, str, strs } from "../context.ts";
 import { type Issue, fetchIssue } from "../issue.ts";
 import { type Lane, type Ledger, loadLedger, nextLaneId, ownCopyHolder } from "../ledger.ts";
@@ -75,7 +74,7 @@ async function homeOf(project: Project, config: ProjectConfig, asked: Args, open
   const said: LaneHome | undefined = asked.onBranch === true ? "onBranch" : asked.isolate === true ? "isolate" : asked.isolate === false || str(asked.base) ? "newBranch" : undefined;
   // A waiting lane opens into whatever the copy is by then, and one the copy is taken from takes a copy of its own or waits.
   if (!opensNow || ownCopyHolder(Object.values(loadLedger(project.state).lanes))) return said ?? config.laneHome;
-  const home = laneHomeFor(said, config, here, await uncommittedWork(project.root));
+  const home = laneHomeFor(said, config, here, await uncommittedPaths(project.root));
   if (typeof home !== "object") return home;
   return { refused: `The Human decides where this lane works, and has not said: ${home.question}. Ask them, and keep their answer for every lane with set_project laneHome if they give one.` };
 }
@@ -126,9 +125,6 @@ export const openLane = defineTool({
     const { lane } = placed;
     const started = await startLead(desk, project, lane, { ownCopy: placed.ownCopy, failed: "close", from: newBranch ? here : undefined, role: str(args.role), parent: caller.id, issue });
     if (typeof started === "string") return no(started);
-    const unshared = started.slot.id && (await blockUncommitted(project.root))
-      ? "\n\nThe team block in AGENTS.md and CLAUDE.md is not committed, so this lane's copy was made without it: ask the Human to commit those two files now."
-      : "";
-    return ok(`${openedReply(project, lane, started.slot, started.lead, issue)}${unshared}${unread ? `\n\nThe issue was not read into the lane: ${clip(unread, 300)}. The Lead has the outcome and the checks; give it the issue yourself if it needs one.` : ""}`);
+    return ok(`${openedReply(project, lane, started.slot, started.lead, issue)}${unread ? `\n\nThe issue was not read into the lane: ${clip(unread, 300)}. The Lead has the outcome and the checks; give it the issue yourself if it needs one.` : ""}`);
   },
 });

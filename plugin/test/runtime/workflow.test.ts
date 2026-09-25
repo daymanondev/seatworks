@@ -3,7 +3,6 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { dirname, join } from "node:path";
 import { mock, test } from "node:test";
 import { gunzipSync } from "node:zlib";
-import { placeProjectFiles } from "../../server/catalog/project-files.ts";
 import { sentBy } from "../../server/core/sent-by.ts";
 import { KEEP_CLOSED_LANES } from "../../server/desk/archive.ts";
 import { saveLedger } from "../../server/desk/ledger.ts";
@@ -158,11 +157,10 @@ test("the Supervisor's status shows the Human's own copy, names a choice only wh
   await h.call(sup, "supervisor", "set_project", { base: "main", gate: "true" });
   const status = async () => (await h.call(sup, "supervisor", "status", {})).text;
   const choice = /The Human decides where the next lane works/;
-  placeProjectFiles(h.root, "Team rules.");
 
   const fresh = await status();
   assert.match(fresh, /Base main\.[^\n]*\n\n## The project's own copy\n\n[^\n]* is on main, clean\.\nNo lane is working in it\./, fresh);
-  assert.doesNotMatch(fresh, choice, "on the base and clean but for the desk's own block, a lane just opens");
+  assert.doesNotMatch(fresh, choice, "on the base and clean, a lane just opens");
 
   h.git(h.root, "switch", "-qc", "fix/login");
   const offBase = await status();
@@ -1210,59 +1208,6 @@ test("an ask answered by the owner over a Lead's head is told to that Lead, not 
   assert.match(toLead, new RegExp(`ANSWERED FOR YOU: ${ask.id}`), "the Lead cannot hold the room's state on an answer it never saw");
   assert.match(toLead, /Drop it and migrate/);
   assert.match(toLead, /accepting it is still yours to judge/);
-});
-
-test("a seat opening in a project writes the team's block there, and the first lane still takes the copy the Human left clean", async () => {
-  const h = harness();
-  const open = h.runtime.sessionOpen.bind(h.runtime);
-  open({ provider: "sw2-supervisor-claude", cwd: h.root, env: {} });
-  assert.match(readFileSync(join(h.root, "AGENTS.md"), "utf-8"), /seatworks:begin[\s\S]*## Working here as a team/);
-  assert.match(readFileSync(join(h.root, "CLAUDE.md"), "utf-8"), /^@AGENTS\.md$/m);
-  const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
-
-  // Untracked, and nothing of the Human's: the lane takes the copy as if it were clean.
-  const first = await h.call(sup, "supervisor", "open_lane", { title: "First", outcome: "x", acceptance: ["y"], outOfScope: ["z"] });
-  assert.equal(first.ok, true, first.text);
-  assert.doesNotMatch(first.text, /not committed/, "a lane in the project's own copy has the block where it stands");
-  // A copy of its own is made from what is committed, so that lane starts without the team's rules.
-  const own = await h.call(sup, "supervisor", "open_lane", { title: "Own", outcome: "x", acceptance: ["y"], outOfScope: ["z"], isolate: true });
-  assert.equal(own.ok, true, own.text);
-  assert.match(own.text, /team block in AGENTS\.md and CLAUDE\.md is not committed/);
-  await h.call(sup, "supervisor", "drop_lane", { lane: "L2", reason: "done" });
-  const lead = h.ledger().lanes.L1!.lead!;
-  await h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "done" });
-  h.agents.get(lead)!.status = "idle";
-  await h.endTurn(lead, "done");
-
-  // The Human's own line in the same file is their work in progress, and a lane does not carry it off.
-  writeFileSync(join(h.root, "AGENTS.md"), `Use pnpm.\n\n${readFileSync(join(h.root, "AGENTS.md"), "utf-8")}`);
-  const second = await h.call(sup, "supervisor", "open_lane", { title: "Second", outcome: "x", acceptance: ["y"], outOfScope: ["z"] });
-  assert.equal(second.ok, false);
-  assert.match(second.text, /The Human decides where this lane works, and has not said: carry on main here \(onBranch\), a new branch that takes the uncommitted work along/);
-});
-
-test("the team's block left uncommitted in the project's own copy does not hold up accepting or reporting the lane there", async () => {
-  const h = harness();
-  const open = h.runtime.sessionOpen.bind(h.runtime);
-  open({ provider: "sw2-supervisor-claude", cwd: h.root, env: {} });
-  const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
-  await h.call(sup, "supervisor", "set_project", { gate: "true" });
-  assert.equal((await h.call(sup, "supervisor", "open_lane", { title: "Numbers", outcome: "x", acceptance: ["y"], outOfScope: ["z"] })).ok, true);
-  const lane = h.ledger().lanes.L1!;
-  assert.deepEqual(Object.keys(h.ledger().slots), [], "the lane works in the project's own copy, where the block is");
-  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "t", title: "Add four", goal: "g", acceptance: ["a"], owned: ["a.txt"], outOfScope: ["the rest"] }] });
-  const task = h.ledger().tasks["L1-T1"]!;
-  writeFileSync(join(h.root, "a.txt"), "four\n");
-  h.git(h.root, "commit", "-qam", "add four");
-  const done = await h.call(task.peer!, "peer", "done", { outcome: "complete", summary: "four" });
-  assert.doesNotMatch(done.text, /uncommitted/);
-  h.agents.get(task.peer!)!.status = "idle";
-  const accepted = await h.call(lane.lead!, "lead", "accept", { task: "L1-T1" });
-  assert.equal(accepted.ok, true, accepted.text);
-  const reported = await h.call(lane.lead!, "lead", "report", { summary: "four is in", ready: true });
-  assert.equal(reported.ok, true, reported.text);
-  assert.match(readFileSync(join(h.project.state, "events.log"), "utf-8"), /"gate.passed"/, "the gate ran instead of refusing the copy");
-  assert.match(h.git(h.root, "status", "--porcelain"), /AGENTS\.md/, "the block is still the Human's to commit");
 });
 
 test("a Lead is pointed at the project's concept once the Human has settled one, and set_project keeps no pages", async () => {

@@ -15,7 +15,7 @@ is always a seat's call.
 - [A lane](#a-lane)
 - [Tool calls in, letters out](#tool-calls-in-letters-out)
 - [The watch](#the-watch)
-- [The concept and the team block](#the-concept-and-the-team-block)
+- [The concept](#the-concept)
 - [The patrol](#the-patrol)
 - [Settings](#settings)
 
@@ -85,7 +85,7 @@ These are mostly absences, so the code won't show them to you.
 | `roles.json` | The SLP preset: roles, capabilities, tool sets, prompts, skills, defaults, attention values |
 | `harness/<agent>/` | How each agent is set up: `harness.json`, base and per-role settings, and per-role deltas: what a role's prompt needs said against that agent's own instructions |
 | `catalog/` | Optional MCP servers; `ecosystem.json`: gates, one-writer paths, test and docs names, the watch's patterns; `paseo.json`: the tools Paseo gives every agent |
-| `content/` | Runtime content that seats read: prompts, skills, guides, the team block. Not documentation |
+| `content/` | Runtime content that seats read: prompts, skills, guides. Not documentation |
 
 All paths are under `plugin/`.
 
@@ -102,8 +102,7 @@ All paths are under `plugin/`.
    rules. `applyRole` then sets the model, thinking level, mode, prompt and MCP servers.
 3. **Before `agent.session_open`.** The plugin points the agent's config directory at the seat
    directory and sets `SEATWORKS_ROLE`, `SEATWORKS_PROJECT` and `SEATWORKS_STATE`. It also seeds the
-   project's records, such as `notebook.md`, and writes the
-   [team block](#the-concept-and-the-team-block) into the project.
+   project's records, such as `notebook.md`. It writes nothing into the project's own files.
 4. **`bin/seat-room`** checks the launch and then `exec`s Claude. Codex, Pi, Oh My Pi and OpenCode seats start
    through Paseo's own providers.
 
@@ -132,7 +131,7 @@ treated as empty.
 **Where a lane works.**
 
 - The first lane works in your own checkout, on a branch `lane/<id>-<title>`. The checkout must be
-  clean, but a change that is only the team block doesn't count.
+  clean.
 - A later lane, or one that asks to be isolated, gets a git worktree slot of its own.
 
 **Two task modes.**
@@ -223,7 +222,7 @@ anyway), over the day's **budget**, or with **nobody** to tell.
 **Marking.** Whoever gets an incident marks it with `mark_incident`, as `useful`, `noise` or `unknown`, after
 checking the agent's own record.
 
-## The concept and the team block
+## The concept
 
 **`CONTEXT.md` is the Human's word.** It lives in the project's state, never in the repo. It holds
 only what the project does, its logic, how it behaves, and the words it is spoken of in. The
@@ -231,11 +230,10 @@ Supervisor settles new work with you through the `grilling` skill and writes eac
 following `guides/CONTEXT_FORMAT.md`. The desk never writes in it. It only names the file in a Lead's
 directive once the file exists.
 
-**The team block is shared context.** `content/project/AGENTS.md` holds what every role would
-otherwise repeat: who does what, the git limits, how mail works. When a seat's session opens,
-`catalog/project-files.ts` writes it into the project's own `AGENTS.md` between `seatworks:begin` and
-`seatworks:end`, and adds an `@AGENTS.md` pointer to `CLAUDE.md`. Every role reads it, so the kit
-refuses a block that uses any role's hidden words.
+**What every role shares is in each role's own prompt**, not in the project's files. An earlier
+version wrote it into the project's `AGENTS.md` between `seatworks:begin` and `seatworks:end`, with a
+pointer in `CLAUDE.md`. The desk leaves those files alone: the Supervisor's `status` says while that
+block is still there, for the Human to take out.
 
 ## The patrol
 

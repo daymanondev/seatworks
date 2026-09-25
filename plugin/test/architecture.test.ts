@@ -29,7 +29,6 @@ const PACKAGES = ["@getpaseo/plugin/server", "@getpaseo/plugin/client", "@getpas
 
 const NAMED = [
   "server/catalog/project-files.ts > claude",
-  "server/desk/tools/open-lane.ts > claude",
 ];
 
 const LIMITS = { file: 300, testFile: 400, function: 50 };
@@ -43,7 +42,7 @@ const LONG_FILES: Record<string, number> = {
   "server/runtime/runtime.ts": 389,
   "test/runtime/facts.test.ts": 418,
   "test/runtime/intake.test.ts": 559,
-  "test/runtime/workflow.test.ts": 1710,
+  "test/runtime/workflow.test.ts": 1655,
 };
 
 const LONG_FUNCTIONS: Record<string, number> = {

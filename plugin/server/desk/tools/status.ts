@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { can } from "../../catalog/kit.ts";
-import { uncommittedWork } from "../../catalog/project-files.ts";
-import { currentBranch, headSha } from "../../core/git.ts";
+import { oldBlockIn } from "../../catalog/project-files.ts";
+import { currentBranch, headSha, uncommittedPaths } from "../../core/git.ts";
 import { hash } from "../../core/text.ts";
 import { ok } from "../context.ts";
 import { laneOfLead, loadLedger } from "../ledger.ts";
@@ -11,7 +11,7 @@ import { type OwnCopy, statusText } from "../status.ts";
 
 async function ownCopy(root: string): Promise<OwnCopy> {
   const branch = await currentBranch(root);
-  return { branch, head: branch ? undefined : (await headSha(root))?.slice(0, 7), work: await uncommittedWork(root) };
+  return { branch, head: branch ? undefined : (await headSha(root))?.slice(0, 7), work: await uncommittedPaths(root), oldBlock: oldBlockIn(root) };
 }
 
 /** A supervisor also sees the Human's own checkout, read from git only here, when it asks. */

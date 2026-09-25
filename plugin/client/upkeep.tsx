@@ -37,7 +37,6 @@ function unitName(change: ContentChange): string {
   const last = change.unit.split("/").pop() ?? change.unit;
   if (change.kind === "prompt") return `${last.replace(/\.md$/, "").toLowerCase().replace(/^./, (first) => first.toUpperCase())} prompt`;
   if (change.kind === "skill") return `${last} skill`;
-  if (change.kind === "team") return "Team block";
   return last;
 }
 

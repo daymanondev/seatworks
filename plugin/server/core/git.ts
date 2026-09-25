@@ -26,7 +26,7 @@ export async function headSha(cwd: string, ref = "HEAD"): Promise<string | undef
 }
 
 /** Three states because a failed `status` (dir gone, not a repo, timeout, no git) must not read as dirty. */
-export type Cleanliness = "clean" | "dirty" | "unknown";
+type Cleanliness = "clean" | "dirty" | "unknown";
 
 async function cleanliness(cwd: string, args: string[]): Promise<Cleanliness> {
   const run = await git(cwd, args);

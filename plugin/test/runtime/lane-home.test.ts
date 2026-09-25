@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { harness } from "./harness.ts";
@@ -50,4 +50,21 @@ test("a lane told to work in the Human's copy, or to carry on their branch, does
   const carried = await h.call(sup, "supervisor", "open_lane", lane("Carry on"));
   assert.equal(carried.ok, true, carried.text);
   assert.deepEqual([h.ledger().lanes.L2!.onBranch, h.ledger().lanes.L2!.branch], [true, "fix/login"]);
+});
+
+test("the team block an earlier version wrote is left in the Human's files, and the Supervisor is told to have them take it out until it is gone", async () => {
+  const h = harness();
+  const block = "<!-- seatworks:begin (written by Seatworks; edit outside this block, it is replaced whole) -->\n## Working here as a team\n<!-- seatworks:end -->\n";
+  h.commit(h.root, "AGENTS.md", `# Ours\n\n${block}`);
+  h.commit(h.root, "CLAUDE.md", block);
+  const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
+  await h.call(sup, "supervisor", "set_project", { base: "main", gate: "true" });
+  h.runtime.sessionOpen({ provider: "sw2-supervisor-claude", cwd: h.root, env: {} });
+  assert.equal(readFileSync(join(h.root, "AGENTS.md"), "utf-8"), `# Ours\n\n${block}`, "the desk writes nothing of the Human's");
+  const told = (await h.call(sup, "supervisor", "status", {})).text;
+  assert.match(told, /is on main, clean\.\nNo lane is working in it\.\nAGENTS\.md and CLAUDE\.md still hold the team block an earlier version wrote, whose rules are out of date: ask the Human to delete it/);
+  writeFileSync(join(h.root, "AGENTS.md"), "# Ours\n");
+  h.git(h.root, "rm", "-q", "CLAUDE.md");
+  h.git(h.root, "commit", "-qam", "Take the old team block out");
+  assert.doesNotMatch((await h.call(sup, "supervisor", "status", {})).text, /team block/);
 });

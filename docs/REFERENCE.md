@@ -165,7 +165,7 @@ can answer.
 | Hook or event | What the plugin does |
 |---|---|
 | before `agent.create` | For a `sw2-` provider, builds the seat directory and shapes the launch. A seat that can't be built refuses the launch, with the reason |
-| before `agent.session_open` | Seeds the project's records, writes the team block, rebuilds the seat directory if needed, and points the agent's config directory at it |
+| before `agent.session_open` | Seeds the project's records, rebuilds the seat directory if needed, and points the agent's config directory at it |
 | `agent.created` | Follows the seat's timeline, if its role can be `watched` |
 | `agent.turn_started` | Records the turn's start, for turn reading and steering |
 | `agent.turn_ended` | Finishes deferred teardowns, reads the turn, and pumps the seat's mail |

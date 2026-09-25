@@ -1,6 +1,5 @@
-import { commitsAhead, diffCounts, git, mergeBranch, mergeOf, outsideOwned } from "../core/git.ts";
+import { commitsAhead, diffCounts, git, mergeBranch, mergeOf, outsideOwned, pristineState } from "../core/git.ts";
 import { fileKinds } from "../catalog/kit.ts";
-import { workState } from "../catalog/project-files.ts";
 import type { Agents } from "./agents.ts";
 import { type DeskContext } from "./context.ts";
 import { errorText } from "../core/errors.ts";
@@ -87,7 +86,7 @@ export class MergeQueue {
     const finish = (move: Outcome, letter: Letter) => this.finish(project, task, lane, move, letter);
     const cwd = lane.worktree;
     if (!cwd) return finish("fail", mergeLetters.mergeFailed(task, "the lane has no working copy", ""));
-    const copy = await workState(cwd);
+    const copy = await pristineState(cwd);
     if (copy === "dirty") {
       return finish("unmerged", mergeLetters.mergeFailed(task, "the lane's working copy has uncommitted changes from its current writer; accept again after that task hands back", ""));
     }
@@ -111,7 +110,7 @@ export class MergeQueue {
   /** No seat may run git merge, so the task's own copy is given the lane branch to settle against, conflicts and all. */
   private async settleIn(task: Task, lane: Lane): Promise<"left" | "clean" | { not: string }> {
     if (!task.worktree) return { not: "its copy is not on record" };
-    const copy = await workState(task.worktree);
+    const copy = await pristineState(task.worktree);
     if (copy !== "clean") return { not: copy === "dirty" ? "it has uncommitted changes" : "git could not read it" };
     const merged = await mergeBranch(task.worktree, lane.branch, `Bring ${lane.branch} into ${task.branch ?? task.id}`, true);
     return merged.ok ? "clean" : merged.conflicts.length > 0 ? "left" : { not: merged.message.split("\n")[0] || "git merge failed" };

@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { runGate } from "../core/gate.ts";
-import { workState } from "../catalog/project-files.ts";
+import { pristineState } from "../core/git.ts";
 import type { DeskContext } from "./context.ts";
 import { changeOf } from "./landing.ts";
 import type { Lane } from "./ledger.ts";
@@ -29,7 +29,7 @@ export async function laneGate(ctx: DeskContext, project: Project, lane: Lane): 
   const files = rules.length > 0 ? (await changeOf(project, lane)).files : [];
   const rehearsals = files ? rulesFor(rules, files) : rules;
   if ((!gate && rehearsals.length === 0) || !lane.worktree) return { ok: true, text: "no gate set", ran: false };
-  const state = await workState(lane.worktree);
+  const state = await pristineState(lane.worktree);
   if (state !== "clean") {
     return { ok: false, text: state === "dirty" ? "the lane working copy has uncommitted changes" : `git could not read the lane working copy at ${lane.worktree}`, ran: false };
   }

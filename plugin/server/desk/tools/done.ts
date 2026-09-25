@@ -1,8 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { changedFiles, currentBranch, headSha, outsideOwned } from "../../core/git.ts";
-import { workState } from "../../catalog/project-files.ts";
+import { changedFiles, currentBranch, headSha, outsideOwned, pristineState } from "../../core/git.ts";
 import { IN_QUEUE, SETTLED, TASK } from "../../domain/task.ts";
 import { type Args, type Caller, type ToolReply, no, ok, str, strs } from "../context.ts";
 import { taskGate } from "../gates.ts";
@@ -19,7 +18,7 @@ async function workOf(task: Task, lane: Lane | undefined): Promise<Work> {
   const range = task.mode === "parallel" ? lane && `${lane.branch}...HEAD` : task.startSha && `${task.startSha}..HEAD`;
   const changed = range ? await changedFiles(task.worktree, range) : undefined;
   // Only what git actually said: a copy it could not read is not a copy with work left in it.
-  return { commit: await headSha(task.worktree), uncommitted: (await workState(task.worktree)) === "dirty", outside: outsideOwned(changed ?? [], task.owned) };
+  return { commit: await headSha(task.worktree), uncommitted: (await pristineState(task.worktree)) === "dirty", outside: outsideOwned(changed ?? [], task.owned) };
 }
 
 function handbackBody(task: Task, args: Args, { commit, uncommitted, outside }: Work): { outcome: string; body: string } {
