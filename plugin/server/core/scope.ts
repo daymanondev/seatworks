@@ -11,6 +11,11 @@ function alternatives(pattern: string): string[] {
   return brace[1]!.split(",").flatMap((choice) => alternatives(`${before}${choice}${after}`));
 }
 
+/** A plain path covers what is under it too, on a path boundary: "src/app" is not "src/apparel/secret.ts". A glob means itself. */
+export function coverOf(path: string): RegExp {
+  return globToRegex(/[*?{]/.test(path) ? path : `${normalize(path).replace(/\/$/, "")}{,/**}`);
+}
+
 export function globToRegex(pattern: string): RegExp {
   return new RegExp(`^(?:${alternatives(normalize(pattern)).map(regexBody).join("|")})$`);
 }

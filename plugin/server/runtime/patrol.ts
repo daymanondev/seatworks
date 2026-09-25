@@ -234,6 +234,6 @@ export class Patrol {
     );
     mkdirSync(project.state, { recursive: true });
     const held = this.deps.outbox.letters();
-    writeFileSync(join(project.state, "status.md"), statusText(project, loadLedger(project.state), loadConfig(project.state), seats, now, { waiting, held, checks: this.deps.source.teamFor(project).checkpoints }));
+    writeFileSync(join(project.state, "status.md"), statusText(project, loadLedger(project.state), loadConfig(project.state), seats, now, { waiting, held }));
   }
 }

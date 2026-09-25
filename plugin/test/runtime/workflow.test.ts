@@ -189,40 +189,6 @@ test("the Supervisor's status shows the Human's own copy, names a choice only wh
   assert.doesNotMatch(lead, /The project's own copy|Outcome:/, "a Lead's status is its own lane, as before");
 });
 
-test("a lane asked to carry on the Human's branch works on it where it is, keeps their uncommitted work, and lands by its gate alone", async () => {
-  const h = harness();
-  const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
-  await h.call(sup, "supervisor", "set_project", { gate: "test ! -f BROKEN" });
-  h.git(h.root, "switch", "-qc", "fix/login");
-  h.commit(h.root, "a.txt", "one\ntwo\nthree\nhalf a fix\n");
-  writeFileSync(join(h.root, "b.txt"), "bee, still being edited\n");
-  const main = h.git(h.root, "rev-parse", "main").trim();
-  const scope = { outcome: "the login fix is finished", acceptance: ["a"], outOfScope: ["anything else in the repository"] };
-
-  const opened = await h.call(sup, "supervisor", "open_lane", { title: "Finish the fix", ...scope, onBranch: true });
-  assert.equal(opened.ok, true, opened.text);
-  const lane = h.ledger().lanes.L1!;
-  assert.equal(lane.branch, "fix/login", "no lane branch of its own");
-  assert.equal(h.git(h.root, "branch", "--show-current").trim(), "fix/login");
-  assert.deepEqual(h.git(h.root, "branch", "--format=%(refname:short)").trim().split("\n").sort(), ["fix/login", "main"]);
-  assert.equal(readFileSync(join(h.root, "b.txt"), "utf-8"), "bee, still being edited\n", "the Human's uncommitted edit is where they left it");
-  assert.equal(h.agents.get(lane.lead!)!.cwd, h.project.root);
-  assert.match(h.agents.get(lane.lead!)!.prompt ?? "", /fix\/login, the Human's own[\s\S]*commit it as found in a commit of its own/, "the Human's work in progress stays theirs, apart from the lane's");
-  assert.notEqual(loadConfig(h.project.state).base, "fix/login", "a branch carried on is not made the project's base");
-
-  const second = await h.call(sup, "supervisor", "open_lane", { title: "Also here", ...scope, onBranch: true });
-  assert.equal(second.ok, false, "one checkout holds one branch, and L1 has it");
-  assert.match(second.text, /L1/);
-
-  h.commit(h.root, "b.txt", "bee, done\n");
-  const closed = await h.call(sup, "supervisor", "land_lane", { lane: "L1" });
-  assert.equal(closed.ok, true, closed.text);
-  assert.match(closed.text, /the work stays on fix\/login, the branch it carried on; nothing was merged anywhere/);
-  assert.equal(h.git(h.root, "rev-parse", "main").trim(), main, "nothing was merged into main");
-  assert.equal(h.git(h.root, "branch", "--show-current").trim(), "fix/login", "and the Human's copy was not switched away");
-  assert.equal(readFileSync(join(h.root, "b.txt"), "utf-8"), "bee, done\n");
-});
-
 test("carrying on a branch is refused where there is none to carry on, and a failed open leaves the Human's branch alone", async () => {
   const h = harness();
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");

@@ -118,12 +118,11 @@ function describeCatalog(kit: Kit): CatalogView {
   };
 }
 
-export function describeTeam(kit: Kit, team: Team, project?: Project): TeamView {
+function describeTeam(kit: Kit, team: Team, project?: Project): TeamView {
   return {
     project: project?.slug ?? null,
     errors: team.errors,
     attention: team.attention,
-    checkpoints: { ...team.checkpoints, forced: team.checkpoints.forced ?? null },
     rules: team.rules,
     mcp: Object.fromEntries(
       Object.entries(team.mcp).map(([id, state]) => [
@@ -330,7 +329,7 @@ export class SettingsControl implements Control {
     const waiting = [...seats.values()].filter(
       (seat) => can(seatOf(this.deps.kit, seat.provider)?.role, "supervise") && projectOf(seat.cwd).slug === project.slug && (seat.pendingPermissions?.length ?? 0) > 0,
     );
-    return { text: statusText(project, loadLedger(project.state), loadConfig(project.state), seats, Date.now(), { waiting, held: this.deps.held(), checks: this.deps.source.teamFor(project).checkpoints }) };
+    return { text: statusText(project, loadLedger(project.state), loadConfig(project.state), seats, Date.now(), { waiting, held: this.deps.held() }) };
   }
 
   /** The Human's own word on a held landing, from the panel, the one place it comes from: landing is already the Supervisor's call. */

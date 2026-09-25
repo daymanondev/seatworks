@@ -1,6 +1,6 @@
 /** What the panel reads over RPC, one schema per answer: the client checks every answer against it, and both sides take their types from it. */
 import { z } from "zod";
-import { CHECKPOINT_MODES, Connect, LayerSchema, Scalar } from "./settings.ts";
+import { Connect, LayerSchema, Scalar } from "./settings.ts";
 
 const Refused = z.object({ error: z.string() });
 
@@ -63,7 +63,6 @@ export const TeamView = z.object({
   project: z.string().nullable(),
   errors: z.array(z.string()),
   attention: Attention,
-  checkpoints: z.object({ risk: z.string(), land: z.enum(CHECKPOINT_MODES), landApprove: z.enum(["risky", "every"]), landLines: z.number(), forced: z.string().nullable() }),
   rules: z.string(),
   mcp: z.record(
     z.string(),

@@ -136,7 +136,7 @@
     },
     {
       "name": "land_lane",
-      "description": "Land a lane its Lead reported ready. The desk first merges the base branch into the lane in the lane's own copy when the base has moved, runs the project's gate there, then lands it on the base as the project lands lanes (landAs in set_project) and archives the lane's agents. If any of that cannot happen the lane stays open and the reason comes back; a conflict with the base is its Lead's to settle in the lane. A landed lane branch is deleted once its copy is put away. A lane opened with onBranch is not merged or switched away from: landing it runs the gate and closes it, and its branch stays as it is. A red gate stops the landing unless you land over it with overGate true and say why in reason: the verdict is evidence, and landing over it is your call. When the project checks landings, the reply carries the evidence, and a landing the check flags waits for the Human's approval on the panel instead: the lane stays open, and LANDED or SENT BACK comes as mail.",
+      "description": "Land a lane its Lead reported ready as it now stands; one not reported ready, or amended since, is refused. The desk first merges the base branch into the lane in the lane's own copy when the base has moved, runs the project's gate there, then lands it on the base as the project lands lanes (landAs in set_project) and archives the lane's agents. If any of that cannot happen the lane stays open and the reason comes back; a conflict with the base is its Lead's to settle in the lane. A landed lane branch is deleted once its copy is put away. A lane opened with onBranch is not merged or switched away from: landing it runs the gate and closes it, and its branch stays as it is. A red gate stops the landing unless you land over it with overGate true and say why in reason: the verdict is evidence, and landing over it is your call. The reply carries what the desk read of the lane as evidence. A landing that changes a path in the project's askFirst waits for the Human's approval on the panel instead: the lane stays open, and LANDED or SENT BACK comes as mail.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -441,6 +441,13 @@
               "isolate"
             ],
             "description": "Where lanes work unless a call says otherwise, as the Human chose once for every lane: onBranch carries on the branch their copy is on; newBranch starts a lane branch off the base in their copy; isolate gives each lane a copy of its own and leaves theirs alone."
+          },
+          "askFirst": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Paths the Human asked to be asked about before anything touching them lands, as they kept them at the read-back: a path covers what is under it, a glob is itself. A landing that changes one waits for their approval on the panel; nothing else makes a landing wait. Pass the whole list; an empty one lets every landing go ahead."
           }
         }
       }

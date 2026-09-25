@@ -27,7 +27,7 @@ pages in), the seat's bridge shows that set as the field's choices.
 | Verb | Effect |
 |---|---|
 | `open_lane` | Records the lane, takes a working copy and seats a Lead, with a directive that names `CONTEXT.md` once it exists. It can read a GitHub issue. It refuses a lane whose declared write set or `contracts` overlap an open lane's write set, or that reaches a path the project keeps to one writer. Before a lane takes the project's own checkout while it holds uncommitted work or sits on a branch other than the base, the Human decides where it works: the call says it (`onBranch`, `isolate` true or false) or the project's `laneHome` does, else it is refused with the choices |
-| `land_lane` | Waits for queued merges, then [lands the lane](ARCHITECTURE.md#a-lane): it cuts leftover tasks, archives their seats and the Lead, and puts the copy away. Landing over a red gate takes `overGate` and a reason |
+| `land_lane` | Waits for queued merges, then [lands the lane](ARCHITECTURE.md#a-lane): it cuts leftover tasks, archives their seats and the Lead, and puts the copy away. Landing over a red gate takes `overGate` and a reason. A lane that changes a path in the project's `askFirst` waits for the Human's approval instead |
 | `drop_lane` | Waits for queued merges, then closes the lane without landing, with a reason: it cuts leftover tasks, archives their seats and the Lead, puts the copy away, and keeps the branch. A waiting lane is dropped before anything starts |
 | `amend_lane` | Changes what an open or waiting lane is asked, keeping what it was asked before and why. Its Lead is told, and a READY it reported no longer stands. A write set or `contracts` that would overlap an open lane's is refused |
 | `replace_lead` | Seats a new Lead on an open lane whose Lead is gone, where the lane stands. A Lead Paseo already started for it is taken on instead, and the asks waiting on the old Lead move to the new one |
@@ -260,7 +260,7 @@ An incident is sent once. Until then it may be held:
 
 | Held | Meaning |
 |---|---|
-| shadow | `attention.watch` is off, the default. Nothing is sent |
+| shadow | `attention.watch` is off, the default. Attention-level incidents are not sent; a page is |
 | budget | `incidentsPerDay` attend-level incidents went out in the last 24 h |
 | nobody | Nobody to tell, or the only candidate is the watched seat. The patrol retries |
 
@@ -310,7 +310,7 @@ it is given its own. Each role still needs its settings files under `harness/<ag
 
 | Tab | What it holds |
 |---|---|
-| **Team** | The agent per role, its model and thinking. The Supervisor's chip also holds the land check and *Mail incidents* |
+| **Team** | The agent per role, its model and thinking. The Supervisor's chip also holds *Mail incidents* |
 | **Flow** | Supervisors, lanes, tasks and open asks, live. Then the incidents not yet marked |
 | **MCP** | Servers on or off, their roles and options, and adding one from a snippet |
 | **Health** | The machine's checks and, on a project, its lanes' status |

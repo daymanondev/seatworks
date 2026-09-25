@@ -68,13 +68,11 @@
       "Edit(~/.local/share/seatworks-v3/projects/*/status.md)",
       "Edit(~/.local/share/seatworks-v3/projects/*/events.log)",
       "Edit(~/.local/share/seatworks-v3/projects/*/attention.log)",
-      "Edit(~/.local/share/seatworks-v3/projects/*/checkpoints.log)",
       "Edit(~/.local/share/seatworks-v3/projects/*/handbacks/**)",
       "Edit(~/.local/share/seatworks-v3/projects/*/gates/**)",
       "Edit(~/.local/share/seatworks-v3/projects/*/archive/**)",
       "Edit(~/.local/share/seatworks-v3/projects/*/events.*.log*)",
-      "Edit(~/.local/share/seatworks-v3/projects/*/attention.*.log*)",
-      "Edit(~/.local/share/seatworks-v3/projects/*/checkpoints.*.log*)"
+      "Edit(~/.local/share/seatworks-v3/projects/*/attention.*.log*)"
     ]
   },
   "sandbox": {

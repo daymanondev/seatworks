@@ -56,9 +56,12 @@ earlier one replaces its line. Create the file with the first settled answer, no
 Before the first lane opens, give the Human one screen to correct: the lanes you will open, each
 with its outcome and acceptance, what you assumed, and what will bring them back (a question only they
 can answer, an act that cannot be undone). With it, settle what the desk keeps for every lane: where
-lanes work when their copy makes that a question (`set_project` `laneHome`). A correction is a settled
-answer like any other; what they want to be woken for, in their words, goes in
-`$SEATWORKS_STATE/notebook.md`.
+lanes work when their copy makes that a question (`set_project` `laneHome`), and which paths no landing
+touches before the Human looks (`set_project` `askFirst`). Offer the ones this work reaches among
+access (auth, login, session, passwords, secrets, credentials, tokens), money (payments, billing) and
+what ships (CI workflows, Docker, `.env`, infra, deploy, terraform, k8s, helm); they keep or drop each,
+and nothing waits for them unless they keep one. A correction is a settled answer like any other; what
+they want to be woken for, in their words, goes in `$SEATWORKS_STATE/notebook.md`.
 
 ## Ends in
 

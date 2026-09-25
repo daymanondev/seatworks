@@ -56,7 +56,7 @@ test("a lane reported ready carries what its reviews leave standing, and each fa
   assert.equal((await h.call(lane.lead!, "lead", "accept", { task: "L1-T1" })).ok, true);
   const first = await ready("first");
   assert.match(first, /No review of the whole lane is on record\. The lane's latest review, L1-R1, ended in changes; L1-T1 was accepted after it, with no review since\. L1-T1 was accepted over L1-R1, a review of it that ended in changes\./);
-  assert.match(h.heard(sup).join("\n"), /REPORT L1 \(Rounding\): ready to land[^]*Reviews, as the record has them:\n- No review of the whole lane is on record\.\n- The lane's latest review, L1-R1/);
+  assert.match(h.heard(sup).join("\n"), /REPORT L1 \(Rounding\): ready to land[^]*What the desk read of it:\n[^]*- No review of the whole lane is on record\.\n- The lane's latest review, L1-R1/);
 
   // Latest by when it came back, not by when it was asked for.
   const [asked, second] = [await start(), await start()];

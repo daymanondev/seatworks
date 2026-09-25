@@ -1,5 +1,5 @@
 import { type Kit, namedOrNot, roleThatCan } from "../catalog/kit.ts";
-import { trackedFiles } from "../core/git.ts";
+import { headSha, trackedFiles } from "../core/git.ts";
 import type { SeatView } from "../core/paseo.ts";
 import { errorText } from "../core/errors.ts";
 import { firstOverlap, serialHits, serialPaths, serialReach } from "../core/scope.ts";
@@ -123,9 +123,10 @@ async function seatLead(desk: DeskServices, project: Project, lane: Lane, how: S
       prompt: await directiveFor(ctx.kit, project, lane, slot.path, how.issue),
       labels: { "seatworks.lane": lane.id, "seatworks.role": leadRole.role },
     });
+    const startSha = lane.onBranch ? await headSha(slot.path) : undefined;
     ctx.transact(project, (ledger) => {
       const entry = ledger.lanes[lane.id];
-      if (entry) Object.assign(entry, { lead, worktree: slot.path, slot: slot.id, workspaceId: slot.workspaceId });
+      if (entry) Object.assign(entry, { lead, worktree: slot.path, slot: slot.id, workspaceId: slot.workspaceId, startSha });
       ledger.agents[lead] = { id: lead, role: leadRole.role, lane: lane.id };
     });
     ctx.event(project, { kind: "lane.opened", lane: lane.id, lead, branch: lane.branch, base: lane.base, slot: slot.id ?? "in place" });

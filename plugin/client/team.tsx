@@ -5,9 +5,9 @@ import { type ReactElement, useState } from "react";
 import { modelsRpc } from "../shared/rpc.ts";
 import { Text } from "react-native";
 import { sourceLabel } from "./bits.tsx";
-import type { CheckpointMode, Layer, RoleChoice } from "../shared/settings.ts";
+import type { Layer, RoleChoice } from "../shared/settings.ts";
 import type { CatalogView, ModelsRefreshed, TeamView } from "../shared/views.ts";
-import { message, modelRow, setAttention, setCheckpoint, setRole, sourceOf } from "./data.ts";
+import { message, modelRow, setAttention, setRole, sourceOf } from "./data.ts";
 import { ModelPicker } from "./model-picker.tsx";
 import { TabBar } from "./tabs.tsx";
 
@@ -121,49 +121,6 @@ function roleRows({ catalog, team, values, machine, layer, theme, disabled, save
   return rows;
 }
 
-const LAND_CHECK: Record<CheckpointMode, string> = {
-  off: "Landings are not checked.",
-  shadow: "Every landing is checked and the result kept in checkpoints.log, with its evidence in the Supervisor's reply; nothing is held back.",
-  on: "A landing the check flags waits for you on the Flow tab before anything reaches the base branch.",
-};
-
-/** On the Supervisor's chip, since landing is its call: when a landing waits for you first. Only you approve one. */
-function LandCheckCard({ team, values, machine, layer, theme, disabled, save }: Props) {
-  const mode = team.checkpoints.land;
-  return (
-    <SettingsCard>
-      <SettingsRow label="Land check" hint={team.checkpoints.forced ? `On, because ${team.checkpoints.forced}.` : `${LAND_CHECK[mode]} ${sourceLabel(sourceOf(values, machine, (entry) => entry.checkpoints?.land, layer), layer)}.`}>
-        <TabBar
-          theme={theme}
-          active={mode}
-          disabled={disabled}
-          onPick={(next) => void save((current) => setCheckpoint(current, { land: next as CheckpointMode }))}
-          tabs={[
-            { id: "off", label: "Off" },
-            { id: "shadow", label: "Shadow" },
-            { id: "on", label: "On" },
-          ]}
-        />
-      </SettingsRow>
-      <SettingsRow
-        label="Approve landings"
-        hint={`${team.checkpoints.landApprove === "every" ? "Every landing waits for you." : `Only a landing with something to see first waits: a red or missing gate, tests deleted or weakened, risky paths, more than ${team.checkpoints.landLines} lines, open incidents the code raised, files outside the lane.`} Held only while the check is on. ${sourceLabel(sourceOf(values, machine, (entry) => entry.checkpoints?.landApprove, layer), layer)}.`}
-      >
-        <TabBar
-          theme={theme}
-          active={team.checkpoints.landApprove}
-          disabled={disabled}
-          onPick={(next) => void save((current) => setCheckpoint(current, { landApprove: next as "risky" | "every" }))}
-          tabs={[
-            { id: "risky", label: "Flagged" },
-            { id: "every", label: "Every" },
-          ]}
-        />
-      </SettingsRow>
-    </SettingsCard>
-  );
-}
-
 /** On the Supervisor's chip, since what pages and what is about a Lead goes to it: whether what the code notices is mailed at all. */
 function IncidentMailCard({ team, values, machine, layer, disabled, save }: Props) {
   return (
@@ -187,7 +144,6 @@ export function TeamSection(props: Props) {
     <SettingsSection title="Team" info={role.description}>
       <TabBar theme={theme} active={role.id} disabled={disabled} onPick={onActive} tabs={catalog.roles.map((entry) => ({ id: entry.id, label: entry.label }))} />
       <SettingsCard>{roleRows({ ...props, role })}</SettingsCard>
-      {role.can.includes("supervise") ? <LandCheckCard {...props} /> : null}
       {role.can.includes("supervise") ? <IncidentMailCard {...props} /> : null}
       <ModelsCard catalog={props.catalog} disabled={props.disabled} reload={props.reload} />
     </SettingsSection>

@@ -19,11 +19,11 @@ export const landLetters = {
 
   /** `head` is the lane's tip it was held at: a hold is told once per commit. */
   landHeld(lane: Lane, reason: string, head: string): Letter {
-    return mail("landheld", [lane.id, head], `LAND HELD ${lane.id} (${lane.title}): the owner looks at it before it lands, because ${reason} Commit nothing more on the lane until LANDED or LAND SENT BACK arrives: a new commit means it is looked at again from the start.`);
+    return mail("landheld", [lane.id, head], `LAND HELD ${lane.id} (${lane.title}): the Human looks at it before it lands. ${reason} Commit nothing more on the lane until they decide: approved, it lands and the lane closes; sent back, LAND SENT BACK brings their note. A new commit means it is looked at again from the start.`);
   },
 
   landSentBack(lane: Lane, note: string, head: string): Letter {
-    return mail("landback", [lane.id, head], `LAND SENT BACK ${lane.id} (${lane.title}): ${ended(note || "no reason was given; ask the owner what to change")} The lane stays open; report it ready again once that is dealt with.`);
+    return mail("landback", [lane.id, head], `LAND SENT BACK ${lane.id} (${lane.title}): ${ended(note || "the Human gave no reason; ask what to change")} The lane stays open; report it ready again once that is dealt with.`);
   },
 
   landDecided(lane: Lane, how: "landed" | "blocked" | "again" | "changed" | "sent back", text: string): Letter {

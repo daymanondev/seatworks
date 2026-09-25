@@ -23,7 +23,7 @@ export const status = defineTool({
     const seats = new Map((await roster.open()).map((seat) => [seat.id, seat]));
     const lane = can(caller.role, "lead") ? laneOfLead(ledger, caller.id)?.id : undefined;
     const copy = can(caller.role, "supervise") ? await ownCopy(caller.project.root) : undefined;
-    const text = statusText(caller.project, ledger, loadConfig(caller.project.state), seats, Date.now(), { laneId: lane, copy, checks: copy && ctx.team(caller.project).checkpoints });
+    const text = statusText(caller.project, ledger, loadConfig(caller.project.state), seats, Date.now(), { laneId: lane, copy });
     if (ctx.statusSeen.get(caller.id) === hash(text)) return ok("Nothing has changed since you last asked: end your turn, and mail wakes you when something does.");
     ctx.statusSeen.set(caller.id, hash(text));
     return ok(text);

@@ -1,16 +1,13 @@
 import assert from "node:assert/strict";
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { test } from "node:test";
 import { harness, laneWithPeer } from "./harness.ts";
 
 const scope = { acceptance: ["a"], outOfScope: ["the rest"] };
 const task = (key: string, owned: string[], extra: Record<string, unknown> = {}) => ({ key, title: `Task ${key}`, goal: `do ${key}`, ...scope, owned, ...extra });
 
-/** A lane with a Lead and nothing started, in a project whose settings say what the Human chose. */
-async function lane(settings?: Record<string, unknown>) {
+/** A lane with a Lead and nothing started. */
+async function lane() {
   const h = harness();
-  if (settings) writeFileSync(join(h.project.state, "settings.json"), JSON.stringify(settings));
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
   await h.call(sup, "supervisor", "open_lane", { title: "Cart", outcome: "a cart", ...scope, writeSet: ["a.txt", "b.txt", "c.txt", "src/**"] });
   return { h, sup, lead: h.ledger().lanes.L1!.lead! };
@@ -66,12 +63,6 @@ test("tasks that would put two writers on one path, or take one the lane does no
   assert.match(refused.text, /STRAY owns docs\/readme\.md, outside the lane's write set/);
   assert.match(refused.text, /LOCK owns package-lock\.json, outside the lane's write set/);
   assert.deepEqual(Object.keys(h.ledger().tasks), [], "none of them is recorded");
-});
-
-test("settings the desk cannot read leave the land check on, and say why, rather than falling to its default", async () => {
-  const { h, sup } = await lane();
-  writeFileSync(join(h.project.state, "settings.json"), "{ not json");
-  assert.match((await h.call(sup, "supervisor", "status", {})).text, /## Land check\n\nOn, because The project settings are not being used[^]*?Landings are approved every time/);
 });
 
 test("a task that takes what a running task writes, and does not wait for it, is refused; one that waits is taken", async () => {

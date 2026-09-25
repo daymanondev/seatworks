@@ -1,7 +1,7 @@
 import { execFile, execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { globToRegex, normalize } from "./scope.ts";
+import { coverOf } from "./scope.ts";
 
 type Run = { code: number; stdout: string; stderr: string };
 
@@ -172,12 +172,17 @@ export async function changedFiles(cwd: string, range: string): Promise<string[]
 
 export function outsideOwned(files: string[], owned: string[]): string[] {
   if (owned.length === 0) return [];
-  // A plain path owns what is under it too, on a path boundary: an owned "src/app" is not ownership of "src/apparel/secret.ts".
-  const rules = owned.map((path) => globToRegex(/[*?{]/.test(path) ? path : `${normalize(path).replace(/\/$/, "")}{,/**}`));
+  const rules = owned.map(coverOf);
   return files.filter((file) => !rules.some((rule) => rule.test(file)));
 }
 
 type LandResult = { landed: boolean; how: string };
+
+/** Where `branch` left `base`: what a lane changed is read from here, however far `base` has moved since. */
+export async function mergeBase(cwd: string, base: string, branch: string): Promise<string | undefined> {
+  const run = await git(cwd, ["merge-base", base, branch]);
+  return run.code === 0 ? run.stdout.trim() || undefined : undefined;
+}
 
 /** Whether `base` is already contained in `branch`, so landing is a fast-forward rather than a merge. */
 export async function isAncestor(root: string, base: string, branch: string): Promise<boolean> {

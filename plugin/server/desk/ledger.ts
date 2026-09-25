@@ -25,6 +25,8 @@ export type Lane = {
   branch: string;
   detourOf?: string;
   onBranch?: boolean;
+  /** Where an onBranch lane's own commits begin: the branch it carries on had history before it. */
+  startSha?: string;
   worktree?: string;
   slot?: string;
   writeSet: string[];

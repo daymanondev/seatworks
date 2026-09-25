@@ -403,10 +403,6 @@ export function setAttention(values: Layer, choice: AttentionChoice): Layer {
   return { ...values, attention: { ...values.attention, ...choice } };
 }
 
-export function setCheckpoint(values: Layer, choice: NonNullable<Layer["checkpoints"]>): Layer {
-  return { ...values, checkpoints: { ...values.checkpoints, ...choice } };
-}
-
 /** Where an incident has got to, as the card shows it. */
 export function incidentState(item: WatchIncident): string {
   if (item.told === "lead") return item.lane ? `told Lead ${item.lane}` : "told its Lead";

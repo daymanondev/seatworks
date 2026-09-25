@@ -144,15 +144,19 @@ treated as empty.
   the ledger, so a restart picks it up: a merge cut off midway is undone and run again, and one git had
   already made is only recorded.
 
-**Landing.** `land_lane` does three things in a fixed order:
+**Landing.** `land_lane` does four things in a fixed order:
 
 1. If the base moved, merge the base into the lane, in the lane's copy. A conflict here is the Lead's
    to settle.
 2. Run the gate on the result.
-3. Fast-forward the base to the lane branch.
+3. Read what the lane changed since it left its base. If it touches a path in the project's `askFirst`,
+   the landing waits for the Human's approval on the panel; nothing else makes it wait.
+4. Fast-forward the base to the lane branch.
 
 A seat mid-turn, a conflict or a red gate refuses the call and leaves the lane open. Only a red gate
-can be overridden, with `overGate`, and the override is written to `events.log`.
+can be overridden, with `overGate`, and the override is written to `events.log`. Everything else the
+desk reads of the lane (a missing READY, deleted or weakened tests, files outside the write set, open
+incidents, what its reviews leave standing) goes with the READY letter and the reply as evidence.
 
 **Teardown** waits for seats that are still mid-turn. The pending release is recorded in the ledger,
 and a seat waiting to be archived in `intents.json`, so a daemon restart loses neither: the first
@@ -211,8 +215,8 @@ The full list is in [the reference](REFERENCE.md#facts).
 - One about a Lead, a `page`, or one whose Lead is gone goes to the Supervisor.
 - It never goes to the watched seat.
 
-Until it is sent, it may be held: in **shadow** (mailing is off, the default), over the day's
-**budget**, or with **nobody** to tell.
+Until it is sent, it may be held: in **shadow** (mailing is off, the default; a page is sent
+anyway), over the day's **budget**, or with **nobody** to tell.
 
 **Marking.** Whoever gets an incident marks it with `mark_incident`, as `useful`, `noise` or `unknown`, after
 checking the agent's own record.

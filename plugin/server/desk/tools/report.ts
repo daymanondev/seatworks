@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { no, ok, str, strs } from "../context.ts";
 import { laneGate } from "../gates.ts";
-import { reviewFacts } from "../landing.ts";
-import { laneOfLead, loadLedger } from "../ledger.ts";
+import { askFirstHits, changeOf, landFacts, reviewFacts } from "../landing.ts";
+import { type Lane, laneOfLead, loadLedger } from "../ledger.ts";
 import { letters } from "../letters.ts";
 import { putOnHold } from "../hold.ts";
 import type { Project } from "../project.ts";
@@ -19,6 +19,12 @@ async function parkAtCheckpoint(desk: DeskServices, project: Project, lane: stri
   const reason = `it went on without the Human's answer to ${waiting.join(", ")}, and stops at its ready report until they answer`;
   const held = await putOnHold(desk, project, lane, "desk", reason);
   return typeof held === "string" ? undefined : `It is on hold: ${reason}.`;
+}
+
+/** What landing a lane reported ready would bring and wait for, read before whoever lands it decides to. */
+async function readAhead(desk: DeskServices, project: Project, lane: Lane): Promise<{ asks: string[]; facts: string[] }> {
+  const change = await changeOf(project, lane);
+  return { asks: askFirstHits(project, change), facts: await landFacts(desk.ctx.kit, project, loadLedger(project.state), lane, change) };
 }
 
 export const report = defineTool({
@@ -41,14 +47,16 @@ export const report = defineTool({
     if (!still) return no(`Lane ${lane.id} is no longer yours to report on: it closed, or has another Lead, while this was asked.`);
     const to = await roster.supervisorFor(caller.project, lane.opener);
     const parked = args.ready === true ? await parkAtCheckpoint(desk, caller.project, lane.id) : undefined;
-    const reviews = args.ready === true ? reviewFacts(loadLedger(caller.project.state), lane) : [];
-    const letter = letters.report(lane, summary, args.ready === true, strs(args.carried), { gate, parked, reviews });
+    const ahead = args.ready === true ? await readAhead(desk, caller.project, lane) : { asks: [], facts: [] };
+    const letter = letters.report(lane, summary, args.ready === true, strs(args.carried), { gate, parked, ...ahead });
     const posted = await ctx.post(to, letter);
     ctx.event(caller.project, { kind: "lane.report", lane: lane.id, ready: args.ready === true, gate: gate?.ok, to: to ?? null, text: posted === "nobody" ? letter.text : undefined });
     // With nobody supervising seated the post goes nowhere; it is kept in the event log and the Lead told so.
     if (posted === "nobody") {
       return ok(`Nobody supervising this project is seated, so the report reached no one. It is kept in ${caller.project.state}/events.log for whoever comes back; there is nothing to wait for until someone does.`);
     }
+    // Its reviews only: the rest may name an incident, which never reaches the seat it could be about.
+    const reviews = args.ready === true ? reviewFacts(loadLedger(caller.project.state), lane) : [];
     const also = reviews.length > 0 ? ` It also carries what the record has of the lane's reviews: ${reviews.join(" ")}` : "";
     return ok(`Reported to ${to}${gate && !gate.ok ? ", with what the gate did in it" : ""}.${also} Stay quiet until mail arrives.`);
   },

@@ -14,8 +14,11 @@ export const LANE_HOMES = ["onBranch", "newBranch", "isolate"] as const;
 /** Where a lane works when the call opening it does not say: the Human's standing answer to the question status asks. */
 export type LaneHome = (typeof LANE_HOMES)[number];
 
-/** `serialOnly` is the project's own list when it set one; without one the kit's holds, so a change to the kit reaches it. */
-export type ProjectConfig = { base?: string; gate?: string; gateTimeoutMinutes: number; gateOn: GateOn; serialOnly?: string[]; landAs: LandAs; laneHome?: LaneHome };
+/**
+ * `serialOnly` is the project's own list when it set one; without one the kit's holds, so a change to the kit reaches it.
+ * `askFirst` is the Human's standing order: a landing that touches one of these paths waits for them.
+ */
+export type ProjectConfig = { base?: string; gate?: string; gateTimeoutMinutes: number; gateOn: GateOn; serialOnly?: string[]; landAs: LandAs; laneHome?: LaneHome; askFirst: string[] };
 
 const cache = new Map<string, Project>();
 
@@ -107,6 +110,7 @@ export function loadConfig(state: string): ProjectConfig {
     serialOnly: Array.isArray(stored.serialOnly) ? stored.serialOnly.map(String) : undefined,
     landAs: LAND_AS.find((as) => as === stored.landAs) ?? "squash",
     laneHome: LANE_HOMES.find((home) => home === stored.laneHome),
+    askFirst: Array.isArray(stored.askFirst) ? stored.askFirst.map(String) : [],
   };
 }
 

@@ -2,10 +2,9 @@ import { headSha, isAncestor, landLane, landedRef, mergeBranch } from "../core/g
 import { midTurn } from "../core/paseo.ts";
 import { LANE } from "../domain/lane.ts";
 import { TASK } from "../domain/task.ts";
-import { keepRun } from "./checkpoints.ts";
 import { type ToolReply, no, ok, str } from "./context.ts";
 import { laneGate } from "./gates.ts";
-import { GATE_FAILED, NOT_READY, landCheck } from "./landing.ts";
+import { askFirstHits, changeOf, landFacts } from "./landing.ts";
 import { type Lane, type Ledger, type Task, findLane, loadLedger, tasksOf } from "./ledger.ts";
 import { landLetters } from "./land-letters.ts";
 import { type Project, loadConfig } from "./project.ts";
@@ -59,37 +58,27 @@ function landMessage(ledger: Ledger, lane: Lane): string {
 
 type Held = NonNullable<Lane["landApproval"]>;
 
+const NOT_READY = "Its Lead has not reported it ready as it now stands: never, or the lane was amended since.";
+
 /**
- * The land check: off, nothing; shadow, recorded and landed; on, held for the Human on a signal or when every landing is.
- * An approval stands for the signals it was given: anything new that landing turns up holds it again, but a missing READY is the Lead's to give.
+ * A landing waits for the Human only where they asked to be asked first; all else the desk reads of it goes with it as
+ * evidence. An approval stands for what it was given: a path they are newly asked about holds it again.
  */
-async function checkLanding(desk: DeskServices, project: Project, lane: Lane, gateOk: boolean, by: string, overGate: boolean, approved?: Held): Promise<{ held?: string; blocked?: string; note: string }> {
+async function checkLanding(desk: DeskServices, project: Project, lane: Lane, gateOk: boolean, overGate: boolean, approved?: Held): Promise<{ held?: string; note: string }> {
   const { ctx } = desk;
-  const checks = ctx.team(project).checkpoints;
-  const mode = checks.land;
-  if (mode === "off") return { note: "" };
-  const { signals, evidence } = await landCheck(ctx.kit, project, loadLedger(project.state), lane, { set: Boolean(loadConfig(project.state).gate), ok: gateOk }, checks);
-  const asks = signals.length > 0 || checks.landApprove === "every";
-  const fresh = approved ? signals.filter((signal) => !approved.signals.includes(signal)) : signals;
-  if (approved && fresh.length > 0 && fresh.every((signal) => signal === NOT_READY)) return { blocked: "its Lead has not reported it ready as it now stands", note: "" };
-  const reason = signals.length > 0 ? signals.join(" ") : "this project approves every landing.";
-  if (!approved || fresh.length > 0) keepRun(project, { checkpoint: "land", mode, lane: lane.id, by, decision: asks ? "ask" : "pass", findings: signals });
-  if (mode === "on" && (approved ? fresh.length > 0 : asks)) {
-    const head = (await headSha(project.root, lane.branch)) ?? "";
-    ctx.transact(project, (current) => {
-      const entry = current.lanes[lane.id];
-      if (entry) entry.landApproval = { since: Date.now(), head, signals, evidence, overGate };
-    });
-    ctx.event(project, { kind: "land.held", lane: lane.id, signals: signals.length });
-    await ctx.post(lane.lead, landLetters.landHeld(lane, reason, head));
-    return { held: `Lane ${lane.id} was not landed: it waits for the Human's approval, on the Flow tab of the panel, because ${reason}\n\nEvidence: ${evidence.join(" ")}\n\nYou cannot approve it; tell them it waits, and why. LANDED or SENT BACK comes as mail.`, note: "" };
-  }
-  const verdict = approved
-    ? "Land check (on): the Human approved it."
-    : mode === "shadow" && asks
-      ? `Land check (shadow): the Human would have been asked, because ${reason}`
-      : `Land check (${mode}): nothing held it.`;
-  return { note: `\n\n${verdict}\nEvidence: ${evidence.join(" ")}` };
+  const change = await changeOf(project, lane);
+  const asks = askFirstHits(project, change);
+  const evidence = [...(lane.ready ? [] : [NOT_READY]), ...(await landFacts(ctx.kit, project, loadLedger(project.state), lane, change, { set: Boolean(loadConfig(project.state).gate), ok: gateOk }))];
+  const fresh = approved ? asks.filter((ask) => !approved.signals.includes(ask)) : asks;
+  if (fresh.length === 0) return { note: `\n\n${approved ? "The Human approved it.\n" : ""}Evidence: ${evidence.join(" ")}` };
+  const head = (await headSha(project.root, lane.branch)) ?? "";
+  ctx.transact(project, (current) => {
+    const entry = current.lanes[lane.id];
+    if (entry) entry.landApproval = { since: Date.now(), head, signals: asks, evidence, overGate };
+  });
+  ctx.event(project, { kind: "land.held", lane: lane.id, signals: asks.length });
+  await ctx.post(lane.lead, landLetters.landHeld(lane, asks.join(" "), head));
+  return { held: `Lane ${lane.id} was not landed: it waits for the Human's approval, on the Flow tab of the panel. ${asks.join(" ")}\n\nEvidence: ${evidence.join(" ")}\n\nYou cannot approve it; tell them it waits, and why. LANDED or SENT BACK comes as mail.`, note: "" };
 }
 
 /** Closes a lane for `by`: the Supervisor that called, or the one the Human's approval lands it for. `blocked` is what kept a landing from happening. */
@@ -121,17 +110,15 @@ export async function close(desk: DeskServices, project: Project, by: string, ar
   }
 }
 
-/** A hold with no commit since stands while the land check still asks: the gate's verdict then is kept, READY, the write set and incidents are read again. */
-async function stillHeld(desk: DeskServices, project: Project, ledger: Ledger, lane: Lane, held: Held): Promise<Closed | undefined> {
-  const { ctx } = desk;
-  const checks = ctx.team(project).checkpoints;
-  const now = await landCheck(ctx.kit, project, ledger, lane, { set: Boolean(loadConfig(project.state).gate), ok: !held.signals.includes(GATE_FAILED) }, checks);
-  if (checks.land !== "on" || (now.signals.length === 0 && checks.landApprove !== "every")) return undefined;
-  ctx.transact(project, (current) => {
+/** A hold with no commit since stands while it still touches what the Human asked to be asked about; asked about again, it is read again. */
+async function stillHeld(desk: DeskServices, project: Project, lane: Lane, held: Held): Promise<Closed | undefined> {
+  const asks = askFirstHits(project, await changeOf(project, lane));
+  if (asks.length === 0) return undefined;
+  desk.ctx.transact(project, (current) => {
     const entry = current.lanes[lane.id]?.landApproval;
-    if (entry && !entry.approved) Object.assign(entry, now);
+    if (entry && !entry.approved) entry.signals = asks;
   });
-  return ok(`Lane ${lane.id} still waits for the Human's approval to land, since ${Math.round((Date.now() - held.since) / 60_000)} min ago, because ${now.signals.join(" ") || "this project approves every landing."} LANDED or SENT BACK comes as mail.`);
+  return ok(`Lane ${lane.id} still waits for the Human's approval to land, since ${Math.round((Date.now() - held.since) / 60_000)} min ago. ${asks.join(" ")} LANDED or SENT BACK comes as mail.`);
 }
 
 /** Lands an open lane for `by`, or says what kept it from landing: a hold for the Human, base that will not merge, a red gate. */
@@ -141,7 +128,12 @@ async function land(desk: DeskServices, project: Project, ledger: Ledger, lane: 
   const tip = await headSha(project.root, lane.branch);
   // A commit after the hold makes it a lane nobody has looked at: it is checked again from the start.
   const approved = held?.approved && held.head === tip ? held : undefined;
-  const waits = held && !held.approved && held.head === tip ? await stillHeld(desk, project, ledger, lane, held) : undefined;
+  // An approval lands the lane with no call deciding it again, so a lane amended since waits for its Lead's word.
+  if (approved && !lane.ready) {
+    const why = "its Lead has not reported it ready as it now stands";
+    return { ...no(`Lane ${lane.id} was not landed: ${why}. The Human's approval stands; land_lane lands it once its Lead reports it ready.`), blocked: why };
+  }
+  const waits = held && !held.approved && held.head === tip ? await stillHeld(desk, project, lane, held) : undefined;
   if (waits) return waits;
   // Land before closing: a closed lane cannot be closed again, so a landing that cannot happen is refused while open.
   const synced = await bringBaseIn(roster, ledger, lane);
@@ -165,18 +157,13 @@ async function land(desk: DeskServices, project: Project, ledger: Ledger, lane: 
   if (!gate.ok && !overGate) {
     return { ...no(`Lane ${lane.id} was not closed: ${gate.text}\nMessage its Lead, drop_lane it, or land_lane it over the gate with overGate true and your reason: that is your call.`), blocked: gate.text.split("\n")[0]!.replace(/\.$/, "") };
   }
-  let note = "";
-  if (!lane.onBranch) {
-    const check = await checkLanding(desk, project, lane, gate.ok, by, overGate, approved);
-    if (check.held) return ok(check.held);
-    if (check.blocked) return { ...no(`Lane ${lane.id} was not landed: ${check.blocked}. The Human's approval stands; land_lane lands it once that is cleared.`), blocked: check.blocked };
-    note = check.note;
-  }
+  const check = await checkLanding(desk, project, lane, gate.ok, overGate, approved);
+  if (check.held) return ok(check.held);
   const how = { as: loadConfig(project.state).landAs, message: landMessage(ledger, lane), keep: landedRef(lane.id) };
   const result = lane.onBranch ? { landed: true, how: `the work stays on ${lane.branch}, the branch it carried on; nothing was merged anywhere` } : await landLane(project.root, lane.base, lane.branch, how);
   if (!result.landed) return { ...no(`Lane ${lane.id} was not closed: it could not land, because ${result.how}. land_lane it again once that is cleared, or drop_lane it.`), blocked: result.how };
   if (!gate.ok) ctx.event(project, { kind: "gate.overridden", lane: lane.id, by });
-  return { how: `${result.how}${gate.ok ? "" : ", over a red gate"}`, note };
+  return { how: `${result.how}${gate.ok ? "" : ", over a red gate"}`, note: check.note };
 }
 
 /** Closes the lane on record, cuts what it still had going, and puts away its seats and copy, each once nothing is writing there. */
@@ -253,7 +240,6 @@ export async function decideLand(desk: DeskServices, project: Project, laneId: s
     await tell("changed", "");
     return ok(`Lane ${laneId} changed after it was held, so this approval is not for what it holds now. It is checked again when the Supervisor lands it.`);
   }
-  keepRun(project, { checkpoint: "land", mode: "on", lane: laneId, by: "human", decision: approve ? "approved" : "sent back", findings: note ? [note] : [], waitedMs: Date.now() - held.since });
   ctx.event(project, { kind: approve ? "land.approved" : "land.sentBack", lane: laneId });
   if (!approve) {
     await ctx.post(lane.lead, landLetters.landSentBack(lane, note, held.head));

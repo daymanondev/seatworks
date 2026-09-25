@@ -13,7 +13,7 @@ import {
   supportsRole,
   agentDefault,
 } from "./kit.ts";
-import type { CheckpointMode, Connect, Layer, McpChoice } from "../../shared/settings.ts";
+import type { Connect, Layer, McpChoice } from "../../shared/settings.ts";
 
 type SettingValue = string | number | boolean;
 type McpState = {
@@ -32,27 +32,9 @@ export type Team = {
   roles: Record<string, RoleSeat>;
   mcp: Record<string, McpState>;
   attention: Attention;
-  /** `forced` says why a check runs at its strictest though nobody chose it: settings the desk could not read. */
-  checkpoints: Checkpoints;
   rules: string;
   errors: string[];
 };
-
-/** A landing is only ever approved by the Human: landing is already the Supervisor's call, so it cannot also be the check on it. */
-export type Checkpoints = {
-  risk: string;
-  land: CheckpointMode;
-  landApprove: "risky" | "every";
-  landLines: number;
-  forced?: string;
-};
-
-/** Paths whose change is risky enough that a landing touching them is shown to a person first: access, money, data shape, and what ships. */
-export const RISKY_PATHS =
-  "(^|/)(auth|login|session|passwords?|secrets?|credentials?|tokens?|payments?|billing|migrations?|schema)(/|\\.|$)|\\.sql$|(^|/)\\.github/workflows(/|$)|(^|/)(Dockerfile|docker-compose[^/]*|\\.env[^/]*)$|(^|/)(infra|deploy|terraform|k8s|helm)(/|$)";
-
-/** More changed lines than one sitting reviews well: past a few hundred, reviewers find fewer defects. */
-const LAND_LINES = 1000;
 
 export function templateRoles(entry: McpEntry): string[] {
   return entry.kind === "proxy" ? Object.keys(entry.tools ?? {}) : (entry.roles ?? []);
@@ -210,16 +192,6 @@ export function resolveTeam(kit: Kit, machine: Layer = {}, project: Layer = {}, 
     roles,
     mcp,
     attention: { ...kit.attention, ...stripUndefined(machine.attention), ...stripUndefined(project.attention) },
-    // A check the Human turned on must not fall silently to its default when the file that says so cannot be read.
-    checkpoints:
-      unread.length > 0
-        ? { risk: RISKY_PATHS, land: "on", landApprove: "every", landLines: LAND_LINES, forced: unread.join("; ") }
-        : {
-            risk: project.checkpoints?.risk ?? machine.checkpoints?.risk ?? RISKY_PATHS,
-            land: project.checkpoints?.land ?? machine.checkpoints?.land ?? "shadow",
-            landApprove: project.checkpoints?.landApprove ?? machine.checkpoints?.landApprove ?? "risky",
-            landLines: project.checkpoints?.landLines ?? machine.checkpoints?.landLines ?? LAND_LINES,
-          },
     rules: [machine.rules, project.rules].filter((text) => text && text.trim()).join("\n\n"),
     errors,
   };

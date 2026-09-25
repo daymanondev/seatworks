@@ -1,10 +1,7 @@
-import type { Team } from "../catalog/team.ts";
 import type { SeatView } from "../core/paseo.ts";
 import { AT_WORK } from "../domain/task.ts";
-import { runsOf } from "./checkpoints.ts";
 import { type Lane, type Ledger, ownCopyHolder } from "./ledger.ts";
 import { type LaneHome, type Project, type ProjectConfig, laneHomeFor, projectOf } from "./project.ts";
-
 
 const minutes = (now: number, at: number | string) => Math.max(0, Math.round((now - (typeof at === "string" ? Date.parse(at) : at)) / 60_000));
 
@@ -37,15 +34,6 @@ function ownCopyLines(project: Project, ledger: Ledger, config: ProjectConfig, c
   if (typeof home === "object") lines.push(`The Human decides where the next lane works, before it opens: ${home.question}.`);
   lines.push("");
   return lines;
-}
-
-/** What the land check is set to and what its log holds, so a shadow period can be read before it is turned on. */
-function checkLines(project: Project, checks: Team["checkpoints"]): string[] {
-  const set = checks.land;
-  const { runs, asked, last } = runsOf(project);
-  const kept = runs === 0 ? "nothing checked yet" : `${runs} checked, ${asked} ${set === "on" ? "sent for approval" : "would have been sent for approval"}${last ? `; last flagged ${last.lane} at ${last.at}: ${(last.findings[0] ?? "").replace(/[.!?]+$/, "")}` : ""}`;
-  const approval = `Landings are approved ${checks.landApprove === "every" ? "every time" : "when something in them should be seen first"}, by the Human on the panel`;
-  return ["## Land check", "", `${checks.forced ? `On, because ${checks.forced}` : set}. ${set === "off" && !checks.forced ? "Nothing is checked." : `${approval}. In checkpoints.log: ${kept}.`}`, ""];
 }
 
 /** Where an open lane stands beyond its seats: on hold, reported ready, and a landing held for the Human. */
@@ -87,12 +75,12 @@ export function statusText(
   config: ProjectConfig,
   seats: Map<string, SeatView>,
   now: number,
-  { laneId, waiting = [], held = [], copy, checks }: { laneId?: string; waiting?: SeatView[]; held?: { to: string; text: string; at: number }[]; copy?: OwnCopy; checks?: Team["checkpoints"] } = {},
+  { laneId, waiting = [], held = [], copy }: { laneId?: string; waiting?: SeatView[]; held?: { to: string; text: string; at: number }[]; copy?: OwnCopy } = {},
 ): string {
   const gate = config.gate || (config.gate === "" ? "none, by this project's own choice" : "none");
-  const lines = [`# Status: ${project.root}`, "", `Updated ${stamp(now)}. Base ${config.base ?? "unset"}. Gate ${gate}. Lanes land as ${config.landAs}.`, ""];
+  const asked = config.askFirst.length > 0 ? `A landing that touches ${config.askFirst.join(", ")} waits for the Human (askFirst).` : "No landing waits for the Human (askFirst is empty).";
+  const lines = [`# Status: ${project.root}`, "", `Updated ${stamp(now)}. Base ${config.base ?? "unset"}. Gate ${gate}. Lanes land as ${config.landAs}. ${asked}`, ""];
   if (copy) lines.push(...ownCopyLines(project, ledger, config, copy));
-  if (checks) lines.push(...checkLines(project, checks));
   // One outbox holds every project's mail: a seated recipient belongs to its copy's project, a gone one to this project's record.
   const mine = held.filter((letter) => {
     const seat = seats.get(letter.to);
