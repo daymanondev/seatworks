@@ -1,5 +1,6 @@
 ---
 name: ultra-review
+compatibility: Needs python3; uses the ocr CLI when it is installed.
 description: "Hunts bugs across one named scope with ten independent read-only scouts, or packs the scope for an outside reviewer, with Open Code Review selecting the files and grouping them by review rule. Use when risky work is about to land, a missed bug would cost more than ten scouts, or someone outside the project is to review code they won't clone, who gets it as one packed file. Not for reviewing one change, which is one reviewer."
 ---
 
@@ -30,7 +31,7 @@ python3 "$SEATWORKS_KIT/content/skills/lead/ultra-review/scripts/create_ultra_re
 
 It writes this round's report, never over an earlier one, with a coverage ledger, and prints the units (each rule group with its files and rule text, plus the excluded files) and each scout's units and directives: two scouts per unit, three per directive. Give a risky unit a third scout yourself.
 
-Scouts read the lane branch, or a task's branch when started with that `task`; you do not merge yourself. When the scope is a task not yet accepted, start `scout-01` to `scout-10` in one turn, each with `start_review`, that task and that title; otherwise with no task. Each focus carries:
+Scouts read the lane branch, or a task's branch when started with that `task`. When the scope is a task not yet accepted, start `scout-01` to `scout-10` in one turn, each with `start_review`, that task and that title; otherwise with no task. Each focus carries:
 
 - the scope, change intent and relevant repository contracts;
 - its units' files and rule text, and its directives and concerns, each with a search angle no other scout on that unit has, because copies of one focus find the same bugs twice;
@@ -38,7 +39,7 @@ Scouts read the lane branch, or a task's branch when started with that `task`; y
 - static inspection only: run nothing that builds or tests, since ten scouts building at once collide;
 - the ask, returned in `done` findings: every candidate, speculative ones included, with severity `P0`–`P3`, confidence, `file:line`, evidence, contract violated, plausible failure, durable fix hypothesis and a read-only disconfirming check; and each assigned file marked reviewed, or skipped with a reason.
 
-End your turn; handbacks arrive as mail. Share no candidate before consolidation, and restart only a scout that went silent without handing back, under its original title and assignment. `cut` each scout once its findings are in the report: ten seats left idle cost ten seats. Then fill the report's TODOs: each file's coverage status, findings `F001`, `F002`, ... grouped by root cause with the fields above and no raw candidate list, one Verification Queue line per finding, and the strongest reason not to merge yet; with no candidates, `No candidates reported.` under Findings.
+End your turn; handbacks arrive as mail. Share no candidate before consolidation, and restart only a scout that went silent without handing back, under its original title and assignment. `cut` each scout once its findings are in the report. Then fill the report's TODOs: each file's coverage status, findings `F001`, `F002`, ... grouped by root cause with the fields above and no raw candidate list, one Verification Queue line per finding, and the strongest reason not to merge yet; with no candidates, `No candidates reported.` under Findings.
 
 ## 2b. pack
 

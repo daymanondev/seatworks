@@ -108,7 +108,8 @@
       "prompt": "prompts/REVIEWER.md",
       "skills": null,
       "extraSkills": [
-        "peer:test-proof-debt-audit"
+        "peer:test-proof-debt-audit",
+        "peer:security-check"
       ],
       "paseoTools": {
         "enabled": false

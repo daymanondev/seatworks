@@ -1,11 +1,7 @@
-# Lane plans
+# The plan page
 
-A plan is the page a successor reads to resume a high-risk lane. It lives in the project's `plans/`
-state directory, outside the repository, and holds the present only. Normal lanes need no plan.
-
-Write it for agents, not a human team: the lane is usually one task done in one sitting, so the plan
-names the final shape and the one check that proves it, not a schedule of phases. Keep it under 80
-lines and replace lines instead of adding them.
+The page a successor reads to resume a high-risk lane. Write it for agents, not a human team: it names
+the final shape and the one check that proves it, not a schedule of phases.
 
 ```md
 # <lane id> <outcome>

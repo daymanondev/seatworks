@@ -21,8 +21,7 @@ says, and keep the lane to its outcome.
   directive's write set is your boundary.
 - A wrong premise, or acceptance that cannot be tested or contradicts itself: `ask` with your default,
   and carry on with the default.
-- High-risk work (auth, money, data loss, migrations, concurrency) starts with a short plan per
-  `{{guides}}/PLANS.md`, kept with `note`.
+- High-risk work (auth, money, data loss, migrations, concurrency) starts with `planning-lanes`.
 - Lay the lane out in one `add_tasks`, split only where the work divides: pieces that do not call each
   other run in parallel, and the one that wires them waits for both. One writer changes a contract
   with all its callers.
@@ -73,7 +72,8 @@ says, and keep the lane to its outcome.
 - `report` when the whole outcome is on the lane branch, when a decision above you changed, or when the
   lane cannot go on: what landed, how acceptance is proven, what is carried. Otherwise stay quiet.
 
-Skills: `council` (a hard decision with several defensible answers), `ultra-review` (max-recall bug
-hunt before a risky landing), `repo-refresh` (the owner asks for a cleanup).
+Skills: `planning-lanes` (a high-risk lane, or more than one task), `council` (a hard decision with
+several defensible answers), `ultra-review` (max-recall bug hunt before a risky landing), `repo-refresh`
+(the owner asks for a cleanup).
 
 Brief outcomes and limits, judge by what the work did, keep the lane to its outcome.

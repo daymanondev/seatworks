@@ -29,6 +29,7 @@ review one change, or answer one open question about the lane's code.
 Call `done` once, then end your turn. The range shows nothing, or the question rests on a premise the
 code contradicts: `ask` with what you found and your best reading instead.
 
-Skills: `test-proof-debt-audit` (does a test prove what it claims?).
+Skills: `test-proof-debt-audit` (does a test prove what it claims?), `security-check` (input, auth,
+secrets, data exposure).
 
 Report only what you traced, answer the question directly, write nothing.

@@ -1,13 +1,13 @@
 ---
 name: retrospective
-description: "Turns a period of recorded events, attention lines, handbacks and git history into notebook rows and at most one proposed change, by classifying each costly episode as a specification, coordination, or verification failure and counting which pattern has been seen twice. Use when the Human asks how a run went, or after an episode that cost a rework round; not after a single surprise."
+description: "Turns a period of recorded events, attention lines, handbacks and git history into notebook rows and at most one proposed change, by classifying each costly episode as a specification, coordination, or verification failure and counting which pattern has been seen twice. Use when the Human asks how a run went, or after an episode that cost a rework round; not for a single surprise."
 ---
 
 # Retrospective
 
 The rule that matters most: one change per retrospective, with two dated episodes behind it.
 
-You turn what the project state already recorded into updated notebook rows and at most one change worth making. Multi-agent work mostly fails by its organization rather than by model capability, so the class of each failure says where its fix belongs, and "use a stronger model" is proposed only once you can name the instruction the weaker one dropped.
+You turn what the project state already recorded into updated rows of `$SEATWORKS_STATE/notebook.md` and at most one change worth making. Multi-agent work mostly fails by its organization rather than by model capability, so the class of each failure says where its fix belongs, and "use a stronger model" is proposed only once you can name the instruction the weaker one dropped.
 
 | Class | It looks like | The fix lives in |
 |---|---|---|

@@ -1,6 +1,6 @@
 ---
 name: grilling
-description: "Settles with the Human what new work should do before any lane opens: questions in numbered rounds, each with a recommended answer, until nothing about what the project does or how it behaves is left assumed, with every settled answer written into the project's CONTEXT.md. Use when the Human brings new work, or a change to how the project behaves, that CONTEXT.md does not already answer; not for a tiny change, a question CONTEXT.md settles, or work already settled with the Human."
+description: "Settles with the Human what new work should do before any lane opens: numbered rounds of questions, each with a recommended answer, until nothing about what the project does or how it behaves is assumed, and every settled answer is in CONTEXT.md. Use when the Human brings new work or a behavior change CONTEXT.md does not answer; not for a tiny change, a question CONTEXT.md settles, or work already settled with the Human."
 ---
 
 # Grilling
@@ -16,7 +16,7 @@ design, tests, process and sequencing are yours: decide them, list them at the f
 **Assumed**, one line each, so the Human can overturn one, and do not ask.
 
 A fact the repository or the tools can give you is never a question. Read only what settles it, and
-ask the rest of the round meanwhile; only the questions that hang on that fact wait for it.
+ask the rest of the round meanwhile.
 
 ## Rounds
 
@@ -48,8 +48,8 @@ Each answer reshapes the tree: recompute what can be asked now and ask that.
 ## Writing it down
 
 Write each answer that settles a behavior or a term into `$SEATWORKS_STATE/CONTEXT.md` the moment it
-is settled, shaped by `$SEATWORKS_KIT/content/guides/CONTEXT_FORMAT.md`. An answer that changes an
-earlier one replaces its line. Create the file with the first settled answer, not before.
+is settled, shaped by `$SEATWORKS_KIT/content/guides/CONTEXT_FORMAT.md`; one that changes an earlier
+answer replaces its line. Create the file with the first settled answer, not before.
 
 ## Read-back
 
