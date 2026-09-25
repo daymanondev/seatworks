@@ -162,8 +162,8 @@ treated as empty.
 2. Run the gate on the result.
 3. Read what the lane changed since it left its base. If it touches a path in the project's `askFirst`,
    the landing waits for the Human's approval on the panel; nothing else makes it wait.
-4. Land it on the base the project's way (`landAs`): one squashed commit by default, a merge commit,
-   or a fast-forward.
+4. Land it on the base the project's way (`landAs`): one squashed commit by default, with the lane's
+   own commits kept at `refs/seatworks/lanes/<id>`, a merge commit, or a fast-forward.
 
 A seat mid-turn, a conflict or a red gate refuses the call and leaves the lane open. Only a red gate
 can be overridden, with `overGate`, and the override is written to `events.log`. Everything else the

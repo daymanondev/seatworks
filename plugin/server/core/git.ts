@@ -238,7 +238,7 @@ export async function landLane(root: string, base: string, branch: string, how: 
   // Should this fail, the branch is kept rather than lost: dropping it checks it against this ref.
   await git(root, ["update-ref", how.keep, branch]);
   if (!tip) return { landed: true, how: `${branch} changes nothing on ${base}, so nothing was committed` };
-  return { landed: true, how: how.as === "squash" ? `squashed ${branch} into one commit on ${base}` : how.as === "merge" ? `merged ${branch} into ${base}` : `fast-forwarded ${base} to ${branch}` };
+  return { landed: true, how: how.as === "squash" ? `squashed ${branch} into one commit on ${base}, its own commits kept at ${how.keep}` : how.as === "merge" ? `merged ${branch} into ${base}` : `fast-forwarded ${base} to ${branch}` };
 }
 
 export function gitCommonDir(cwd: string): string | undefined {

@@ -32,7 +32,7 @@ test("landing keeps the Lead and the copy it works in until the Supervisor relea
   assert.match((await h.call(sup, "supervisor", "release", { lane: "L1" })).text, /Lane L1 is open: land_lane or drop_lane it first\. replace_lead swaps a Lead that is gone\./);
   const landed = await h.call(sup, "supervisor", "land_lane", { lane: "L1" });
   assert.equal(landed.ok, true, landed.text);
-  assert.match(landed.text, new RegExp(`Lane L1 closed; squashed ${lane.branch} into one commit on main\\. Its Peers are archived, and its Lead ${lead} stays until you release it\\. Its working copy ${lane.slot} stays with its Lead\\.`));
+  assert.match(landed.text, new RegExp(`Lane L1 closed; squashed ${lane.branch} into one commit on main, its own commits kept at refs/seatworks/lanes/L1\\. Its Peers are archived, and its Lead ${lead} stays until you release it\\. Its working copy ${lane.slot} stays with its Lead\\.`));
   assert.equal(h.agents.get(lead)!.archivedAt, null);
   assert.ok(existsSync(lane.worktree!), "its copy stays with it");
   assert.notEqual(h.git(h.root, "branch", "--list", lane.branch).trim(), "", "and so does its landed branch, checked out there");

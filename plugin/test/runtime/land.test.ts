@@ -75,7 +75,7 @@ test("a lane touching a path the Human asked to be asked about first waits for t
     evidence: ["1 commit; 1 file, 1 line changed.", "Gate: passed on the lane.", "No review of the whole lane is on record."],
   });
 
-  assert.match(await decide(h, true, "fine, it only renames"), /Approved: Lane L1 closed; squashed lane\/l1-cart into one commit on main\. Its Peers are archived, and its Lead agent-\d+ stays until you release it\.[^]*The Human approved it\./);
+  assert.match(await decide(h, true, "fine, it only renames"), /Approved: Lane L1 closed; squashed lane\/l1-cart into one commit on main, its own commits kept at refs\/seatworks\/lanes\/L1\. Its Peers are archived, and its Lead agent-\d+ stays until you release it\.[^]*The Human approved it\./);
   assert.ok(onMain("src/auth/login.ts"));
   assert.deepEqual([h.ledger().lanes.L1!.status, h.ledger().lanes.L1!.landed, h.ledger().lanes.L1!.landApproval], ["closed", true, undefined]);
   await h.idle(sup);
