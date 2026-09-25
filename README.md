@@ -49,6 +49,7 @@ The step-by-step picture is in [A lane, end to end](docs/ARCHITECTURE.md#a-lane)
 | Lead | One lane: its tasks, their order, and what is accepted | Claude Code · `claude-opus-5` · medium |
 | Peer | One task, and the engineering judgement inside it | Claude Code · `claude-opus-5` · medium |
 | Reviewer | A read-only review of one change | Claude Code · `claude-opus-5` · medium |
+| Watcher | When the watch is answered by a seat: the watch's questions about one moment of the work at a time | The Peer's, until you set its own |
 | Pager | Says a page back, word for word, so Paseo pushes it to your phone | Claude Code · `claude-opus-5` · low |
 
 Roles are data in `plugin/roles.json`, not code. Each role's tools are in
@@ -135,7 +136,17 @@ task sent back three times.
 
 A finding becomes an **incident**. An ordinary one about a Peer goes to its Lead. One about a Lead,
 an urgent one (a *page*), or one whose Lead is gone goes to the Supervisor. Whoever gets it marks it
-`useful`, `noise` or `unknown`. The watched seat never hears of it.
+`useful`, `noise` or `unknown`. The watched seat never hears of it. Each lane gets two ordinary ones a
+day; a kind whose last ten marks were mostly noise is held back until the marks say otherwise; a page
+always goes.
+
+What code cannot read, the watch asks as one question at a time, at the moment it matters: was this
+destructive command asked for, does a complete hand-back's summary admit a gap, did a review that
+accepts a migration say it ran the invariant. You pick who answers on the Watcher's chip in **Team**:
+Jev (a small model asked over OpenRouter, with your key, kept on this machine and never shown
+again), the **Watcher** seat, or nobody. Every question ships in shadow: its answers are kept in the
+project's `assessments.log` for you to label, and no seat is sent them. **Flow** says who is
+answering and how that stands.
 
 Out of the box the watch only records and lists. To mail incidents, turn on **Mail incidents** on the
 Supervisor's chip in the **Team** tab. How it all works is in

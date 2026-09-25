@@ -44,8 +44,8 @@ These are mostly absences, so the code won't show them to you.
   the desk acts on is a red gate when a lane lands, and the Supervisor can override it. A landing that
   touches a path the Human asked about first waits for them: that is their standing order, not a verdict.
 - **Capabilities, not names.** No code under `server/` compares a role to a name. What a role can do
-  (`supervise`, `lead`, `work`, `write`, `review`, `watched`, `page`) decides routing,
-  acceptance, watching and paging.
+  (`supervise`, `lead`, `work`, `write`, `review`, `watched`, `judge`, `page`) decides routing,
+  acceptance, watching, judging and paging.
 - **One door to Paseo.** Only `server/adapters/paseo/` imports Paseo's SDK: it registers the hooks,
   binds the daemon's API from each hook and panel call, and calls the agent, workspace and model API.
   Everything else depends on the ports in `core/ports.ts`, in the plugin's own types, so the tests
@@ -78,6 +78,7 @@ These are mostly absences, so the code won't show them to you.
 | `server/core/` | The ports, the timeline stream reader, atomic stores, `git`, the gate runner |
 | `server/domain/` | Each kind's lifecycle as one transition table: tasks, lanes, asks, incidents. Imports nothing |
 | `server/adapters/paseo/` | Paseo itself: its hooks and panel calls in the plugin's own types, and its agent, workspace and model API behind the ports |
+| `server/adapters/decisions.ts` | A sensor asked over HTTP, behind the `Judge` port |
 | `server/catalog/` | Data to seats: the kit loader, team resolution, providers, seat directories, launch config, content, the project files |
 | `server/desk/` | The ledger and what the tools do to it: lanes, tasks, asks, working copies, merges, gates, incidents, letters, closing a lane |
 | `server/desk/tools/` | One module per tool the seats call, each a zod input and a handler; `registry.ts` lists them for the desk |
@@ -89,7 +90,7 @@ These are mostly absences, so the code won't show them to you.
 | `bin/` | `seat-room`, the launcher that refuses a seat the plugin did not configure |
 | `roles.json` | The SLP preset: roles, capabilities, tool sets, prompts, skills, defaults, attention values |
 | `harness/<agent>/` | How each agent is set up: `harness.json`, base and per-role settings, and per-role deltas: what a role's prompt needs said against that agent's own instructions |
-| `catalog/` | Optional MCP servers; `ecosystem.json`: gates, one-writer paths, test and docs names, the watch's patterns; `paseo.json`: the tools Paseo gives every agent |
+| `catalog/` | Optional MCP servers; `ecosystem.json`: gates, one-writer paths, test and docs names, the watch's patterns; `paseo.json`: the tools Paseo gives every agent; `sensor/`: where and how each sensor is asked; `checks.json`: the watch's questions |
 | `content/` | Runtime content that seats read: prompts, skills, guides. Not documentation |
 
 All paths are under `plugin/`.
@@ -242,7 +243,7 @@ the next round.
 turns. Each fact has a level:
 
 - **`page`**, e.g. `destructive`. It goes out at once.
-- **`attend`**, e.g. `stuck`, `test-weakened` or `unverified`. It counts against the day's budget.
+- **`attend`**, e.g. `stuck`, `test-weakened` or `unverified`. It counts against its lane's budget for the day.
 - **`note`**, e.g. `gate-failed`. It is only evidence.
 
 The full list is in [the reference](REFERENCE.md#facts).
@@ -256,8 +257,20 @@ The full list is in [the reference](REFERENCE.md#facts).
 - A `page` also reaches the Human's phone, through a Pager started for it: an agent with no tools and
   no parent, whose first and only reply is two lines the desk writes, which Paseo pushes.
 
-Until it is sent, it may be held: in **shadow** (mailing is off, the default; a page is sent
-anyway), over the day's **budget**, or with **nobody** to tell.
+Until it is sent, it may be held: in **shadow** (mailing is off, the default), on **probation** (the
+last ten marks of its kind were mostly noise), over its lane's **budget** for the day (two by default;
+those about no lane share one), or with **nobody** to tell. A page is never held.
+
+**Questions.** What a fact cannot say, the watch asks at the moment it matters, one condition per
+question, on a small state the code builds: of a hand-back, of a review that accepts a change a risk
+rule reaches, of an act a fact names, of a first change made before any look. `checks.ts` builds each
+case from the record and never from a seat's own reasoning; the wording, thresholds and mode of each
+question are data in `catalog/checks.json`. `judging.ts` puts the case to whoever
+`attention.judge` names, behind the `Judge` port: a sensor over HTTP (`adapters/decisions.ts`, the key
+in its header only, the catalog's data rules with every request), or the Watcher seat, which the desk
+seats under the Supervisor and mails one CASE letter per case, and which answers with `judge`. Every
+question ships `shadow`: the case, the question as sent and the answer go to `assessments.log`, and no
+seat reads them. Nothing waits on an answer; one that fails is kept as unasked.
 
 **Marking.** Whoever gets an incident marks it with `mark_incident`, as `useful`, `noise` or `unknown`, after
 checking the agent's own record.

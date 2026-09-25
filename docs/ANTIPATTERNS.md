@@ -36,7 +36,7 @@ them ever reaches the seat it is about.
 One thing is worth knowing before trusting it: a condition read from the ledger stands still — a task sent
 back three times stays sent back three times — so it is raised once and then only when the record
 says something new; the book itself is that memory, so a restart does not raise it again, and a
-day's budget or a watch that is off does not lose it.
+lane's budget for the day, a kind on probation or a watch that is off does not lose it.
 
 Two facts explain most of the blindness, and each is a design choice rather than a defect:
 
