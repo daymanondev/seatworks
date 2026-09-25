@@ -165,7 +165,7 @@ async function release(desk: DeskServices, project: Project, lane: Lane): Promis
     const entry = ledger.lanes[lane.id];
     if (entry) delete entry.held;
   });
-  await desk.ctx.post(await desk.roster.supervisorFor(project, claimed.opener), letters.opened(claimed, openedReply(project, claimed, started.slot, started.lead, issue)));
+  await desk.ctx.post(await desk.roster.supervisorFor(project, claimed.opener), letters.opened(claimed, openedReply(project, claimed, started.slot, started.lead, issue, started.elsewhere)));
   return undefined;
 }
 

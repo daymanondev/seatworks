@@ -9,7 +9,7 @@ import { type Lane, type Ledger, type Task, activeTasks, loadLedger, ownCopyHold
 import { outside } from "../core/text.ts";
 import { besideOf, taskBrief } from "./briefs.ts";
 import { holderOf } from "./holder.ts";
-import { directiveFor } from "./directive.ts";
+import { type Elsewhere, directiveFor, elsewhereText } from "./directive.ts";
 import { type Project, loadConfig, serialOnlyOf } from "./project.ts";
 import type { DeskServices } from "./services.ts";
 
@@ -51,7 +51,7 @@ export function leadSeatOf(seats: SeatView[], project: Project, lane: string): S
   return seats.find((seat) => seat.labels?.["seatworks.project"] === project.slug && seat.labels["seatworks.lane"] === lane && !seat.labels["seatworks.task"]);
 }
 
-export function openedReply(project: Project, lane: Lane, slot: { id?: string }, lead: string, issue: Issue | undefined): string {
+export function openedReply(project: Project, lane: Lane, slot: { id?: string }, lead: string, issue: Issue | undefined, elsewhere: Elsewhere[]): string {
   // An empty gate is the owner's answer, not a missing one, so it is not an invitation to set one.
   const stored = loadConfig(project.state).gate;
   const gate = stored ? stored : stored === "" ? "none set, by this project's own choice" : "none; call set_project with the project's test command";
@@ -62,7 +62,8 @@ export function openedReply(project: Project, lane: Lane, slot: { id?: string },
   const on = lane.onBranch
     ? `carries on ${lane.branch} ${where}${lane.branch === loadConfig(project.state).base ? `, which is the project's base: nothing separates this work from it and there is no lane branch to fall back on` : ""}`
     : `is open on ${lane.branch} (off ${lane.base}) ${where}`;
-  return `Lane ${lane.id} ${on}, and its Lead ${lead} is starting. Gate: ${gate}. Reports and asks arrive as mail; nothing to wait for now.${issueText}`;
+  const beside = elsewhere.length > 0 ? ` It declared no write set, so it opened beside lanes that may be writing what only one lane at a time may write: ${elsewhereText(elsewhere)}. Its Lead is told to leave those to them; amend_lane can give it a write set.` : "";
+  return `Lane ${lane.id} ${on}, and its Lead ${lead} is starting. Gate: ${gate}.${beside} Reports and asks arrive as mail; nothing to wait for now.${issueText}`;
 }
 
 /** Where a lane opens given the ledger as it stands, or why it cannot: decided in the transaction that records or opens it. */
@@ -85,7 +86,7 @@ export function placement(ledger: Ledger, lane: Pick<Lane, "onBranch" | "writeSe
 }
 
 type Seating = { ownCopy: boolean; from?: string; role?: string; parent?: string; issue?: Issue };
-type Seated = { slot: { id?: string; path: string; workspaceId?: string }; lead: string };
+type Seated = { slot: { id?: string; path: string; workspaceId?: string }; lead: string; elsewhere: Elsewhere[] };
 
 /** Seats the Lead of a lane marked seating; a failure puts back what it took, moves the lane by `failed`, and comes back as the reason. */
 export async function startLead(desk: DeskServices, project: Project, lane: Lane, how: Seating & { failed: "close" | "wait" }): Promise<Seated | string> {
@@ -118,10 +119,11 @@ async function seatLead(desk: DeskServices, project: Project, lane: Lane, how: S
       await giveBack(slot);
       return namedOrNot(ctx.kit, "lead", how.role ?? "", "lead a lane");
     }
+    const directed = await directiveFor(ctx.kit, project, lane, slot.path, how.issue);
     const lead = await agents.start(project, slot, leadRole.role, {
       parent: how.parent,
       title: `${lane.id} ${lane.title}`,
-      prompt: await directiveFor(ctx.kit, project, lane, slot.path, how.issue),
+      prompt: directed.text,
       labels: { "seatworks.lane": lane.id, "seatworks.role": leadRole.role },
     });
     const startSha = lane.onBranch ? await headSha(slot.path) : undefined;
@@ -131,7 +133,7 @@ async function seatLead(desk: DeskServices, project: Project, lane: Lane, how: S
       ledger.agents[lead] = { id: lead, role: leadRole.role, lane: lane.id };
     });
     ctx.event(project, { kind: "lane.opened", lane: lane.id, lead, branch: lane.branch, base: lane.base, slot: slot.id ?? "in place" });
-    return { slot, lead };
+    return { slot, lead, elsewhere: directed.elsewhere };
   } catch (error) {
     await giveBack(slot);
     return `The Lead could not start: ${errorText(error)}`;

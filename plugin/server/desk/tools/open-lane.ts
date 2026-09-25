@@ -125,6 +125,6 @@ export const openLane = defineTool({
     const { lane } = placed;
     const started = await startLead(desk, project, lane, { ownCopy: placed.ownCopy, failed: "close", from: newBranch ? here : undefined, role: str(args.role), parent: caller.id, issue });
     if (typeof started === "string") return no(started);
-    return ok(`${openedReply(project, lane, started.slot, started.lead, issue)}${unread ? `\n\nThe issue was not read into the lane: ${clip(unread, 300)}. The Lead has the outcome and the checks; give it the issue yourself if it needs one.` : ""}`);
+    return ok(`${openedReply(project, lane, started.slot, started.lead, issue, started.elsewhere)}${unread ? `\n\nThe issue was not read into the lane: ${clip(unread, 300)}. The Lead has the outcome and the checks; give it the issue yourself if it needs one.` : ""}`);
   },
 });

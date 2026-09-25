@@ -1,7 +1,7 @@
 import { trackedFiles } from "../core/git.ts";
-import { serialPaths } from "../core/scope.ts";
+import { serialPaths, serialReach } from "../core/scope.ts";
 import { type Issue, fetchIssue } from "./issue.ts";
-import type { Lane } from "./ledger.ts";
+import { type Lane, type Ledger, loadLedger } from "./ledger.ts";
 import { outside } from "../core/text.ts";
 import { list } from "./letters.ts";
 import type { Kit } from "../catalog/kit.ts";
@@ -9,10 +9,27 @@ import { type Project, conceptFile, loadConfig, serialOnlyOf } from "./project.t
 
 const SHOWN_SERIAL = 8;
 
+const capped = (paths: string[]): string => `${paths.slice(0, SHOWN_SERIAL).join(", ")}${paths.length > SHOWN_SERIAL ? ` and ${paths.length - SHOWN_SERIAL} more` : ""}`;
+
+/** One-writer paths another open lane may be writing, by lane. */
+export type Elsewhere = { lane: string; paths: string[] };
+
+/** What a lane that declared no write set opens beside: the desk lets it open, and it is told instead, as its Supervisor is. */
+function writtenElsewhere(ledger: Ledger, lane: Lane, serial: string[]): Elsewhere[] {
+  if (lane.writeSet.length > 0) return [];
+  return Object.values(ledger.lanes)
+    .filter((other) => other.id !== lane.id && other.status === "open")
+    .map((other) => ({ lane: other.id, paths: other.writeSet.length === 0 ? serial : serialReach(other.writeSet, serial) }))
+    .filter((entry) => entry.paths.length > 0);
+}
+
+export const elsewhereText = (elsewhere: Elsewhere[]): string => elsewhere.map((entry) => `${entry.lane} (${capped(entry.paths)})`).join(", ");
+
 /** `copy` is the lane's working copy, whose files decide which paths only one writer at a time may write. */
-export async function directiveFor(kit: Kit, project: Project, lane: Lane, copy: string, issue?: Issue): Promise<string> {
+export async function directiveFor(kit: Kit, project: Project, lane: Lane, copy: string, issue?: Issue): Promise<{ text: string; elsewhere: Elsewhere[] }> {
   const serial = serialPaths(await trackedFiles(copy), serialOnlyOf(project, kit));
-  return directive(lane, { gate: gateRegime(project), serial, concept: conceptFile(project.state), issue });
+  const elsewhere = writtenElsewhere(loadLedger(project.state), lane, serial);
+  return { text: directive(lane, { gate: gateRegime(project), serial, elsewhere, concept: conceptFile(project.state), issue }), elsewhere };
 }
 
 /** Read before the directive by a Lead seated on a lane already under way. */
@@ -24,7 +41,7 @@ function takeover(lane: Lane, was: string): string {
 export async function takeoverFor(kit: Kit, project: Project, lane: Lane, copy: string): Promise<string> {
   const fetched = lane.issue ? await fetchIssue(lane.issue, project.root) : undefined;
   const issue = fetched && !("error" in fetched) ? fetched : undefined;
-  return `${takeover(lane, lane.lead ?? "its first Lead")}\n\n${await directiveFor(kit, project, lane, copy, issue)}`;
+  return `${takeover(lane, lane.lead ?? "its first Lead")}\n\n${(await directiveFor(kit, project, lane, copy, issue)).text}`;
 }
 
 /** Which gate regime this project runs, because a Lead plans its splits against it. */
@@ -35,7 +52,7 @@ function gateRegime(project: Project): string {
 }
 
 /** `serial` holds the paths in the lane's copy that only one writer at a time may write, as the desk will read them. */
-export function directive(lane: Lane, { gate, serial, concept, issue }: { gate: string; serial: string[]; concept?: string; issue?: Issue }): string {
+export function directive(lane: Lane, { gate, serial, elsewhere = [], concept, issue }: { gate: string; serial: string[]; elsewhere?: Elsewhere[]; concept?: string; issue?: Issue }): string {
   const parts = [
     `OWNER DIRECTIVE ${lane.id}: ${lane.title}`,
     "",
@@ -52,9 +69,9 @@ export function directive(lane: Lane, { gate, serial, concept, issue }: { gate: 
     "",
     lane.writeSet.length > 0
       ? `Writes: ${lane.writeSet.join(", ")}. A task owning a path outside these is flagged when you lay out the plan and again at landing; if the work needs more, ask with kind need.`
-      : "Writes: not declared, so this lane is taken to reach every path this project keeps to one writer.",
+      : `Writes: not declared, so lanes opened after this one are kept off every path this project keeps to one writer.${elsewhere.length > 0 ? ` Lanes already open may be writing what only one lane at a time may write: ${elsewhereText(elsewhere)}. Leave those to them until they land, or ask with kind need.` : ""}`,
     ...(lane.contracts.length > 0 ? [`Depends on: ${lane.contracts.join(", ")}, which this lane uses and does not write.`] : []),
-    ...(serial.length > 0 ? [`One writer at a time: ${serial.slice(0, SHOWN_SERIAL).join(", ")}${serial.length > SHOWN_SERIAL ? ` and ${serial.length - SHOWN_SERIAL} more` : ""}. A task that writes any of these works in the lane's working copy, not in parallel.`] : []),
+    ...(serial.length > 0 ? [`One writer at a time: ${capped(serial)}. A task that writes any of these works in the lane's working copy, not in parallel.`] : []),
     "",
     lane.onBranch
       ? `Lane branch: ${lane.branch}, the Human's own, carried on where it is; closing the lane merges it nowhere. Your working copy is on it; tasks merge into it. Anything uncommitted there when the lane opened is the Human's work in progress, never to be discarded: have the first task working there commit it as found, in a commit of its own that says so, before it changes anything.`
