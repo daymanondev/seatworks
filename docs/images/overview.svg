@@ -9,8 +9,8 @@
 <text class="group-label" x="40" y="124">YOU</text>
 <rect class="node" x="38" y="136" width="148" height="60" rx="10" style="fill:var(--blue-fill);stroke:var(--blue)"/>
 <text class="title" x="112" y="154" text-anchor="middle" style="fill:var(--blue-ink)">Seatworks panel</text>
-<text class="sub" x="112" y="173" text-anchor="middle">Team · Flow</text>
-<text class="sub" x="112" y="190" text-anchor="middle">MCP · Health</text>
+<text class="sub" x="112" y="173" text-anchor="middle">Team · Flow · Report</text>
+<text class="sub" x="112" y="190" text-anchor="middle">Orders · MCP · Health</text>
 <rect class="node" x="38" y="220" width="148" height="60" rx="10" style="fill:var(--slate-fill);stroke:var(--slate)"/>
 <text class="title" x="112" y="238" text-anchor="middle" style="fill:var(--slate-ink)">Paseo app</text>
 <text class="sub" x="112" y="257" text-anchor="middle">talk to the</text>

@@ -17,22 +17,27 @@ call, or yours.
 |---|---|---|
 | Configures and starts one agent per seat | Lanes may not overlap in what they write | Judge the work |
 | Keeps a shared desk of lanes, tasks and questions | One writer per working copy | Pass on to a seat what the watch concluded about it |
-| Carries messages, and holds them until a seat can take them | A red gate (your test command) stops a lane from landing | Write your project's concept for you |
-| Keeps a durable record outside your repo | Each role's permissions, where the agent allows it | |
-| Watches Leads and Peers, and tells whoever answers for them | | |
+| Carries messages, each ending with what it asks of its reader, and holds them until a seat can take them | A red gate (your test command) stops a lane from landing, unless the Supervisor lands over it with a reason | Write your project's concept for you |
+| Keeps a durable record outside your repo | A landing that touches a path you asked about first waits for you | Write into your project's files |
+| Watches Leads and Peers, tells whoever answers for them, and pages you for what cannot be undone | Each role's permissions, where the agent allows it, and git commands only the desk runs | |
 
 ## How a piece of work goes
 
 1. **You talk to the Supervisor.** Before new work starts, it asks you questions in numbered rounds,
    with its recommended answer to each. What you settle about how the project behaves goes into the
-   project's `CONTEXT.md`, outside your repo.
+   project's `CONTEXT.md`, outside your repo, and what you settle for every lane (which paths you want
+   to see before they land, where lanes work) becomes a standing order.
 2. **The Supervisor opens a lane** with an outcome and acceptance criteria. The desk seats a Lead for
    it.
 3. **The Lead splits the lane into tasks.** It starts a Peer on each task, has a Reviewer read each
    big task and then the whole lane, and accepts or sends the work back.
 4. **The Lead reports the lane ready.** The desk runs the gate first.
-5. **The Supervisor closes the lane.** The desk merges in your base branch if it moved, runs the
-   gate on the result, then fast-forwards the base.
+5. **The Supervisor lands the lane.** The desk merges in your base branch if it moved, runs the gate
+   on the result, then lands it on your base as one commit (or as your repository lands work). A lane
+   that touches a path you asked about waits for you on the **Flow** tab.
+
+While you are away, a decision only you can make waits in your queue on the **Flow** tab, with the
+Supervisor's recommendation and what goes ahead meanwhile; the **Report** tab tells your last day.
 
 The step-by-step picture is in [A lane, end to end](docs/ARCHITECTURE.md#a-lane).
 
@@ -44,6 +49,7 @@ The step-by-step picture is in [A lane, end to end](docs/ARCHITECTURE.md#a-lane)
 | Lead | One lane: its tasks, their order, and what is accepted | Claude Code · `claude-opus-5` · medium |
 | Peer | One task, and the engineering judgement inside it | Claude Code · `claude-opus-5` · medium |
 | Reviewer | A read-only review of one change | Claude Code · `claude-opus-5` · medium |
+| Pager | Says a page back, word for word, so Paseo pushes it to your phone | Claude Code · `claude-opus-5` · low |
 
 Roles are data in `plugin/roles.json`, not code. Each role's tools are in
 [the reference](docs/REFERENCE.md#desk-verbs).
@@ -116,9 +122,10 @@ team's shared rules are in each role's own prompt. If an earlier version wrote a
 block into your `AGENTS.md` (and a pointer into `CLAUDE.md`), the Supervisor asks you to delete it and
 commit that.
 
-The panel has four tabs: **Team** (agents and the watch), **Flow** (lanes, tasks and questions,
-live), **MCP** (optional servers per role) and **Health**. Everything the desk keeps lives under
-`~/.local/share/seatworks-v3/`.
+A project's panel has **Team** (agents and the watch), **Flow** (lanes, tasks, your questions and
+landings, live), **Report** (the last day), **Orders** (your standing orders and the concept), **MCP**
+(optional servers per role) and **Health**, and the **Plugin** tab keeps the plugin current.
+Everything the desk keeps lives under `~/.local/share/seatworks-v3/`.
 
 ## The watch
 

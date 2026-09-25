@@ -14,6 +14,7 @@ is always a seat's call.
 - [From data to a running seat](#from-data-to-a-running-seat)
 - [A lane](#a-lane)
 - [Tool calls in, letters out](#tool-calls-in-letters-out)
+- [The Human in the loop](#the-human-in-the-loop)
 - [The watch](#the-watch)
 - [The concept](#the-concept)
 - [The patrol](#the-patrol)
@@ -40,10 +41,11 @@ The daemon and the seats share no memory. There are two one-way channels:
 These are mostly absences, so the code won't show them to you.
 
 - **The plugin never judges the work.** A gate result is evidence the Lead weighs. The only verdict
-  the desk acts on is a red gate when a lane lands, and the Supervisor can override it.
+  the desk acts on is a red gate when a lane lands, and the Supervisor can override it. A landing that
+  touches a path the Human asked about first waits for them: that is their standing order, not a verdict.
 - **Capabilities, not names.** No code under `server/` compares a role to a name. What a role can do
-  (`supervise`, `lead`, `work`, `write`, `review`, `watched`) decides routing,
-  acceptance and watching.
+  (`supervise`, `lead`, `work`, `write`, `review`, `watched`, `page`) decides routing,
+  acceptance, watching and paging.
 - **One door to Paseo.** Only `server/adapters/paseo/` imports Paseo's SDK: it registers the hooks,
   binds the daemon's API from each hook and panel call, and calls the agent, workspace and model API.
   Everything else depends on the ports in `core/ports.ts`, in the plugin's own types, so the tests
@@ -53,12 +55,15 @@ These are mostly absences, so the code won't show them to you.
   what its handler reads; a tool set picks among tools of one name by the schema it shows.
 - **One table per lifecycle.** A task, lane, ask or incident changes status only through its table
   in `server/domain/`, checked inside the ledger transaction against the status it has then.
-- **One file writes letters.** Everything the desk mails a seat is in `desk/letters.ts`, each letter
-  keyed by its kind and ids; what a seat starts from is in `desk/briefs.ts`, and a Lead's directive in
-  `desk/directive.ts`.
+- **One place writes letters.** Everything the desk mails a seat is in `desk/letters.ts` and, for
+  asks, merges and landings, the `*-letters.ts` beside it: each letter is keyed by its kind and ids, and
+  ends with one `Next:` line, what it asks of whoever reads it. What a seat starts from is in
+  `desk/briefs.ts`, and a Lead's directive in `desk/directive.ts`.
 - **One writer per working copy.** A lane-mode task holds the lane's copy from start until it is
   accepted or cut.
 - **No hidden command chain.** When the Supervisor messages a Peer, the Peer's Lead is told first.
+- **The desk writes nothing of the Human's.** No file in the project is written by the plugin; what
+  every role shares is in its own prompt.
 - **The watched seat never hears what the watch concluded about it.** No incident is ever addressed
   to it.
 - **Nothing a seat reads resolves into a repository.** Skills and guides are copies under
@@ -99,10 +104,13 @@ All paths are under `plugin/`.
    something changed.
 2. **Before `agent.create`.** `Seating.ensure` builds the seat directory. This covers settings, deny
    rules, the sandbox, MCP servers, skills linked to copies outside any repository, and the working
-   rules. `applyRole` then sets the model, thinking level, mode, prompt and MCP servers.
+   rules. `applyRole` then sets the model, thinking level, mode, prompt and MCP servers. The prompt
+   is the role's, then its agent's delta for that role, if the agent's own instructions need one.
 3. **Before `agent.session_open`.** The plugin points the agent's config directory at the seat
-   directory and sets `SEATWORKS_ROLE`, `SEATWORKS_PROJECT` and `SEATWORKS_STATE`. It also seeds the
-   project's records, such as `notebook.md`. It writes nothing into the project's own files.
+   directory and sets `SEATWORKS_ROLE`, `SEATWORKS_PROJECT` and `SEATWORKS_STATE`, with a `git` first
+   on its `PATH` that refuses the commands only the desk runs (push, merge, checkout and the like),
+   however they are spelled. It also seeds the project's records, such as `notebook.md`, and writes
+   nothing into the project's own files.
 4. **`bin/seat-room`** checks the launch and then `exec`s Claude. Codex, Pi, Oh My Pi and OpenCode seats start
    through Paseo's own providers.
 
@@ -150,12 +158,15 @@ treated as empty.
 2. Run the gate on the result.
 3. Read what the lane changed since it left its base. If it touches a path in the project's `askFirst`,
    the landing waits for the Human's approval on the panel; nothing else makes it wait.
-4. Fast-forward the base to the lane branch.
+4. Land it on the base the project's way (`landAs`): one squashed commit by default, a merge commit,
+   or a fast-forward.
 
 A seat mid-turn, a conflict or a red gate refuses the call and leaves the lane open. Only a red gate
 can be overridden, with `overGate`, and the override is written to `events.log`. Everything else the
-desk reads of the lane (a missing READY, deleted or weakened tests, files outside the write set, open
-incidents, what its reviews leave standing) goes with the READY letter and the reply as evidence.
+desk reads of the lane (deleted or weakened tests, files outside the write set, open incidents, what
+its reviews leave standing) goes with the REPORT letter and the reply as evidence. A review whose range
+touches a path the project's risk rules name (the kit's cover migrations, schemas and SQL) carries
+their questions, and its verdict is refused until it answers them.
 
 **Teardown** waits for seats that are still mid-turn. The pending release is recorded in the ledger,
 and a seat waiting to be archived in `intents.json`, so a daemon restart loses neither: the first
@@ -181,14 +192,43 @@ a single message.
 
 - **Steered** into a running turn only when its agent can take a steer and the turn has run at
   least 60 s.
-- **Held** while the seat waits on a permission, is busy, or had mail in the last 10 minutes.
+- **Held** while the seat waits on a permission, is busy, had mail in the last 10 minutes, or its lane
+  is on hold.
+- **Kept** while every letter for it asks nothing now: a lane that opened, a task that started, a
+  landing held or done. Such a letter goes out with the next one that asks something.
 - **Sent** otherwise.
+
+Each letter's `Next:` line is picked by the desk from what it knows, so a seat's prompt needs no table
+of letters: a red gate, an ask's kind, whether its reader is the Lead or whoever supervises because
+the Lead is gone, a review's hand-back, the lane's last task merged.
 
 **Reading turns.** At every turn end, `TurnRules` reads the turn in code, with no model call:
 
 - A failed turn is reported to the seat's owner.
 - A Peer or Reviewer whose turn ends without a desk call is nudged. On the second such turn, its task
   is marked `stalled` and the Lead is told.
+
+## The Human in the loop
+
+The Human is asked what only they can decide, and told what they cannot take back; everything else
+goes ahead.
+
+- **Questions.** The Supervisor puts a decision only the Human can make on their queue with
+  `ask_human`: the choices as a user sees them, its recommendation, and what goes ahead while they are
+  silent, by class. A reversible one goes on with the recommendation at once; a costly one until the
+  lane reports ready, where the lane is put on hold; an irreversible one holds the lane now. They answer
+  on the Flow tab, or in chat for `record_human_answer`, and HUMAN ANSWERED tells the Supervisor what
+  that turns round. At most `questionsPerDay` a day.
+- **Standing orders.** What they settle once for every lane: the paths no landing touches before they
+  look (`askFirst`), and where lanes work when their copy makes that a question (`laneHome`). The
+  Orders tab shows them with the project's `CONTEXT.md`.
+- **Landings held for them.** A landing that touches `askFirst` waits on the Flow tab with the
+  desk's evidence; approved, it lands, and sent back, the note goes to the Lead.
+- **Holds.** `hold_lane` stops every seat in a lane at once, holds its mail and refuses its permission
+  requests until `resume_lane`.
+- **Pages.** An incident that cannot be undone reaches their phone: see the watch below.
+- **The Report tab** tells the last day from the record, with no model's words: what needs them, what
+  went ahead on a recommendation, what landed, what could not be undone, and the counts.
 
 ## The watch
 
@@ -242,11 +282,12 @@ on its own, so one broken project doesn't stop the round. For each project, in o
 
 1. Tell the Supervisor about idle lanes.
 2. Retell held incidents that had nobody to tell.
-3. Mark tasks whose Peer is gone.
+3. Mark tasks whose Peer is gone, and tell the Supervisor of a lane whose Lead is gone.
 4. Remind open asks, re-address ones whose reader is gone, and escalate ones nobody answered.
 5. Read each lane's record for facts.
 6. Sweep stray workspaces and worktrees, and finish held teardowns.
-7. Write `status.md`.
+7. Open waiting lanes whose turn has come, and archive finished ones.
+8. Write `status.md`.
 
 Then it pumps every seat that has mail.
 
