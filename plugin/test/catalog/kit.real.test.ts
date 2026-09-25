@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSyn
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { renderPrompt } from "../../server/catalog/content.ts";
+import { renderPrompt, skillProblems, skillSources } from "../../server/catalog/content.ts";
 import { hiddenWordsIn } from "../../server/catalog/hidden-words.ts";
 import { loadKit, providerId, toolsOf } from "../../server/catalog/kit.ts";
 import { applyRole, stateWrites } from "../../server/catalog/launch.ts";
@@ -224,6 +224,27 @@ test("a Codex seat has every desk and proxy tool it is given approved ahead, and
   assert.deepEqual(paseo, ["list_schedules"], "a roles file of one's own may give a seat some of Paseo's tools");
   const claude = applyRole(kit, all, { provider: providerId(kit, "lead", "claude"), cwd: "/work/repo" } as AgentConfig, () => "PROMPT", "/state/demo", serversFor(kit, all, "lead", context)) as unknown as { toolPolicy?: unknown };
   assert.equal(claude.toolPolicy, undefined);
+});
+
+test("each shipped role writes under the project's state only what its prompt, deltas or skills name, or its note pages", () => {
+  const kit = loadKit(pluginRoot);
+  const paths = { guides: "/guides", state: "/state/demo" };
+  for (const role of kit.roles) {
+    const pages = toolsOf(kit, role).includes("note");
+    for (const entry of (role.writes ?? []).filter((path) => !(pages && path.endsWith("/")))) {
+      const without = { ...role, writes: role.writes!.filter((path) => path !== entry) };
+      const prompts = Object.keys(kit.harnesses).some((harness) => {
+        try {
+          renderPrompt(kit, without, harness, paths);
+          return false;
+        } catch {
+          return true;
+        }
+      });
+      const skills = [...skillSources(kit, without)].some(([name, dir]) => skillProblems(without, name, dir).length > 0);
+      assert.ok(prompts || skills, `${role.role} writes ${entry}, which nothing it reads names`);
+    }
+  }
 });
 
 test("a Claude seat reads the project's own CLAUDE.md, though its settings come from its seat alone", () => {

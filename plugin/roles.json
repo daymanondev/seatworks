@@ -30,7 +30,6 @@
       "writes": [
         "CONTEXT.md",
         "notebook.md",
-        "plans/",
         "pre-mortem/",
         "architecture-premise-audit/"
       ]
