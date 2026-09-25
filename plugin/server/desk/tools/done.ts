@@ -59,7 +59,7 @@ async function reminderOf(task: Task, laneBranch: string | undefined, uncommitte
   const meant = task.mode === "parallel" ? task.branch : laneBranch;
   const adrift = meant && task.worktree ? (await currentBranch(task.worktree)) !== meant : false;
   if (uncommitted) return " Your working copy still has uncommitted changes: commit them before ending your turn.";
-  return adrift ? ` Your working copy is not on ${meant} any more, so anything you committed is on no branch and will be collected. Put it back — after a bisect that is git bisect reset — and commit there before your turn ends.` : "";
+  return adrift ? ` Your working copy is not on ${meant} any more, so anything you committed is on no branch and will be collected. After a bisect, git bisect reset takes it back to ${meant}: commit there before your turn ends. If you left it some other way, say so with ask: moving a copy between branches is the desk's.` : "";
 }
 
 /** A Lead no longer seated would never read a hand-back; the level above is told instead and can seat one. */

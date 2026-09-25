@@ -42,7 +42,7 @@ export const accept = defineTool({
     // A copy off the lane branch (mid-bisect) has commits on no branch; clean and detached is not landed.
     if (lane.worktree && (await currentBranch(lane.worktree)) !== lane.branch) {
       return no(
-        `The lane's working copy is not on ${lane.branch}, so nothing committed in it is on the lane branch. Send rework asking the Peer on ${task.id} to put the copy back on ${lane.branch} — if it bisected, git bisect reset — and to commit its work there, then accept again.`,
+        `The lane's working copy is not on ${lane.branch}, so nothing committed in it is on the lane branch. If its Peer bisected, send rework asking the Peer on ${task.id} to run git bisect reset, which takes the copy back to ${lane.branch}, and to commit its work there; then accept again. A copy that left some other way is not the Peer's to put back: raise it with ask.`,
       );
     }
     if (!lane.worktree) return no(`Lane ${lane.id} has no working copy.`);

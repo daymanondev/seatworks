@@ -996,12 +996,12 @@ test("a commit made while the lane's copy is off its branch is not accepted as l
   const handed = await h.call(task.peer!, "peer", "done", { outcome: "complete", summary: "found and fixed it" });
   assert.equal(handed.ok, true, "the hand-back is not refused — the Peer is told, while it can still put it right");
   assert.match(handed.text, new RegExp(`not on ${lane.branch} any more`));
-  assert.match(handed.text, /git bisect reset/);
+  assert.match(handed.text, /git bisect reset takes it back[^]*left it some other way, say so with ask/, "nothing else it may run puts a copy back");
 
   h.agents.get(task.peer!)!.status = "idle";
   const accepted = await h.call(lane.lead!, "lead", "accept", { task: "L1-T1" });
   assert.equal(accepted.ok, false, "clean and detached is what the desk used to read as landed");
-  assert.match(accepted.text, /nothing committed in it is on the lane branch/);
+  assert.match(accepted.text, /nothing committed in it is on the lane branch[^]*git bisect reset[^]*some other way[^]*raise it with ask/);
   assert.equal(h.git(lane.worktree!, "show", `${lane.branch}:a.txt`), "one\ntwo\nthree\n", "and the lane branch really does not have it");
 });
 
