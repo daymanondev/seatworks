@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { can } from "../../catalog/kit.ts";
+import type { Held } from "../../domain/incident.ts";
 import { type Caller, no, ok } from "../context.ts";
 import { type Incident, incidentsFault, loadIncidents } from "../incidents.ts";
 import { laneOfLead, loadLedger } from "../ledger.ts";
@@ -8,14 +9,15 @@ import { defineTool } from "../services.ts";
 
 export const at = (ms: number) => new Date(ms).toISOString().slice(0, 16).replace("T", " ");
 
-const HELD: Record<string, string> = {
+const HELD: Record<Held, string> = {
   shadow: "shadow",
-  budget: "the day's budget is spent",
+  probation: "most of its kind's last ten marks were noise",
+  budget: "its lane's limit for today is reached",
   nobody: "nobody was seated to tell",
 };
 
 function line(item: Incident): string {
-  const sent = item.told !== undefined ? `told ${at(item.told)}` : item.held ? `not sent: ${HELD[item.held] ?? item.held}` : "";
+  const sent = item.told !== undefined ? `told ${at(item.told)}` : item.held ? `not sent: ${HELD[item.held]}` : "";
   const state = item.open ? sent || "open" : ["closed", sent, item.label ? `marked ${item.label}` : "not marked"].filter(Boolean).join(", ");
   const seen = item.count > 1 ? ` (seen ${item.count} times, last ${at(item.last)})` : "";
   const later = item.later !== undefined ? `; seen after you were told: ${clip(item.later.replace(/\s+/g, " "), 200)}` : "";

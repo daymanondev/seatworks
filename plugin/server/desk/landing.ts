@@ -39,9 +39,8 @@ function reviewRecord(ledger: Ledger, lane: Lane): { whole: boolean; latest?: Re
 }
 
 /**
- * What a lane's reviews leave standing, read from the record: no review of the whole lane, a latest review that did not
- * accept, and a task accepted over its own review's changes, or on a hand-back after them that no review has read.
- * Evidence for whoever lands it, never a refusal.
+ * What a lane's reviews leave standing: no review of the whole lane, a latest review that did not accept, a task accepted
+ * over its review's changes or on a later hand-back no review read. Evidence for whoever lands it, never a refusal.
  */
 export function reviewFacts(ledger: Ledger, lane: Lane): string[] {
   const { whole, latest, after, over } = reviewRecord(ledger, lane);

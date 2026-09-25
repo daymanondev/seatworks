@@ -189,7 +189,7 @@ test("the list carries what each seat was asked", async () => {
 });
 
 test("a kind most of whose last ten marks were noise is held on probation, a page never is, and marks that turn it round let it go again", async () => {
-  const { project, services, seated } = desk(true);
+  const { project, services, seated, supervisor } = desk(true);
   seated.supervisor = "sup";
   const seat = (n: number) => ({ id: `peer-${n}`, title: "Peer", provider: "sw2-peer-claude/claude-opus-5" });
   const marks = (useful: number, count = 10, unknown = 0) => {
@@ -203,6 +203,7 @@ test("a kind most of whose last ten marks were noise is held on probation, a pag
   await notice(services, project, seat(2), [{ kind: "destructive", level: "page", quote: "rm -rf /", facts: ["destructive"] }]);
   const held = Object.values(loadIncidents(project.state).items).filter((item) => item.open);
   assert.deepEqual(held.map((item) => [item.kind, item.held ?? null, item.told !== undefined]), [["stuck", "probation", false], ["destructive", null, true]]);
+  assert.match((await incidents.handle(services, supervisor, {})).text, /\[attend, not sent: most of its kind's last ten marks were noise\] Peer \(peer-1\)/, "the book says why");
 
   marks(5, 10, 3);
   await notice(services, project, seat(3), [stuck]);

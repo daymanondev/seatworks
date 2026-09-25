@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { loadKit } from "../../server/catalog/kit.ts";
@@ -8,6 +8,7 @@ import { LANE } from "../../server/domain/lane.ts";
 import { QUESTION } from "../../server/domain/question.ts";
 import type { Lifecycle } from "../../server/domain/lifecycle.ts";
 import { TASK } from "../../server/domain/task.ts";
+import { FACTS } from "../../server/runtime/watch/facts.ts";
 
 const PLUGIN = join(import.meta.dirname, "..", "..");
 const REFERENCE = join(PLUGIN, "..", "docs", "REFERENCE.md");
@@ -81,9 +82,15 @@ test("every verb a seat can be shown has one row saying what it does, and no row
 test("every heading a letter or brief starts with is in the letters table, and the table names none that is not", () => {
   const heading = /^[A-Z]{2,}(?: [A-Z]{2,})*/;
   const written = new Set<string>();
-  for (const file of ["letters.ts", "merge-letters.ts", "ask-letters.ts", "land-letters.ts", "briefs.ts", "directive.ts"]) {
-    for (const match of readFileSync(join(PLUGIN, "server", "desk", file), "utf-8").matchAll(/[`"]([A-Z]{2,}(?: [A-Z]{2,})*)(?=[ :]|\$|`|")/g)) written.add(match[1]!);
+  const desk = join(PLUGIN, "server", "desk");
+  for (const file of [...readdirSync(desk).filter((name) => name.endsWith("letters.ts")), "briefs.ts", "directive.ts"]) {
+    for (const match of readFileSync(join(desk, file), "utf-8").matchAll(/[`"]([A-Z]{2,}(?: [A-Z]{2,})*)(?=[ :]|\$|`|")/g)) written.add(match[1]!);
   }
   const listed = rows("| Kind | Letters |").flatMap(([, letters]) => letters!.split(",").flatMap((entry) => entry.trim().match(heading) ?? []));
   assert.deepEqual([...new Set(listed)].sort(), [...written].sort());
+});
+
+test("every fact the watch raises has a row saying when, and no row names one it does not", () => {
+  const named = [...rows("| Fact | Level | Fires when |"), ...rows("| Fact | Fires when |")].flatMap(([facts]) => [...facts!.matchAll(/`([^`]+)`/g)].map((match) => match[1]!));
+  assert.deepEqual(named.sort(), Object.keys(FACTS).sort());
 });

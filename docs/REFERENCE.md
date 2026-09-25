@@ -110,6 +110,7 @@ the Lead or whoever supervises because the Lead is gone, whether the task merged
 | Waiting and starting again | WAITING, OPENED, NOT OPENED, NOT STARTED, LEAD GONE |
 | A lane stopped | HOLD, RESUMED |
 | The desk noticing | SILENT, FAILED, WAITING FOR PERMISSION, LANE IDLE, INCIDENT, the bare nudge |
+| A question for the Watcher | CASE |
 | A moment to look | ARCHITECTURE, STRUGGLING, TURNING |
 | Answering late | ANSWER to your `<tool>` call, NO ANSWER to your `<tool>` call |
 
@@ -213,7 +214,7 @@ settings revision changes, its settings file is gone, or a login appeared since.
 | Agent | Directory | Written there | Launch |
 |---|---|---|---|
 | Claude Code | `~/.claude/profiles/…` | `settings.json` (deny rules, sandbox), `.claude.json` (its own MCP servers cleared), `skills/`, a `projects` link, `CLAUDE.md` for working rules | `bin/seat-room` with `--setting-sources user`, so the project's settings, hooks and skills stay out |
-| Codex | `~/.codex/seats/…` | `config.toml` (`model_provider` and `model_providers` from your own `~/.codex/config.toml`; `workspace-write`, or `read-only` for the Reviewer; `approval_policy = "never"`; subagents off), `model-catalog.json`, `rules/seatworks.rules`, `skills/`, an `auth.json` link, `AGENTS.md` | Paseo's Codex provider |
+| Codex | `~/.codex/seats/…` | `config.toml` (`model_provider` and `model_providers` from your own `~/.codex/config.toml`; `workspace-write`, or `read-only` for the Reviewer and the Watcher; `approval_policy = "never"`; subagents off), `model-catalog.json`, `rules/seatworks.rules`, `skills/`, an `auth.json` link, `AGENTS.md` | Paseo's Codex provider |
 | Pi | `~/.pi/seats/…` | `settings.json` (`pi-mcp-adapter`, project trust off, tool lists for the Lead and Reviewer), `mcp.json`, `skills/`, links to login, models and npm | Paseo's Pi provider |
 | OpenCode | `~/.config/opencode-seats/…` | `opencode/opencode.json` (your providers, permissions with command denials, subagents and questions off, autoupdate and sharing off), `opencode/AGENTS.md`, `opencode/skills/`, a link to your git config | Paseo's OpenCode provider, with its env given at each session |
 | Oh My Pi | `~/.omp/seats/…` | `config.yml` (command denials in `bash.patterns`, tool denials, subagents, questions, memory and other agents' config off), `mcp.json`, `AGENTS.md`, `skills/`, links to its login and models | Paseo's omp provider |
@@ -251,6 +252,7 @@ replace tool descriptions.
 | `no-recovery` | attend | Ten steps after a failed command, neither that program nor the gate has passed |
 | `test-weakened` / `suppressed` | attend | An edit removes assertions from a test or adds a skip, or adds a suppression like `@ts-ignore` |
 | `unverified` | attend | A Peer hands back with no gate result after writing files it never ran the gate on. Needs a gate |
+| `claim-contradicted` | attend | A Peer hands back complete, though the gate it last ran, after its last edit, failed. Needs a gate |
 | `long-turn` | attend | A turn runs past `longTurnMinutes`, or past three times this seat's median turn, whichever is longer |
 | `call-failed` / `gate-failed` / `outside-scope` | note | Evidence only, never an incident alone |
 | `edit-before-look` | note | A turn's first step, desk calls and Paseo's own steps aside, changed a file before it read, searched or ran anything since an instruction the watch still holds. It opens `instruction_kind` and nothing else |
@@ -275,11 +277,11 @@ An incident is sent once. Until then it may be held:
 | Held | Meaning |
 |---|---|
 | shadow | `attention.watch` is off, the default. Attention-level incidents are not sent; a page is |
-| probation | The last ten of this kind that were marked, useful or noise, were mostly noise. It is recorded and not sent until marks say otherwise; a page never is |
+| probation | The last ten of this kind that were marked, useful or noise, were mostly noise. It is recorded and not sent; seen again once the marks turn, it is |
 | budget | `incidentsPerLane` attend-level incidents about this lane went out in the last 24 h; those about no lane share one budget |
 | nobody | Nobody to tell, or the only candidate is the watched seat. The patrol retries |
 
-A page never waits, and it also reaches the Human's phone: the desk starts a Pager, a role with no tools, whose
+A page is held only while nobody is there to tell, and it also reaches the Human's phone: the desk starts a Pager, a role with no tools, whose
 one reply is two lines the desk writes, and Paseo pushes an agent's first finished turn. Paseo pushes an agent
 once until someone opens it, so each page has a Pager of its own. A sighting whose exact words were already marked `noise` for that seat and kind
 opens nothing. Archiving a seat closes its incidents, and they still wait to be marked.

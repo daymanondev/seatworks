@@ -259,7 +259,7 @@ The full list is in [the reference](REFERENCE.md#facts).
 
 Until it is sent, it may be held: in **shadow** (mailing is off, the default), on **probation** (the
 last ten marks of its kind were mostly noise), over its lane's **budget** for the day (two by default;
-those about no lane share one), or with **nobody** to tell. A page is never held.
+those about no lane share one), or with **nobody** to tell. Only the last can hold a page.
 
 **Questions.** What a fact cannot say, the watch asks at the moment it matters, one condition per
 question, on a small state the code builds: of a hand-back, of a review that accepts a change a risk
