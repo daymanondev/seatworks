@@ -52,7 +52,8 @@
   "tools": {
     "approval": {
       "task": "deny",
-      "web_search": "deny",
+      "eval": "deny",
+      "debug": "deny",
       "learn": "deny",
       "manage_skill": "deny",
       "memory_edit": "deny",

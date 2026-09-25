@@ -60,6 +60,16 @@ test("the shipped kit resolves to a complete team, and every role's seat builds 
 /** What the git shim refuses every seat, as each agent's own rules refuse it before git runs. */
 const DESK_GIT = ["push", "pull", "merge", "checkout", "switch", "reset", "rebase", "cherry-pick", "update-ref", "stash", "worktree"];
 
+/** Who looks things up on the web: a Reviewer judges what is in front of it, and the Watcher and the Pager touch nothing. */
+const SEARCHES = ["supervisor", "lead", "peer"];
+
+/** Each agent's built-in tools by its own names, every one denied a seat that touches nothing; Codex cannot take its shell away. */
+const BUILT_INS: Record<string, string[]> = {
+  claude: ["Bash", "Edit", "Write", "MultiEdit", "NotebookEdit", "NotebookRead", "Read", "Glob", "Grep", "LSP", "WebFetch", "WebSearch", "Skill", "TodoWrite", "TaskCreate", "TaskGet", "TaskList", "TaskUpdate", "AskUserQuestion"],
+  omp: ["read", "grep", "find", "glob", "lsp", "todo", "ast_grep", "ast_edit", "edit", "write", "bash", "eval", "debug", "wait", "web_search"],
+  opencode: ["read", "edit", "glob", "grep", "list", "lsp", "skill", "todowrite", "webfetch", "websearch", "question", "task"],
+};
+
 test("every role builds on every agent the kit ships, each in that agent's own terms", (t) => {
   const kit = loadKit(pluginRoot);
   const base = resolveTeam(kit, { mcp: Object.fromEntries(Object.keys(kit.mcp).map((id) => [id, { enabled: true }])) });
@@ -79,16 +89,21 @@ test("every role builds on every agent the kit ships, each in that agent's own t
     const edits = !["reviewer", "lead", "pager", "watcher"].includes(role.role);
     // Mail wakes a coordinating seat; one that sleeps in its turn only holds the turn open.
     const waits = !["lead", "supervisor"].includes(role.role);
+    const searches = SEARCHES.includes(role.role);
+    const bare = ["watcher", "pager"].includes(role.role);
     if (harness.id === "claude") {
       for (const command of DESK_GIT) assert.ok([`Bash(git ${command} *)`, `Bash(git -C * ${command} *)`].every((rule) => settings.permissions.deny.includes(rule)), `${where}: a seat does not git ${command}, with -C or without`);
       assert.equal(["Edit", "Write", "MultiEdit"].some((tool) => settings.permissions.deny.includes(tool)), !edits, `${where}: edits files only where the role may`);
       assert.equal(settings.permissions.deny.includes("Bash(sleep *)"), !waits, `${where}: sleeps only where the role may`);
+      assert.equal(settings.permissions.deny.includes("WebSearch"), !searches, `${where}: searches the web only where the role may`);
+      if (bare) for (const tool of BUILT_INS.claude!) assert.ok(settings.permissions.deny.includes(tool), `${where}: has no ${tool}`);
     }
     if (harness.id === "codex") {
       assert.deepEqual(settings.features, { multi_agent: false, multi_agent_v2: false }, `${where}: Paseo is the only control plane`);
       assert.equal(settings.approval_policy, "never", `${where}: nobody is there to approve`);
       assert.equal(settings.skills.bundled.enabled, false, `${where}: only the role's skills, as on every other agent`);
       assert.equal(settings.sandbox_mode, ["reviewer", "pager", "watcher"].includes(role.role) ? "read-only" : "workspace-write", where);
+      assert.equal(settings.web_search === "disabled", !searches, `${where}: searches the web only where the role may`);
       const catalog = JSON.parse(readFileSync(settings.model_catalog_json, "utf-8"));
       assert.ok(catalog.models.length > 0 && catalog.models.every((model: Record<string, unknown>) => model.multi_agent_version === null), `${where}: no model offers native agents`);
       assert.ok(settings.sandbox_workspace_write.writable_roots.every((path: string) => path.startsWith("/state/demo/")), `${where}: writes into the state only where its content says`);
@@ -104,6 +119,9 @@ test("every role builds on every agent the kit ships, each in that agent's own t
       assert.equal(denied.includes("sleep *"), !waits, `${where}: sleeps only where the role may`);
       assert.equal(settings.ask?.enabled, false, `${where}: nobody is there to answer a question that stops the turn`);
       assert.equal(settings.tools?.approval?.task, "deny", `${where}: Paseo is the only control plane`);
+      assert.ok(["eval", "debug"].every((tool) => settings.tools?.approval?.[tool] === "deny"), `${where}: runs code only through bash, where its rules apply`);
+      assert.equal(settings.tools?.approval?.web_search === "deny", !searches, `${where}: searches the web only where the role may`);
+      if (bare) for (const tool of BUILT_INS.omp!) assert.equal(settings.tools?.approval?.[tool], "deny", `${where}: has no ${tool}`);
       assert.equal(["edit", "write", "ast_edit"].every((tool) => settings.tools?.approval?.[tool] === "deny"), !edits, `${where}: edits files only where the role may`);
       assert.ok(settings.disabledProviders?.includes("claude"), `${where}: the owner's own Claude setup does not load in a seat`);
       const servers = readConfig<Record<string, any>>(join(dir, harness.mcp.file), {}).mcpServers ?? {};
@@ -117,6 +135,8 @@ test("every role builds on every agent the kit ships, each in that agent's own t
       assert.equal(bash["sleep *"] === "deny", !waits, `${where}: sleeps only where the role may`);
       assert.deepEqual([task, question, outside], ["deny", "deny", "allow"], `${where}: no subagents, no question that stops the turn, and nothing waiting on a person`);
       assert.equal(settings.permission?.edit === "deny", !edits, `${where}: edits files only where the role may`);
+      assert.equal(settings.permission?.websearch === "deny", !searches, `${where}: searches the web only where the role may`);
+      if (bare) for (const tool of [...BUILT_INS.opencode!, "bash"]) assert.equal(tool === "bash" ? bash["*"] : settings.permission?.[tool], "deny", `${where}: has no ${tool}`);
     }
     if (harness.id === "pi") {
       assert.deepEqual(settings.packages, ["npm:pi-mcp-adapter"], `${where}: the desk's tools reach Pi only through the adapter`);

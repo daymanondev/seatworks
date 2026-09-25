@@ -3,7 +3,8 @@
     "approval": {
       "edit": "deny",
       "write": "deny",
-      "ast_edit": "deny"
+      "ast_edit": "deny",
+      "web_search": "deny"
     }
   },
   "bash": {

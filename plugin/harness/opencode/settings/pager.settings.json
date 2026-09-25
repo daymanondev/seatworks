@@ -1,7 +1,15 @@
 {
   "permission": {
+    "read": "deny",
     "edit": "deny",
+    "glob": "deny",
+    "grep": "deny",
+    "list": "deny",
+    "lsp": "deny",
+    "skill": "deny",
+    "todowrite": "deny",
     "webfetch": "deny",
+    "websearch": "deny",
     "bash": {
       "*": "deny"
     }

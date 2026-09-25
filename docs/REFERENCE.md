@@ -437,7 +437,8 @@ it:
 - **A Codex seat can call only the tools the kit can name.** Codex refuses any MCP call not
   approved ahead, so the desk's tools and proxied servers are approved at launch; a server you add
   whose tools the kit doesn't know stays out of reach on Codex.
-- **Codex command rules match argument prefixes**, so `git -C <path> push` is not caught.
+- **Codex command rules match argument prefixes**, so `git -C <path> push` gets past them; the
+  seat's own `git` refuses it instead.
 - **A steer Paseo can't hand over replaces the turn.** A Claude seat that is compacting refuses a
   steer the same way.
 - **A turn running before a daemon restart** is never steered, and is read as having started

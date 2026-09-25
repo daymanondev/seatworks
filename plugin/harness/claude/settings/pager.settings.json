@@ -6,12 +6,20 @@
       "Write",
       "MultiEdit",
       "NotebookEdit",
+      "NotebookRead",
       "Read",
       "Glob",
       "Grep",
+      "LSP",
       "WebFetch",
       "WebSearch",
-      "Skill"
+      "Skill",
+      "TodoWrite",
+      "TaskCreate",
+      "TaskGet",
+      "TaskList",
+      "TaskUpdate",
+      "AskUserQuestion"
     ]
   }
 }
