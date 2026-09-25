@@ -56,13 +56,15 @@ test("every tool says when to call it and what it does in 60 words, and each of 
   }
 });
 
-test("seat text shouts nothing, and never says mail waits for a running turn to end", () => {
+test("seat text shouts nothing, never says mail waits for a running turn to end, and never makes one task a lane's norm", () => {
   const texts = [...files(join(PLUGIN, "content"), ".md"), ...deltas].map((file) => [file, readFileSync(file, "utf-8")] as const);
   texts.push(["mcp/tools.json", Object.values(tools).flat().map((tool) => tool.description ?? "").join("\n")]);
   for (const [file, text] of texts) {
     assert.deepEqual(text.match(/\b(IMPORTANT|CRITICAL|MUST|NEVER|ALWAYS|DO NOT)\b/g), null, `${file} shouts`);
     // Mail steers into a running turn on the agents that take that: a text saying otherwise was believed.
     assert.deepEqual(text.match(/between (your|its|their) turns|never interrupt|if in doubt/gi), null, `${file}`);
+    // A lane splits the way its work divides: a text calling one task usual put whole lanes into one, beside the Lead's rule.
+    assert.deepEqual(text.match(/usually (just )?one task|one task (per|to a|for the whole) lane/gi), null, `${file} makes one task a lane's norm`);
   }
 });
 

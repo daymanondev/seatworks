@@ -23,7 +23,7 @@ A label alone does not make a lane high-risk; material impact does. A normal lan
 
 ## Split for agents
 
-One strong agent finishes most outcomes in one sitting, so a lane is usually one task.
+Split the way the work divides, not by a count: pieces that do not call each other run as parallel tasks, and the one that wires them waits for both.
 
 - Split only for a reason you can name: write sets that do not meet and can run in parallel, a mechanical fan-out too big for one sitting, separately accepted deliverables, or shipped production state that needs a staged change.
 - Never split by layer, to show progress, or into phases that keep a half-built state compiling: one writer changes a contract with all its callers and tests.
