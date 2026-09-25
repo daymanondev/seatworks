@@ -226,6 +226,21 @@ test("a first change made before any look is asked what the instruction did, whe
   assert.deepEqual(kept(h.project.state).find((line) => "instruction_kind" in line.checks)!.verdicts, { instruction_kind: "unclear" }, "a choice below its sure line is unclear");
 });
 
+test("once the watch's window has lost the instruction, nothing that reads it is asked, and no first change in view is taken for one made before a look", async () => {
+  const { asked, make } = sensor(0.1);
+  const { h, timeline } = await laneWithPeer(undefined, { sensor: make });
+  judgedBy("jev", KEY);
+  const copy = h.ledger().tasks["L1-T1"]!.worktree!;
+  const edits = Array.from({ length: 90 }, (_, index) => ({ type: "edit", filePath: join(copy, `src/part${index}.ts`), oldString: "a", newString: "b" }));
+  turn(timeline, "t1", "Split the cart module, then clean the build.", "rework", { type: "read", filePath: join(copy, "src/cart.ts") }, ...edits, { type: "shell", command: "rm -rf build" });
+  timeline.beat("turn_completed", "t1");
+  await settle();
+  await pause();
+
+  assert.deepEqual(asked, []);
+  assert.doesNotMatch(readFileSync(join(h.project.state, "events.log"), "utf-8"), /edit-before-look/);
+});
+
 test("the Flow tab says who answers the watch and how that stands: off, no key, nothing asked yet, answering, or failing", async () => {
   let says: number | Error = 0.3;
   const h = harness({ sensor: () => ({ ask: async (_state, questions) => {

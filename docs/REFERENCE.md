@@ -253,6 +253,7 @@ replace tool descriptions.
 | `unverified` | attend | A Peer hands back with no gate result after writing files it never ran the gate on. Needs a gate |
 | `long-turn` | attend | A turn runs past `longTurnMinutes`, or past three times this seat's median turn, whichever is longer |
 | `call-failed` / `gate-failed` / `outside-scope` | note | Evidence only, never an incident alone |
+| `edit-before-look` | note | A turn's first step, desk calls and Paseo's own steps aside, changed a file before it read, searched or ran anything since an instruction the watch still holds. It opens `instruction_kind` and nothing else |
 
 **From a lane's record**, read by the patrol. Each names the lane's Lead:
 
@@ -296,9 +297,8 @@ The watch also asks what a code fact cannot read, one condition at a time, at th
 `attention.judge` names who answers: `off`, a sensor in `catalog/sensor/` asked over HTTP (the preset's `jev`), or a
 role that can `judge`, the Watcher, a seat. Each question in `catalog/checks.json` has its wording, thresholds and
 mode. Every question ships `shadow`: the answer is kept in the project's `assessments.log`, and no seat reads it. The Flow tab says who answers and how that stands: nobody, a sensor with no
-key, nothing asked yet, the last answer, or the last failure. A
-first change before any look is a fact of its own, `edit-before-look`, a note that opens `instruction_kind` and
-nothing else.
+key, nothing asked yet, the last answer, or the last failure. A question that reads the instruction is not asked once
+the watch's window has lost it.
 
 Judged by the Watcher, the desk seats one per project when a case first needs it, in the project's own workspace and
 always under its Supervisor (a seat with no parent would have its first reply pushed to the Human's phone), and mails

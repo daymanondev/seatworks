@@ -38,10 +38,8 @@ function handbackOf(task: Task): string | undefined {
 }
 
 /**
- * What a moment of a watched seat's turn asks: whether its instruction or its task asked for each act a fact names that
- * the catalog words as one; of a hand-back the record does not back (facts only the desk's own gate would have spared),
- * whether it says the checks pass; and of a first change made before any look, what the instruction mainly did, if a
- * sender the catalog names sent it.
+ * What a moment asks: whether each act the catalog words was asked for, whether a hand-back the record does not back says
+ * its checks pass, and what an instruction acted on unchecked did; nothing that reads an instruction the window has lost.
  */
 export function momentCases(kit: Kit, place: { lane?: Lane; task?: Task }, moment: Moment): Case[] {
   const { task, lane } = place;
@@ -54,7 +52,7 @@ export function momentCases(kit: Kit, place: { lane?: Lane; task?: Task }, momen
   const check = kit.checks.asked_for;
   const acts = check?.type === "noul" ? (check.acts ?? {}) : {};
   const opened = moment.facts.filter((found) => Object.hasOwn(acts, found.kind));
-  if (opened.length > 0) {
+  if (instruction && opened.length > 0) {
     const fills = opened.map((found, index) => [`asked_for__${index + 1}`, { check: "asked_for", fill: { act: acts[found.kind]!.replaceAll("{quote}", () => found.quote) } }]);
     cases.push({ subject, episode, state: { instruction, ...asked }, asked: Object.fromEntries(fills) });
   }

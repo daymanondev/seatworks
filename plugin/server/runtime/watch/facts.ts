@@ -266,8 +266,9 @@ export function contradicted(window: Window, rules: Rules, outcome: string | und
   return [fact("claim-contradicted", `handed back as complete, but \`${oneLine(str(check.detail.command), 100)}\` failed the last time it ran, after the last edit`)];
 }
 
-/** A turn whose first change came before it read, searched or ran anything since its instruction: what it was told, taken on trust. */
+/** A turn whose first change came before it read, searched or ran anything since an instruction the window still holds: what it was told, taken on trust. */
 export function editBeforeLook(window: Window, rules: Rules): Fact[] {
+  if (!window.instruction()) return [];
   const first = window.sinceInstruction().find((unit) => unit.kind === "call" && !unit.call.pseudo && !rules.desk?.(unit.call));
   if (first?.kind !== "call" || (first.call.detail.type !== "edit" && first.call.detail.type !== "write")) return [];
   return [fact("edit-before-look", `changed ${oneLine(str(first.call.detail.filePath))} before reading or running anything`)];
