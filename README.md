@@ -148,7 +148,8 @@ again), the **Watcher** seat, or nobody. Every question ships in shadow: its ans
 project's `assessments.log` for you to label, and no seat is sent them. **Flow** says who is
 answering and how that stands.
 
-Out of the box the watch only records and lists. To mail incidents, turn on **Mail incidents** on the
+Out of the box the watch records and lists ordinary incidents without mailing them, while a page
+still goes to the Supervisor and to your phone. To mail the rest, turn on **Mail incidents** on the
 Supervisor's chip in the **Team** tab. How it all works is in
 [the architecture](docs/ARCHITECTURE.md#the-watch).
 

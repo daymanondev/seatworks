@@ -96,7 +96,7 @@ test("every fact the watch raises has a row saying when, and no row names one it
 });
 
 test("every kind the watch writes to events.log is in its table, and the table names none it does not", () => {
-  const declared = [...readFileSync(join(PLUGIN, "server", "desk", "events.ts"), "utf-8").matchAll(/kind: "((?:watch|watcher|incident)\.[a-z-]+)"/g)].map((match) => match[1]!);
+  const declared = [...readFileSync(join(PLUGIN, "server", "desk", "events.ts"), "utf-8").matchAll(/kind: "((?:watch|watcher|incident|page)\.[A-Za-z-]+)"/g)].map((match) => match[1]!);
   const listed = rows("| Group | Kinds |").flatMap(([, kinds]) => [...kinds!.matchAll(/`([^`]+)`/g)].map((match) => match[1]!));
   assert.deepEqual(listed.sort(), declared.sort());
 });

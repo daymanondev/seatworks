@@ -95,8 +95,9 @@ of the same name in the state root replaces it, as `roles.json` does.
 ## Letters
 
 They are written in `desk/letters.ts` and, for asks, merges, landings and the Watcher's cases, in
-`desk/ask-letters.ts`, `desk/merge-letters.ts`, `desk/land-letters.ts` and `desk/case-letters.ts`; what a
-seat starts from is in `desk/briefs.ts` and, for a Lead, `desk/directive.ts`. Each letter carries a key made of its kind and the ids that make it that
+`desk/ask-letters.ts`, `desk/merge-letters.ts`, `desk/land-letters.ts` and `desk/case-letters.ts`. What a
+Peer or Reviewer starts from is in `desk/briefs.ts`, a Lead's directive in `desk/directive.ts` and a Pager's
+two lines in `desk/pager.ts`; a Watcher starts from its first case. Each letter carries a key made of its kind and the ids that make it that
 letter, never written by hand where it is posted, and ends with one `Next:` line: what it asks of whoever
 reads it, which the desk picks from what it knows (a red gate, the kind of an ask, whether its reader is
 the Lead or whoever supervises because the Lead is gone, whether the task merged was the lane's last).
@@ -408,6 +409,7 @@ gains fields, and a field that changes meaning takes a new kind. The watch write
 |---|---|
 | Watch | `watch.fact`, `watch.finding`, `watch.unbriefed`, `watch.unasked`, `watch.offline`, `watcher.seated` |
 | Incidents | `incident.open`, `incident.held`, `incident.told`, `incident.read`, `incident.ack`, `incident.lookup-failed`, `incident.post-failed` |
+| Pages | `page.sent`, `page.failed` |
 
 `call.malformed` is logged when a seat's own harness rejected a tool call before it reached the desk.
 

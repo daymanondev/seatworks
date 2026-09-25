@@ -57,8 +57,9 @@ These are mostly absences, so the code won't show them to you.
   in `server/domain/`, checked inside the ledger transaction against the status it has then.
 - **One place writes letters.** Everything the desk mails a seat is in `desk/letters.ts` and, for
   asks, merges, landings and the Watcher's cases, the `*-letters.ts` beside it: each letter is keyed by its kind and ids, and
-  ends with one `Next:` line, what it asks of whoever reads it. What a seat starts from is in
-  `desk/briefs.ts`, and a Lead's directive in `desk/directive.ts`.
+  ends with one `Next:` line, what it asks of whoever reads it. What a Peer or Reviewer starts from
+  is in `desk/briefs.ts`, a Lead's directive in `desk/directive.ts` and a Pager's two lines in
+  `desk/pager.ts`; a Watcher starts from its first case.
 - **One writer per working copy.** A lane-mode task holds the lane's copy from start until it is
   accepted or cut.
 - **No hidden command chain.** When the Supervisor messages a Peer, the Peer's Lead is told first.
