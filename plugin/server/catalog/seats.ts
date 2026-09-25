@@ -4,7 +4,7 @@ import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, re
 import { dirname, join } from "node:path";
 import { type PromptPaths, renderPrompt, renderText, skillProblems, skillSources, toolProblems } from "./content.ts";
 import { type HarnessSpec, type Kit, type McpServers, type RoleSpec, harnessFileSources, roleSettingsFile } from "./kit.ts";
-import { stateWrites } from "./launch.ts";
+import { projectImports, stateWrites } from "./launch.ts";
 import { contentRoot, expandHome, guidesDir, home } from "../core/paths.ts";
 import { configFault, formatConfig, readConfig, writeConfigAtomic } from "../core/config-file.ts";
 import { sameJson } from "../core/store.ts";
@@ -13,7 +13,7 @@ import { errorText } from "../core/errors.ts";
 
 type Json = Record<string, unknown>;
 
-type SeatProject = { slug: string; state: string };
+type SeatProject = { root: string; slug: string; state: string };
 
 export function seatDir(kit: Kit, role: RoleSpec, harness: HarnessSpec, homeDir = home(), project?: SeatProject): string {
   const name = `${kit.prefix}${role.role}-${harness.id}${project ? `-${project.slug}` : ""}`;
@@ -296,9 +296,9 @@ function removeIfPresent(path: string, what: string, record: Recorder): void {
   record.removed(what);
 }
 
-function writeInstructions(team: Team, roleName: string, dir: string, paths: PromptPaths, record: Recorder): void {
+function writeInstructions(team: Team, roleName: string, dir: string, paths: PromptPaths, record: Recorder, root?: string): void {
   const { role, harness } = team.roles[roleName]!;
-  const rules = renderText(role, rulesFor(team, roleName), paths);
+  const rules = [renderText(role, rulesFor(team, roleName), paths), projectImports(harness, root)].filter(Boolean).join("\n");
   if (!harness.contextFile) return;
   const contextPath = join(dir, harness.contextFile);
   if (rules) record.note(writeReal(contextPath, rules), harness.contextFile);
@@ -364,7 +364,7 @@ export function materialize(kit: Kit, team: Team, roleName: string, homeDir = ho
   writeFiles(kit, seat.harness, seat.role, dir, record);
   linkShared(seat.harness, dir, homeDir, record);
   writeMcpFile(seat.harness, dir, servers, record);
-  writeInstructions(team, roleName, dir, paths, record);
+  writeInstructions(team, roleName, dir, paths, record, project?.root);
   linkSkills(kit, team, roleName, dir, homeDir, record);
   return record.changes;
 }

@@ -34,7 +34,7 @@ test("the shipped kit resolves to a complete team, and every role's seat builds 
   const deltas = Object.keys(kit.harnesses).flatMap((id) => (existsSync(join(pluginRoot, "harness", id, "delta")) ? readdirSync(join(pluginRoot, "harness", id, "delta")).map((file) => `${id}/${file}`) : []));
   assert.deepEqual(deltas.filter((entry) => !kit.roles.some((role) => entry.endsWith(`/${role.role}.md`))), [], "every harness delta speaks to a role the kit has");
   const home = tempDir("sw2-real-home-");
-  const project = { slug: "demo-000000", state: "/state/demo" };
+  const project = { root: "/work/demo", slug: "demo-000000", state: "/state/demo" };
   for (const [name, seat] of Object.entries(team.roles)) {
     const { role, harness } = seat;
     const where = project;
@@ -74,7 +74,7 @@ test("every role builds on every agent the kit ships, each in that agent's own t
   const kit = loadKit(pluginRoot);
   const base = resolveTeam(kit, { mcp: Object.fromEntries(Object.keys(kit.mcp).map((id) => [id, { enabled: true }])) });
   const home = tempDir("sw2-every-home-");
-  const project = { slug: "demo-000000", state: "/state/demo" };
+  const project = { root: "/work/demo", slug: "demo-000000", state: "/state/demo" };
   for (const { role, harness } of seatPairs(kit)) {
     if (harness.modelCatalog && !realProbes.has(harness.modelCatalog.command[0]!)) {
       t.diagnostic(`${harness.id} is not installed here, so its ${role.role} seat was not built`);
@@ -159,7 +159,7 @@ test("every role builds on every agent the kit ships, each in that agent's own t
 test("nothing a seat or its guides lead it to read resolves into a git repository", async () => {
   const kit = loadKit(pluginRoot);
   const home = tempDir("sw2-outside-home-");
-  const project = { slug: "demo-000000", state: "/state/demo" };
+  const project = { root: "/work/demo", slug: "demo-000000", state: "/state/demo" };
   const roots = [guidesDir(home)];
   placeGuides(kit, home);
   for (const { role, harness } of seatPairs(kit)) {
@@ -184,7 +184,7 @@ test("a Codex seat runs on the model provider the owner's own Codex names, and o
   const pair = seatPairs(kit).find((entry) => entry.harness.id === "codex" && entry.role.role === "lead")!;
   if (!realProbes.has(pair.harness.modelCatalog!.command[0]!)) return t.skip("codex is not installed here");
   const team = withHarness(resolveTeam(kit), "lead", pair.harness);
-  const project = { slug: "demo-000000", state: "/state/demo" };
+  const project = { root: "/work/demo", slug: "demo-000000", state: "/state/demo" };
   const home = tempDir("sw2-codex-home-");
   materialize(kit, team, "lead", home, project);
   const file = join(seatDir(kit, pair.role, pair.harness, home, project), "config.toml");
@@ -247,7 +247,7 @@ test("each shipped role writes under the project's state only what its prompt, d
   }
 });
 
-test("a Claude seat reads the project's own CLAUDE.md, though its settings come from its seat alone", () => {
+test("a Claude seat reads the project's own CLAUDE.md, or its AGENTS.md where it has none, though its settings come from its seat alone", () => {
   const kit = loadKit(pluginRoot);
   const team = resolveTeam(kit);
   const pairs = seatPairs(kit).filter((pair) => pair.harness.id === "claude");
@@ -260,6 +260,14 @@ test("a Claude seat reads the project's own CLAUDE.md, though its settings come 
     const next = applyRole(kit, team, config, () => "PROMPT", "/state/demo") as unknown as { providerOptions: { additionalDirectories?: string[] } };
     assert.deepEqual(next.providerOptions.additionalDirectories, ["/work/repo"], `${role.role}: the seat's own directory is the one added`);
   }
+  // Claude never reads AGENTS.md from an added directory, so the seat's own rules take it in.
+  const root = tempDir("sw2-agents-only-");
+  writeFileSync(join(root, "AGENTS.md"), "Use pnpm.\n");
+  const home = tempDir("sw2-agents-home-");
+  const project = { root, slug: "demo-000000", state: join(root, ".state") };
+  const peer = pairs.find((pair) => pair.role.role === "peer")!;
+  materialize(kit, team, "peer", home, project);
+  assert.match(readFileSync(join(seatDir(kit, peer.role, peer.harness, home, project), "CLAUDE.md"), "utf-8"), new RegExp(`^@${join(root, "AGENTS.md")}$`, "m"));
 });
 
 test("the reasons Codex gives a seat for a command it refuses carry none of the words that seat's role must not see", () => {

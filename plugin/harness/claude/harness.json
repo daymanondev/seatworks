@@ -70,6 +70,17 @@
     }
   },
   "contextFile": "CLAUDE.md",
+  "projectInstructions": {
+    "reads": [
+      "CLAUDE.md",
+      ".claude/CLAUDE.md"
+    ],
+    "otherwise": [
+      "AGENTS.md",
+      ".claude/AGENTS.md"
+    ],
+    "importAs": "@{path}"
+  },
   "stateWrites": {
     "path": "settings.sandbox.filesystem.allowWrite",
     "delivery": "launch"

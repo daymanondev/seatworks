@@ -3,7 +3,7 @@ import { delimiter, join } from "node:path";
 import { writeConfigAtomic } from "../core/config-file.ts";
 import { nodeBin, stateRoot } from "../core/paths.ts";
 import type { AgentConfig, SessionOpen } from "../core/ports.ts";
-import { type Kit, type McpServers, type RoleSpec, agentDefault, seatOf } from "./kit.ts";
+import { type HarnessSpec, type Kit, type McpServers, type RoleSpec, agentDefault, seatOf } from "./kit.ts";
 import { preapprovedFor } from "./servers.ts";
 import type { Team } from "./team.ts";
 
@@ -70,6 +70,13 @@ export function applyRole(kit: Kit, team: Team, config: AgentConfig, render: Ren
   if (harness.projectContextOption && config.cwd) providerOptions = appendAt(providerOptions, harness.projectContextOption, config.cwd);
   if (providerOptions !== config.providerOptions) next.providerOptions = providerOptions;
   return next;
+}
+
+/** What a seat's rules file takes in of the project's own instructions that its agent reads nowhere else: only while the project has none it reads. */
+export function projectImports(harness: HarnessSpec, root: string | undefined): string {
+  const spec = harness.projectInstructions;
+  if (!spec || !root || spec.reads.some((file) => existsSync(join(root, file)))) return "";
+  return spec.otherwise.filter((file) => existsSync(join(root, file))).map((file) => `${spec.importAs.replace("{path}", join(root, file))}\n`).join("");
 }
 
 /** The harness's own env goes in too: Paseo may run one agent server for every seat of a harness, built from its built-in provider. */

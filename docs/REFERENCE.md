@@ -216,14 +216,16 @@ settings revision changes, its settings file is gone, or a login appeared since.
 
 | Agent | Directory | Written there | Launch |
 |---|---|---|---|
-| Claude Code | `~/.claude/profiles/…` | `settings.json` (deny rules, sandbox), `.claude.json` (its own MCP servers cleared), `skills/`, a `projects` link, `CLAUDE.md` for working rules | `bin/seat-room` with `--setting-sources user`, so the project's settings, hooks and skills stay out |
+| Claude Code | `~/.claude/profiles/…` | `settings.json` (deny rules, sandbox), `.claude.json` (its own MCP servers cleared), `skills/`, a `projects` link, `CLAUDE.md` for working rules and, when the project has no `CLAUDE.md`, an import of its `AGENTS.md` | `bin/seat-room` with `--setting-sources user`, so the project's settings, hooks and skills stay out |
 | Codex | `~/.codex/seats/…` | `config.toml` (`model_provider` and `model_providers` from your own `~/.codex/config.toml`; `workspace-write`, or `read-only` for the Reviewer, the Watcher and the Pager; `approval_policy = "never"`; subagents off), `model-catalog.json`, `rules/seatworks.rules`, `skills/`, an `auth.json` link, `AGENTS.md` | Paseo's Codex provider |
 | Pi | `~/.pi/seats/…` | `settings.json` (`pi-mcp-adapter`, project trust off, tool lists for the Lead and Reviewer), `mcp.json`, `skills/`, links to login, models and npm | Paseo's Pi provider |
 | OpenCode | `~/.config/opencode-seats/…` | `opencode/opencode.json` (your providers, permissions with command denials, subagents and questions off, autoupdate and sharing off), `opencode/AGENTS.md`, `opencode/skills/`, a link to your git config | Paseo's OpenCode provider, with its env given at each session |
 | Oh My Pi | `~/.omp/seats/…` | `config.yml` (command denials in `bash.patterns`, tool denials, subagents, questions, memory and other agents' config off), `mcp.json`, `AGENTS.md`, `skills/`, links to its login and models | Paseo's omp provider |
 
 - **Claude Code** still reads the project's `CLAUDE.md`: the working directory is passed as an
-  additional directory.
+  additional directory. Claude never reads an added directory's `AGENTS.md`, so where the project
+  has no `CLAUDE.md` the seat's own `CLAUDE.md` imports the project's `AGENTS.md`, as Claude Code
+  reads it outside a seat.
 - **Codex** needs the `codex` CLI to build a seat, because the build asks it for its models.
 - **Oh My Pi** reads `config.yml` as YAML; the plugin writes it as JSON, which YAML reads too.
 - **OpenCode** uses `XDG_CONFIG_HOME` as its config variable, and Paseo runs one OpenCode server for

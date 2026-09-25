@@ -68,8 +68,8 @@ thinking level where the agent offers them.
 | Oh My Pi | `omp` signed in once, outside any seat (`/login`) | no | no, it waits for the turn to end |
 | OpenCode | `opencode auth login` once, outside any seat | no | yes |
 
-Every seat reads your project's own instructions: Claude reads `CLAUDE.md`, and the others read
-`AGENTS.md`. Claude Code, Codex, Oh My Pi and OpenCode seats are denied `git push`, `gh`, `paseo`
+Every seat reads your project's own instructions: Claude reads `CLAUDE.md`, or `AGENTS.md` when
+the project has no `CLAUDE.md`, and the others read `AGENTS.md`. Claude Code, Codex, Oh My Pi and OpenCode seats are denied `git push`, `gh`, `paseo`
 and starting other agents. A Pi seat is held only by the tools it is given. The shipped Claude settings answer in
 Vietnamese: change `language` in `plugin/harness/claude/settings.json` for another language. The details are under
 [seat directories](docs/REFERENCE.md#seat-directories) and

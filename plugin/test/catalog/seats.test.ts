@@ -14,7 +14,7 @@ import { reported } from "../console.ts";
 import { makeKit } from "../kit.ts";
 import { tempDir } from "../tempdir.ts";
 
-const project = { slug: "shop-abc123", state: "/state/shop" };
+const project = { root: "/work/shop", slug: "shop-abc123", state: "/state/shop" };
 const context = { node: "/bin/node", spool: "/spool" };
 
 test("a Claude seat per project writes shared plus role settings, links skills, clears MCP files and writes the rules to CLAUDE.md", () => {
