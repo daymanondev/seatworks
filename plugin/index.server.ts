@@ -23,7 +23,7 @@ export default function contribute(server: PluginServerContext) {
     return () => {};
   }
   runtime.prepare();
-  registerRpc(host.answering(server), runtime.control, () => runtime.panelCalled());
+  registerRpc(host.answering(server), runtime.control, runtime.control.human, () => runtime.panelCalled());
   host.connect(server, runtime);
   runtime.start();
   return () => runtime.dispose();

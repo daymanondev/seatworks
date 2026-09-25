@@ -236,7 +236,7 @@ export function harness() {
   // A panel call as the panel makes it: through its contract, and its answer, as sent, read by the schema the panel checks it with.
   const rpc = async <C extends Contract>(contract: C, input: z.input<C["input"]>): Promise<z.output<C["output"]>> => {
     let answer: (input: unknown) => unknown = () => assert.fail(`nothing serves ${contract.name}`);
-    registerRpc((served, handler) => void (served.name === contract.name && (answer = handler as (input: unknown) => unknown)), runtime.control, () => {});
+    registerRpc((served, handler) => void (served.name === contract.name && (answer = handler as (input: unknown) => unknown)), runtime.control, runtime.control.human, () => {});
     return contract.output.parse(JSON.parse(JSON.stringify(await answer(contract.input.parse(input))))) as z.output<C["output"]>;
   };
   return {

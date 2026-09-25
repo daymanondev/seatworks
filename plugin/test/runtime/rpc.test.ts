@@ -24,7 +24,7 @@ function served(paseo?: unknown) {
     handle: (contract: { name: string; input: Schema; output: Schema }, handler: (input: unknown, context: { paseo: unknown }) => unknown) =>
       handlers.set(contract.name, async (input) => contract.output.parse(JSON.parse(JSON.stringify(await handler(contract.input.parse(input), { paseo }))))),
   };
-  const names = registerRpc(host.answering(server as never), runtime.control, () => {});
+  const names = registerRpc(host.answering(server as never), runtime.control, runtime.control.human, () => {});
   const call = async (name: string, input: unknown = {}) => {
     const handler = handlers.get(name);
     assert.ok(handler, `no handler for ${name}`);
@@ -42,11 +42,14 @@ test("the plugin serves the catalog, settings, projects, team and status over RP
     "seatworks.land.decide",
     "seatworks.mcp.parse",
     "seatworks.models.refresh",
+    "seatworks.orders.read",
     "seatworks.paths.list",
     "seatworks.projects.add",
     "seatworks.projects.candidates",
     "seatworks.projects.list",
     "seatworks.projects.remove",
+    "seatworks.question.answer",
+    "seatworks.report.read",
     "seatworks.settings.read",
     "seatworks.settings.write",
     "seatworks.status.read",

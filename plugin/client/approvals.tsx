@@ -29,7 +29,7 @@ function Held({ project, lane, decide, label, hint, approved, sentBack, theme }:
   return (
     <SettingsCard>
       <SettingsRow label={label} hint={hint} />
-      <SettingsInput ref={field} label="Note for the Lead" hint="Say what to change when you send it back; optional when you approve." placeholder="What should change" onChangeText={setNote} disabled={busy} />
+      <SettingsInput ref={field} label="Note" hint="Sent back, it goes to the Lead as what to change; approved, it goes to the Supervisor with the landing." placeholder="What should change, or anything to know" onChangeText={setNote} disabled={busy} />
       <SettingsAction label="Approve" hint={approved} actionLabel="Approve" onPress={() => send(true)} disabled={busy} />
       <SettingsAction label="Send back" hint={sentBack} actionLabel="Send back" onPress={() => send(false)} disabled={busy} />
       {said ? <Text style={{ color: "error" in said ? theme.colors.statusWarning : theme.colors.foregroundMuted, fontSize: 12 }}>{"error" in said ? said.error : said.decided}</Text> : null}
@@ -50,8 +50,8 @@ export function ApprovalsCards({ project, lanes, theme }: { project: string; lan
             decide={land}
             theme={theme}
             label={`${lane.id} ${lane.title} waits for you to land it on ${lane.base ?? "its base"}`}
-            hint={`${lane.landApproval.signals.join(" ") || "This project approves every landing."} ${lane.landApproval.evidence.join(" ")} Waiting ${waited(lane.landApproval.minutes)}; the branch is ${lane.branch}.`}
-            approved="It lands now, as the project lands lanes; if something stops it, it lands when the Supervisor closes the lane again."
+            hint={`${lane.landApproval.signals.join(" ")} Waiting ${waited(lane.landApproval.minutes)}; the branch is ${lane.branch}.\n\nWhat the desk read of it:\n${lane.landApproval.evidence.map((fact) => `· ${fact}`).join("\n")}`}
+            approved="It lands now, as the project lands lanes; if something stops it, it lands when the Supervisor lands it again."
             sentBack="Nothing lands; the lane stays open and its Lead gets your note."
           />
         ) : null,

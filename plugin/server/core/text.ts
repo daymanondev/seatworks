@@ -35,3 +35,17 @@ export function within(text: string, limit: number): string {
 
 /** Text quoted from a seat's own record on one line, its secrets masked. */
 export const oneLine = (text: string, limit = 200): string => within(mask(text).replace(/\s+/g, " ").trim(), limit);
+
+/** Cut between words when a title runs past `max`, so a branch never ends in half a word. */
+export function slugify(text: string, max = 32): string {
+  const whole = text
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (whole.length <= max) return whole || "work";
+  const cut = whole.slice(0, max + 1);
+  return cut.includes("-") ? cut.slice(0, cut.lastIndexOf("-")) : cut.slice(0, max);
+}

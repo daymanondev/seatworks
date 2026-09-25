@@ -11,7 +11,8 @@ import { seatProblems } from "../catalog/seats.ts";
 import { guidesDir, home, stateRoot, worktreeRoot } from "../core/paths.ts";
 import { createHash } from "node:crypto";
 import { flowView } from "../desk/flow.ts";
-import type { Added, CatalogView, CleanView, FlowRead, LandDecided, MigrateView, ModelsRefreshed, Parsed, Paths, ProjectRow, Removed, SettingsRead, StatusView, TeamRead, TeamView, UpdateView, WatchView, WriteResult } from "../../shared/views.ts";
+import type { Human } from "../desk/human.ts";
+import type { Added, CatalogView, CleanView, FlowRead, MigrateView, ModelsRefreshed, Parsed, Paths, ProjectRow, Removed, SettingsRead, StatusView, TeamRead, TeamView, UpdateView, WatchView, WriteResult } from "../../shared/views.ts";
 import { removeGarbage, scanGarbage } from "../upkeep/clean.ts";
 import { type LiveSeat, migrate, migrationPlan } from "../upkeep/migrate.ts";
 import { applyUpdate, checkUpdate, npmInstall, reloadSoon } from "../upkeep/update.ts";
@@ -19,6 +20,7 @@ import { contentChanges, decide } from "../upkeep/content.ts";
 import { loadLedger, readLedger } from "../desk/ledger.ts";
 import { type Project, gitRoot, loadConfig, projectOf } from "../desk/project.ts";
 import { statusText } from "../desk/status.ts";
+import { HumanPanel } from "./human.ts";
 import { type Check, doctor } from "./doctor.ts";
 import type { Control } from "./rpc.ts";
 import type { Seating } from "./seating.ts";
@@ -166,14 +168,16 @@ type ControlDeps = {
   seats: Seats;
   held: () => { to: string; text: string; at: number }[];
   watch: (project: Project, seats: Iterable<SeatView>) => WatchView;
-  decideLand: (project: Project, lane: string, approve: boolean, note: string) => Promise<{ ok: boolean; text: string }>;
+  human: Human;
 };
 
 export class SettingsControl implements Control {
+  readonly human: HumanPanel;
   private readonly deps: ControlDeps;
 
   constructor(deps: ControlDeps) {
     this.deps = deps;
+    this.human = new HumanPanel(deps.source, deps.human);
   }
 
   catalog(): CatalogView {
@@ -330,14 +334,6 @@ export class SettingsControl implements Control {
       (seat) => can(seatOf(this.deps.kit, seat.provider)?.role, "supervise") && projectOf(seat.cwd).slug === project.slug && (seat.pendingPermissions?.length ?? 0) > 0,
     );
     return { text: statusText(project, loadLedger(project.state), loadConfig(project.state), seats, Date.now(), { waiting, held: this.deps.held() }) };
-  }
-
-  /** The Human's own word on a held landing, from the panel, the one place it comes from: landing is already the Supervisor's call. */
-  async decideLand(slug: string, lane: string, approve: boolean, note: string): Promise<LandDecided> {
-    const project = this.deps.source.named(slug);
-    if (!project) return { error: unknownProject(slug) };
-    const decided = await this.deps.decideLand(project, lane, approve, note.trim());
-    return decided.ok ? { decided: decided.text } : { error: decided.text };
   }
 
   async flow(slug: string, since?: string, open?: string[]): Promise<FlowRead> {

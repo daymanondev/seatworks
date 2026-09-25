@@ -179,7 +179,7 @@ async function retire(desk: DeskServices, project: Project, lane: Lane, args: Cl
   const { ctx, roster, slots, agents } = desk;
   const retired = ctx.transact(project, (current) => {
     const entry = current.lanes[lane.id];
-    if (entry && LANE.move(entry, "close")) entry.landed = args.land === true || undefined;
+    if (entry && LANE.move(entry, "close")) Object.assign(entry, { landed: args.land === true || undefined, closedAt: Date.now() });
     delete entry?.landApproval;
     delete entry?.onHold;
     const tasks: Task[] = [];

@@ -1,12 +1,17 @@
 import type { PluginTheme } from "@getpaseo/plugin";
+import type { PluginSurfaceProps } from "@getpaseo/plugin/client";
 import { SettingsCard, SettingsRow, SettingsSection, SettingsSwitch } from "@getpaseo/plugin/client/ui";
 import { memo, useMemo } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { Empty } from "./bits.tsx";
-import type { FlowLane, FlowSeat, FlowView } from "../shared/views.ts";
+import { Button, Empty } from "./bits.tsx";
+import type { FlowAsk, FlowLane, FlowSeat, FlowView } from "../shared/views.ts";
 import { countsInstead } from "./data.ts";
 import { ApprovalsCards } from "./approvals.tsx";
+import { QuestionCards } from "./questions.tsx";
 import { IncidentsCard } from "./watching.tsx";
+
+/** Paseo's own navigation, absent on older hosts: every place that opens something hides without it. */
+type Navigation = PluginSurfaceProps["navigation"];
 
 type Props = {
   following: boolean;
@@ -17,6 +22,7 @@ type Props = {
   disabled: boolean;
   onLive(live: boolean): void;
   onOpen(lane: string): void;
+  navigation: Navigation;
 };
 
 const NODE_W = 232;
@@ -60,7 +66,10 @@ function useStyles(theme: PluginTheme) {
   );
 }
 
-const Node = memo(function Node({ title, hint, state, alive, caret, theme, onPress }: {
+/** A seat's chat in Paseo, where the Human answers it themselves; nothing when the seat is gone or the host cannot open one. */
+const chatOf = (navigation: Navigation, seat: FlowSeat | null) => (navigation && seat && seat.status !== "gone" ? () => navigation.openAgent({ agentId: seat.id }) : undefined);
+
+const Node = memo(function Node({ title, hint, state, alive, caret, theme, onPress, onChat }: {
   title: string;
   hint: string;
   state: string;
@@ -68,6 +77,7 @@ const Node = memo(function Node({ title, hint, state, alive, caret, theme, onPre
   caret?: string;
   theme: PluginTheme;
   onPress?: () => void;
+  onChat?: () => void;
 }) {
   const styles = useStyles(theme);
   return (
@@ -77,6 +87,11 @@ const Node = memo(function Node({ title, hint, state, alive, caret, theme, onPre
           {title}
         </Text>
         {caret ? <Text style={styles.caret}>{caret}</Text> : null}
+        {onChat ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={`Open ${title} in Paseo`} hitSlop={8} onPress={onChat}>
+            <Text style={styles.caret}>›</Text>
+          </Pressable>
+        ) : null}
       </View>
       <Text style={styles.hint} numberOfLines={1}>
         {hint}
@@ -88,7 +103,15 @@ const Node = memo(function Node({ title, hint, state, alive, caret, theme, onPre
   );
 });
 
-const Lane = memo(function Lane({ lane, theme, onOpen }: { lane: FlowLane; theme: PluginTheme; onOpen(id: string): void }) {
+/** What a lane's Lead card says of it: the Human's part first, then a hold, a READY, and what is running. */
+const leadState = (lane: FlowLane): string => {
+  if (lane.landApproval) return lane.landApproval.approved ? "landing approved, not landed yet" : "landing waits for your approval";
+  if (lane.onHold) return `on hold ${ago(lane.onHold.minutes)}: ${lane.onHold.reason}`;
+  if (lane.ready !== undefined) return `reported ready ${since(lane.ready)}`;
+  return countsInstead(lane) ? `${lane.taskCount} task${lane.taskCount === 1 ? "" : "s"}, ${lane.running} running` : seatText(lane.lead);
+};
+
+const Lane = memo(function Lane({ lane, theme, onOpen, navigation }: { lane: FlowLane; theme: PluginTheme; onOpen(id: string): void; navigation: Navigation }) {
   const styles = useStyles(theme);
   if (lane.status === "waiting") {
     return (
@@ -99,15 +122,19 @@ const Lane = memo(function Lane({ lane, theme, onOpen }: { lane: FlowLane; theme
   }
   return (
     <View style={styles.lane}>
-      <Node
-        theme={theme}
-        title={`Lead · ${lane.id} ${lane.title}`}
-        hint={lane.base ? `${lane.branch} off ${lane.base}` : `${lane.branch}, carried on in place`}
-        state={lane.landApproval ? (lane.landApproval.approved ? "landing approved, not landed yet" : "landing waits for your approval") : countsInstead(lane) ? `${lane.taskCount} task${lane.taskCount === 1 ? "" : "s"}, ${lane.running} running` : seatText(lane.lead)}
-        alive={Boolean(lane.lead && lane.lead.status !== "gone")}
-        caret={lane.taskCount === 0 ? undefined : lane.open ? "▾" : "▸"}
-        onPress={lane.taskCount === 0 ? undefined : () => onOpen(lane.id)}
-      />
+      <View style={{ gap: 8 }}>
+        <Node
+          theme={theme}
+          title={`Lead · ${lane.id} ${lane.title}`}
+          hint={lane.base ? `${lane.branch} off ${lane.base}` : `${lane.branch}, carried on in place`}
+          state={leadState(lane)}
+          alive={Boolean(lane.lead && lane.lead.status !== "gone" && !lane.onHold)}
+          caret={lane.taskCount === 0 ? undefined : lane.open ? "▾" : "▸"}
+          onPress={lane.taskCount === 0 ? undefined : () => onOpen(lane.id)}
+          onChat={chatOf(navigation, lane.lead)}
+        />
+        {navigation && lane.workspaceId && lane.open ? <Button label={`Open ${lane.id}'s diff`} theme={theme} onPress={() => navigation.openWorkspace({ workspaceId: lane.workspaceId! })} /> : null}
+      </View>
       {lane.open && lane.tasks.length > 0 ? (
         <>
           <View style={styles.spine} />
@@ -122,6 +149,7 @@ const Lane = memo(function Lane({ lane, theme, onOpen }: { lane: FlowLane; theme
                   hint={task.title}
                   state={task.handback !== null ? `${task.status} · handed back ${since(task.handback)}` : `${task.status} · ${seatText(task.peer)}`}
                   alive={task.status === "running" || task.status === "rework"}
+                  onChat={chatOf(navigation, task.peer)}
                 />
               </View>
             ))}
@@ -132,7 +160,25 @@ const Lane = memo(function Lane({ lane, theme, onOpen }: { lane: FlowLane; theme
   );
 });
 
-export function FlowSection({ following, flow, error, live, theme, disabled, onLive, onOpen }: Props) {
+/** The asks still open between seats, which the Human only reads: answering them is the seats' own work. */
+function AsksCard({ asks, theme }: { asks: FlowAsk[]; theme: PluginTheme }) {
+  const styles = useStyles(theme);
+  return (
+    <SettingsCard>
+      {asks.map((ask) => (
+        <View key={ask.id} style={styles.row}>
+          <View style={styles.labels}>
+            <Text style={styles.title}>{`${ask.id} · ${ask.text}`}</Text>
+            <Text style={styles.hint}>{`${ask.kind} from the ${ask.fromRole}`}</Text>
+          </View>
+          <Text style={styles.quiet}>{ago(ask.minutes)}</Text>
+        </View>
+      ))}
+    </SettingsCard>
+  );
+}
+
+export function FlowSection({ following, flow, error, live, theme, disabled, onLive, onOpen, navigation }: Props) {
   const styles = useStyles(theme);
   const empty = flow !== null && flow.lanes.length === 0 && flow.supervisors.length === 0;
 
@@ -147,6 +193,9 @@ export function FlowSection({ following, flow, error, live, theme, disabled, onL
           disabled={disabled}
         />
       </SettingsCard>
+
+      {live && flow ? <QuestionCards project={flow.project} questions={flow.questions} theme={theme} /> : null}
+      {live && flow ? <ApprovalsCards project={flow.project} lanes={flow.lanes} theme={theme} /> : null}
 
       {!live ? null : error ? (
         <SettingsCard>
@@ -166,18 +215,16 @@ export function FlowSection({ following, flow, error, live, theme, disabled, onL
             <View style={{ paddingBottom: PAD }}>
               {flow.supervisors.map((seat) => (
                 <View key={seat.id} style={styles.lane}>
-                  <Node theme={theme} title={seat.role === "supervisor" ? "Supervisor" : `Supervisor · ${seat.role}`} hint={seat.id} state={seatText(seat)} alive={seat.status !== "gone"} />
+                  <Node theme={theme} title={seat.role === "supervisor" ? "Supervisor" : `Supervisor · ${seat.role}`} hint={seat.id} state={seatText(seat)} alive={seat.status !== "gone"} onChat={chatOf(navigation, seat)} />
                 </View>
               ))}
               {flow.lanes.map((lane) => (
-                <Lane key={lane.id} lane={lane} theme={theme} onOpen={onOpen} />
+                <Lane key={lane.id} lane={lane} theme={theme} onOpen={onOpen} navigation={navigation} />
               ))}
             </View>
           </ScrollView>
         </View>
       )}
-
-      {live && flow ? <ApprovalsCards project={flow.project} lanes={flow.lanes} theme={theme} /> : null}
 
       {live && flow && flow.moreLanes > 0 ? (
         <SettingsCard>
@@ -190,19 +237,7 @@ export function FlowSection({ following, flow, error, live, theme, disabled, onL
 
       {live && flow ? <IncidentsCard watch={flow.watch} theme={theme} /> : null}
 
-      {live && flow && flow.asks.length > 0 ? (
-        <SettingsCard>
-          {flow.asks.map((ask) => (
-            <View key={ask.id} style={styles.row}>
-              <View style={styles.labels}>
-                <Text style={styles.title}>{`${ask.id} · ${ask.text}`}</Text>
-                <Text style={styles.hint}>{`${ask.kind} from the ${ask.fromRole}`}</Text>
-              </View>
-              <Text style={styles.quiet}>{ago(ask.minutes)}</Text>
-            </View>
-          ))}
-        </SettingsCard>
-      ) : null}
+      {live && flow && flow.asks.length > 0 ? <AsksCard asks={flow.asks} theme={theme} /> : null}
     </SettingsSection>
   );
 }

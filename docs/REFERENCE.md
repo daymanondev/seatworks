@@ -99,7 +99,7 @@ letter, never written by hand where it is posted.
 | Kind | Letters |
 |---|---|
 | Opening a seat | OWNER DIRECTIVE, TASK, REVIEW |
-| Between seats | MESSAGE, RECONCILE, ASK, ANSWER to your ask, ANSWERED FOR YOU, STILL OPEN, UNANSWERED, HUMAN WROTE |
+| Between seats | MESSAGE, RECONCILE, ASK, ANSWER to your ask, ANSWERED FOR YOU, STILL OPEN, UNANSWERED, HUMAN WROTE, HUMAN ANSWERED |
 | Work moving | HANDBACK, REWORK, AMENDED, MERGED, MERGE FAILED, MERGE CONFLICT, BASE CONFLICT, REPORT, CAN LAND, CLEARED |
 | Landing held for the Human | LAND HELD, LANDED, HELD AGAIN, CHANGED, APPROVED, SENT BACK, LAND SENT BACK |
 | Waiting and starting again | WAITING, OPENED, NOT OPENED, NOT STARTED, LEAD GONE |
@@ -111,7 +111,7 @@ letter, never written by hand where it is posted.
 CAN LAND tells whoever tried to land a lane under a seat mid-turn that the turn has ended. NO ANSWER
 tells a seat that the plugin stopped before the call it was told to wait for by mail had finished.
 RECONCILE tells a Lead what the Supervisor sent its Peer. HUMAN WROTE tells whoever supervises what the Human
-typed straight into a Lead's or Peer's chat. ANSWERED FOR YOU tells a seat that someone
+typed straight into a Lead's or Peer's chat, and HUMAN ANSWERED what they chose for a question on the panel. ANSWERED FOR YOU tells a seat that someone
 else answered an ask addressed to it. MERGE CONFLICT and BASE CONFLICT tell a Lead that the desk began a merge no seat may run
 and left its conflicts in the copy of whoever settles them: the task's own, or the lane's, for a Peer to settle and commit. HOLD is the one letter sent past the outbox, cutting a running turn
 short where the seat's agent allows it. ARCHITECTURE, STRUGGLING and TURNING wake whoever supervises at
@@ -314,7 +314,9 @@ it is given its own. Each role still needs its settings files under `harness/<ag
 | Tab | What it holds |
 |---|---|
 | **Team** | The agent per role, its model and thinking. The Supervisor's chip also holds *Mail incidents* |
-| **Flow** | Supervisors, lanes, tasks and open asks, live. Then the incidents not yet marked |
+| **Flow** | First what waits for you: each question the Supervisor put to you, answered there with an option or declined, with a note; and each landing that waits for your approval. Then supervisors, lanes, tasks and open asks, live, each seat opening its chat in Paseo and an open lane its diff; then the incidents not yet marked |
+| **Report** | The project's last day, read from the record with no agent's words in it: what needs you, what went ahead on a recommendation, what landed, what could not be undone, and the counts |
+| **Orders** | What you settled for the project, read only: the paths asked about first, the risk rules, where lanes work, and `CONTEXT.md`. You change them by telling the Supervisor |
 | **MCP** | Servers on or off, their roles and options, and adding one from a snippet |
 | **Health** | The machine's checks and, on a project, its lanes' status |
 | **Plugin** | Updates, Migrate and Clean up, for the whole machine |

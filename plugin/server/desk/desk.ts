@@ -11,13 +11,13 @@ import { sortKeys } from "../core/store.ts";
 import { type Args, type Caller, type CodeIndex, DeskContext, type Mailer, type Posted, type Sync, type ToolReply, type ToolRequest, no, ok } from "./context.ts";
 import { errorText } from "../core/errors.ts";
 import type { DeskEvent } from "./events.ts";
+import { Human } from "./human.ts";
 import { type Ledger, type Task, loadLedger } from "./ledger.ts";
 import { clip } from "../core/text.ts";
 import { landLetters } from "./land-letters.ts";
 import { type Letter, letters } from "./letters.ts";
 import { Intents } from "./intents.ts";
 import { tidyRecords } from "./records.ts";
-import { decideLand } from "./closing.ts";
 import { fileRecords, keepArchived, takeFinished } from "./archive.ts";
 import { MergeQueue } from "./merge.ts";
 import { type Project, projectOf } from "./project.ts";
@@ -44,6 +44,7 @@ const ANSWER_WITHIN_MS = 240_000;
 
 export class Desk {
   readonly projects: Map<string, Project>;
+  readonly human: Human;
   private readonly services: DeskServices;
   private readonly intents: Intents;
   private readonly tools: ToolDef[];
@@ -70,6 +71,7 @@ export class Desk {
     this.services = { ctx, roster, slots, agents, merges: new MergeQueue(ctx, agents) };
     this.tools = options.tools;
     this.projects = ctx.projects;
+    this.human = new Human(this.services);
   }
 
   transact<T>(project: Project, decide: (ledger: Ledger) => Sync<T>): T {
@@ -102,10 +104,6 @@ export class Desk {
 
   supervisorFor(project: Project, preferred?: string): Promise<string | undefined> {
     return this.services.roster.supervisorFor(project, preferred);
-  }
-
-  decideLand(project: Project, lane: string, approve: boolean, note: string): Promise<{ ok: boolean; text: string }> {
-    return decideLand(this.services, project, lane, approve, note);
   }
 
   archive(agentId: string | undefined, force = false): Promise<void> {

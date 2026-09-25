@@ -106,7 +106,7 @@ export class Runtime implements HostHooks {
       seats: this.seats,
       held: () => this.outbox.letters(),
       watch: (project) => watchView(project, this.troubles.get(project.slug) ?? []),
-      decideLand: (project, lane, approve, note) => this.desk.decideLand(project, lane, approve, note),
+      human: this.desk.human,
     });
   }
 

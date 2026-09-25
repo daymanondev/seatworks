@@ -17,7 +17,6 @@ export interface Control {
   doctor(project?: string): Out<typeof contracts.doctor>;
   status(project: string): Out<typeof contracts.status>;
   flow(project: string, since?: string, open?: string[]): Out<typeof contracts.flow>;
-  decideLand(project: string, lane: string, approve: boolean, note: string): Out<typeof contracts.landDecide>;
   listPaths(path?: string): Out<typeof contracts.paths>;
   refreshModels(): Out<typeof contracts.models>;
   decide(unit: string, choice: "new" | "mine" | "seen"): Out<typeof contracts.decide>;
@@ -26,11 +25,19 @@ export interface Control {
   migrate(apply: boolean): Out<typeof contracts.migrate>;
 }
 
+/** What only the Human decides on the panel, and what they read there. */
+export interface HumanRpc {
+  decideLand(project: string, lane: string, approve: boolean, note: string): Out<typeof contracts.landDecide>;
+  answer(project: string, question: string, choice: string, note: string): Out<typeof contracts.questionAnswer>;
+  orders(project: string): Out<typeof contracts.orders>;
+  report(project: string): Out<typeof contracts.report>;
+}
+
 /** Serves one contract: the handler takes what its input schema reads and gives what its output schema holds. */
 type Serve = <C extends Contract>(contract: C, answer: (input: z.output<C["input"]>) => Out<C>) => void;
 
 /** `called` runs before every answer, since a panel call is how the runtime learns someone is looking. */
-export function registerRpc(serve: Serve, control: Control, called: () => void): string[] {
+export function registerRpc(serve: Serve, control: Control, human: HumanRpc, called: () => void): string[] {
   const handle: Serve = (contract, answer) =>
     serve(contract, (input) => {
       called();
@@ -48,7 +55,10 @@ export function registerRpc(serve: Serve, control: Control, called: () => void):
   handle(contracts.doctor, (input) => control.doctor(input.project));
   handle(contracts.status, (input) => control.status(input.project));
   handle(contracts.flow, (input) => control.flow(input.project, input.since, input.open));
-  handle(contracts.landDecide, (input) => control.decideLand(input.project, input.lane, input.approve, input.note));
+  handle(contracts.landDecide, (input) => human.decideLand(input.project, input.lane, input.approve, input.note));
+  handle(contracts.questionAnswer, (input) => human.answer(input.project, input.question, input.choice, input.note));
+  handle(contracts.orders, (input) => human.orders(input.project));
+  handle(contracts.report, (input) => human.report(input.project));
   handle(contracts.paths, (input) => control.listPaths(input.path));
   handle(contracts.models, () => control.refreshModels());
   handle(contracts.decide, (input) => control.decide(input.unit, input.choice));

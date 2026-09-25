@@ -111,6 +111,35 @@ export const StatusView = z.object({ text: z.string(), error: z.string().optiona
 export type StatusView = z.infer<typeof StatusView>;
 export const LandDecided = z.union([z.object({ decided: z.string() }), Refused]);
 export type LandDecided = z.infer<typeof LandDecided>;
+export const QuestionAnswered = z.union([z.object({ answered: z.string() }), Refused]);
+export type QuestionAnswered = z.infer<typeof QuestionAnswered>;
+
+/** The Human's standing orders for a project, as they settled them, and its concept as the Supervisor wrote it down. */
+const OrdersView = z.object({
+  fault: z.string().nullable(),
+  askFirst: z.array(z.string()),
+  riskRules: z.array(z.object({ paths: z.array(z.string()), invariant: z.string(), reviewQuestion: z.string(), rehearse: z.string().nullable() })),
+  ownRules: z.boolean(),
+  laneHome: z.string().nullable(),
+  concept: z.object({ text: z.string(), minutes: z.number(), more: z.boolean() }).nullable(),
+});
+export type OrdersView = z.infer<typeof OrdersView>;
+export const OrdersRead = z.union([OrdersView, Refused]);
+export type OrdersRead = z.infer<typeof OrdersRead>;
+
+const ReportItem = z.object({ title: z.string(), detail: z.string(), minutes: z.number() });
+export type ReportItem = z.infer<typeof ReportItem>;
+/** What happened in a project over the last day, built from its record with no agent's words in it. */
+const ReportView = z.object({
+  needs: z.array(ReportItem),
+  ahead: z.array(ReportItem),
+  landed: z.array(ReportItem),
+  beyond: z.array(ReportItem),
+  numbers: z.array(z.object({ title: z.string(), value: z.string(), detail: z.string() })),
+});
+export type ReportView = z.infer<typeof ReportView>;
+export const ReportRead = z.union([ReportView, Refused]);
+export type ReportRead = z.infer<typeof ReportRead>;
 export const ModelsRefreshed = z.record(z.string(), z.object({ at: z.string(), error: z.string().nullable(), count: z.number() }));
 export type ModelsRefreshed = z.infer<typeof ModelsRefreshed>;
 
@@ -132,10 +161,26 @@ const FlowLane = z.object({
   after: z.array(z.string()).optional(),
   held: z.string().optional(),
   landApproval: z.object({ minutes: z.number(), approved: z.boolean(), signals: z.array(z.string()), evidence: z.array(z.string()) }).optional(),
+  workspaceId: z.string().optional(),
+  onHold: z.object({ minutes: z.number(), reason: z.string() }).optional(),
+  ready: z.number().optional(),
 });
 export type FlowLane = z.infer<typeof FlowLane>;
 const FlowAsk = z.object({ id: z.string(), kind: z.string(), fromRole: z.string(), to: z.string(), minutes: z.number(), text: z.string() });
 export type FlowAsk = z.infer<typeof FlowAsk>;
+const FlowQuestion = z.object({
+  id: z.string(),
+  question: z.string(),
+  why: z.string(),
+  lane: z.string().nullable(),
+  class: z.enum(["reversible", "costly", "irreversible"]),
+  options: z.array(z.object({ label: z.string(), effect: z.string() })),
+  recommend: z.string(),
+  reason: z.string(),
+  ifSilent: z.string(),
+  minutes: z.number(),
+});
+export type FlowQuestion = z.infer<typeof FlowQuestion>;
 const WatchIncident = z.object({
   id: z.string(),
   title: z.string(),
@@ -151,7 +196,7 @@ export type WatchIncident = z.infer<typeof WatchIncident>;
 /** What the code noticed about the seats and nobody has marked yet, and the trouble nobody is mailed about. */
 const WatchView = z.object({ incidents: z.array(WatchIncident), trouble: z.array(z.object({ kind: z.string(), minutes: z.number(), detail: z.string() })) });
 export type WatchView = z.infer<typeof WatchView>;
-const FlowView = z.object({ project: z.string(), at: z.number(), revision: z.string(), supervisors: z.array(FlowSeat), lanes: z.array(FlowLane), moreLanes: z.number(), asks: z.array(FlowAsk), watch: WatchView });
+const FlowView = z.object({ project: z.string(), at: z.number(), revision: z.string(), supervisors: z.array(FlowSeat), lanes: z.array(FlowLane), moreLanes: z.number(), asks: z.array(FlowAsk), questions: z.array(FlowQuestion), watch: WatchView });
 export type FlowView = z.infer<typeof FlowView>;
 export const FlowRead = z.union([FlowView, z.object({ unchanged: z.literal(true), revision: z.string() }), Refused]);
 export type FlowRead = z.infer<typeof FlowRead>;

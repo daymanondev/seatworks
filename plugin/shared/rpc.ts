@@ -1,6 +1,6 @@
 import { defineRpc } from "@getpaseo/plugin";
 import { z } from "zod";
-import { Added, CatalogView, Check, CleanView, FlowRead, LandDecided, MigrateView, ModelsRefreshed, Parsed, Paths, ProjectRow, Removed, SettingsRead, StatusView, TeamRead, UpdateView, WriteResult } from "./views.ts";
+import { Added, CatalogView, Check, CleanView, FlowRead, LandDecided, MigrateView, ModelsRefreshed, OrdersRead, Parsed, Paths, ProjectRow, QuestionAnswered, Removed, ReportRead, SettingsRead, StatusView, TeamRead, UpdateView, WriteResult } from "./views.ts";
 
 const project = z.string().min(1).optional();
 
@@ -17,6 +17,9 @@ export const doctorRpc = defineRpc({ name: "seatworks.doctor.run", input: z.obje
 export const statusRpc = defineRpc({ name: "seatworks.status.read", input: z.object({ project: z.string().min(1) }), output: StatusView });
 export const flowRpc = defineRpc({ name: "seatworks.flow.read", input: z.object({ project: z.string().min(1), since: z.string().optional(), open: z.array(z.string()).optional() }), output: FlowRead });
 export const landDecideRpc = defineRpc({ name: "seatworks.land.decide", input: z.object({ project: z.string().min(1), lane: z.string().min(1), approve: z.boolean(), note: z.string() }), output: LandDecided });
+export const questionAnswerRpc = defineRpc({ name: "seatworks.question.answer", input: z.object({ project: z.string().min(1), question: z.string().min(1), choice: z.string().min(1), note: z.string() }), output: QuestionAnswered });
+export const ordersRpc = defineRpc({ name: "seatworks.orders.read", input: z.object({ project: z.string().min(1) }), output: OrdersRead });
+export const reportRpc = defineRpc({ name: "seatworks.report.read", input: z.object({ project: z.string().min(1) }), output: ReportRead });
 export const modelsRpc = defineRpc({ name: "seatworks.models.refresh", input: z.object({}), output: ModelsRefreshed });
 export const decideRpc = defineRpc({ name: "seatworks.upkeep.decide", input: z.object({ unit: z.string().min(1), choice: z.enum(["new", "mine", "seen"]) }), output: MigrateView });
 export const cleanRpc = defineRpc({ name: "seatworks.upkeep.clean", input: z.object({ remove: z.array(z.string()).optional() }), output: CleanView });
@@ -38,6 +41,9 @@ export const contracts = {
   status: statusRpc,
   flow: flowRpc,
   landDecide: landDecideRpc,
+  questionAnswer: questionAnswerRpc,
+  orders: ordersRpc,
+  report: reportRpc,
   paths: pathsRpc,
   models: modelsRpc,
   decide: decideRpc,

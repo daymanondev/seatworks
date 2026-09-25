@@ -1,4 +1,5 @@
-import type { Ask } from "./ledger.ts";
+import type { Question } from "../domain/question.ts";
+import type { Ask, Lane } from "./ledger.ts";
 import { type Letter, firstLine, mail } from "./letters.ts";
 
 const theirDefault = (ask: Ask): string[] => (ask.default ? ["", `Their default: ${ask.default}`] : []);
@@ -7,6 +8,15 @@ const theirDefault = (ask: Ask): string[] => (ask.default ? ["", `Their default:
 export const askLetters = {
   askTo(ask: Ask, from: string): Letter {
     return mail("ask", [ask.id], [`ASK ${ask.id} (${ask.kind}) from ${from}`, "", ask.text, ...theirDefault(ask), "", `Reply with answer, ask ${ask.id}.`].join("\n"));
+  },
+
+  /** Whoever asked the Human is told their word from the panel, and that a lane held for it stays held until it is resumed. */
+  humanAnswered(question: Question, lane: Lane | undefined): Letter {
+    const word = question.status === "declined" ? "they declined to decide it" : question.answer?.choice ?? "";
+    const lines = [`HUMAN ANSWERED ${question.id} (${firstLine(question.question)}), on the panel: ${word}.`];
+    if (question.answer?.text) lines.push("", "Their note, their own words:", question.answer.text);
+    if (lane?.onHold) lines.push("", `Lane ${lane.id} is still on hold for it: resume_lane it once the answer is carried into the lane.`);
+    return mail("humananswered", [question.id], lines.join("\n"));
   },
 
   answered(ask: Ask): Letter {
