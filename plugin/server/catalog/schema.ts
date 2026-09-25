@@ -174,6 +174,7 @@ export const SensorFile = z.strictObject({
   key: text,
   url: z.url({ protocol: /^https$/, error: "is not an https address" }),
   model: text,
+  terms: text,
   body: Json.optional(),
   timeoutSeconds: z.number().min(1).max(30),
   retries: z.number().int().min(0).max(3),

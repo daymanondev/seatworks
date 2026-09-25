@@ -38,7 +38,7 @@ function keyRows({ sensor, values, machine, layer, theme, disabled, save }: Omit
     });
   };
   const model = (
-    <SettingsRow key="sensor" label="Sensor" hint="From catalog/sensor, asked with data collection denied.">
+    <SettingsRow key="sensor" label="Sensor" hint={`From catalog/sensor. ${sensor.terms}`}>
       <Text style={{ color: theme.colors.foreground, fontSize: 14 }}>{sensor.model}</Text>
     </SettingsRow>
   );
@@ -56,7 +56,6 @@ function keyRows({ sensor, values, machine, layer, theme, disabled, save }: Omit
       ref={field}
       label={sensor.key}
       hint={kept ? "Kept on this machine and never shown again. Type another to replace it." : `${sensor.label} asks nothing without one.`}
-      placeholder="sk-or-…"
       secureTextEntry
       onChangeText={setDraft}
       disabled={disabled}

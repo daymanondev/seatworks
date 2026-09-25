@@ -91,7 +91,7 @@ test("a sensor or a question the watch could not ask by is refused as the kit lo
   const dir = kitDir("sw2-kit-");
   writeFileSync(join(dir, "roles.json"), JSON.stringify({ roles: [] }));
   mkdirSync(join(dir, "catalog", "sensor"), { recursive: true });
-  const sensor = { id: "judge", label: "Judge", key: "Judge key", url: "https://judge.example/api", model: "judge-1", timeoutSeconds: 5, retries: 1 };
+  const sensor = { id: "judge", label: "Judge", key: "Judge key", url: "https://judge.example/api", model: "judge-1", terms: "Asked as its vendor's terms say.", timeoutSeconds: 5, retries: 1 };
   const place = (name: string, value: object) => writeFileSync(join(dir, "catalog", "sensor", name), JSON.stringify(value));
   place("judge.json", { ...sensor, url: "http://judge.example/api" });
   assert.throws(() => loadKit(dir), /catalog\/sensor\/judge\.json is not as the kit reads it:[^]*is not an https address/);

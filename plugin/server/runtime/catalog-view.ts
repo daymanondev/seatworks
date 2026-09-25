@@ -35,6 +35,6 @@ export function describeCatalog(kit: Kit): CatalogView {
         defaults: entry.defaults,
         roles: templateRoles(entry),
       })),
-    sensors: Object.values(kit.sensors).map((sensor) => ({ id: sensor.id, label: sensor.label, key: sensor.key, model: sensor.model })),
+    sensors: Object.values(kit.sensors).map((sensor) => ({ id: sensor.id, label: sensor.label, key: sensor.key, model: sensor.model, terms: sensor.terms })),
   };
 }

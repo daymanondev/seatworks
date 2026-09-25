@@ -4,6 +4,7 @@
   "key": "OpenRouter key",
   "url": "https://openrouter.ai/api/alpha/decisions",
   "model": "typesafe/jev-1.13",
+  "terms": "Asked with data collection denied.",
   "body": {
     "provider": {
       "data_collection": "deny"
