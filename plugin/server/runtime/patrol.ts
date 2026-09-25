@@ -161,8 +161,10 @@ export class Patrol {
     }
   }
 
+  /** A task whose Peer is no longer seated stalls, and its Lead is told; an empty listing, as for Leads, tells nothing. */
   private async goneTasks(project: Project, ledger: Ledger, seats: SeatMap): Promise<void> {
     const { desk } = this.deps;
+    if (seats.size === 0) return;
     for (const task of Object.values(ledger.tasks).filter((entry) => TASK.may(entry.status, "lose") && entry.peer)) {
       const gone = `${project.slug}:${task.id}`;
       if (seats.has(task.peer!) || this.goneFlag.has(gone)) continue;
