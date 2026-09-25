@@ -62,7 +62,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Globs this lane writes. Naming paths an open lane names is refused: the two are one lane. Left out, the lane holds every one-writer path."
+            "description": "Globs this lane writes, no wider than its outcome: `src/**` leaves no lane room beside it. Left out, the lane holds every one-writer path."
           },
           "contracts": {
             "type": "array",
