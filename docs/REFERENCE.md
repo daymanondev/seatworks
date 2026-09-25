@@ -227,7 +227,9 @@ settings revision changes, its settings file is gone, or a login appeared since.
   has no `CLAUDE.md` the seat's own `CLAUDE.md` imports the project's `AGENTS.md`, as Claude Code
   reads it outside a seat.
 - **Codex** needs the `codex` CLI to build a seat, because the build asks it for its models.
-- **Oh My Pi** reads `config.yml` as YAML; the plugin writes it as JSON, which YAML reads too.
+- **Oh My Pi** reads `config.yml` as YAML; the plugin writes it as JSON, which YAML reads too. The
+  seat's session also names that file in `PI_CONFIG_FILES`, the overlay omp ranks above a
+  repository's own `.omp/config.yml`, which would otherwise replace the seat's command denials.
 - **OpenCode** uses `XDG_CONFIG_HOME` as its config variable, and Paseo runs one OpenCode server for
   every seat, so a seat's own env reaches it only through the session. It keeps a failed command's
   exit code beside the call, where the watch reads it.
@@ -434,6 +436,8 @@ it:
   only by its tools. Oh My Pi and OpenCode have command denials, such as `git push` and `gh`, but no
   path rules, so a seat there can write the desk's records and the spool its tool calls travel
   through.
+- **A repository's own omp hooks, extensions and tools run in an Oh My Pi seat.** No setting keeps
+  `.omp/hooks`, `extensions` or `tools` out.
 - **Reading an archived seat's history leaves its agent running.** Paseo resumes the agent to serve
   it and never closes it; `paseo logs` or the app's history view does this. The watch stops rather
   than read a seat once it is archived.

@@ -17,7 +17,8 @@
     "github",
     "agents",
     "agent-plugins",
-    "mcp-json"
+    "mcp-json",
+    "omp-plugins"
   ],
   "mcp": {
     "enableProjectConfig": false
@@ -28,7 +29,6 @@
     "enableCodexUser": false,
     "enableAgentsUser": false,
     "enableAgentsProject": false,
-    "enablePiUser": false,
     "enablePiProject": false
   },
   "memory": {
@@ -53,101 +53,192 @@
     "approval": {
       "task": "deny",
       "eval": "deny",
-      "debug": "deny",
       "learn": "deny",
       "manage_skill": "deny",
       "memory_edit": "deny",
       "retain": "deny"
-    }
+    },
+    "xdev": false
   },
   "bash": {
+    "autoBackground": {
+      "enabled": false
+    },
     "patterns": [
       {
-        "match": "git push*",
+        "match": "git push",
         "approval": "deny"
       },
       {
-        "match": "git -C * push*",
+        "match": "git push *",
         "approval": "deny"
       },
       {
-        "match": "git pull*",
+        "match": "git -C * push",
         "approval": "deny"
       },
       {
-        "match": "git -C * pull*",
+        "match": "git -C * push *",
         "approval": "deny"
       },
       {
-        "match": "git merge*",
+        "match": "git pull",
         "approval": "deny"
       },
       {
-        "match": "git -C * merge*",
+        "match": "git pull *",
         "approval": "deny"
       },
       {
-        "match": "git checkout*",
+        "match": "git -C * pull",
         "approval": "deny"
       },
       {
-        "match": "git -C * checkout*",
+        "match": "git -C * pull *",
         "approval": "deny"
       },
       {
-        "match": "git switch*",
+        "match": "git merge",
         "approval": "deny"
       },
       {
-        "match": "git -C * switch*",
+        "match": "git merge *",
         "approval": "deny"
       },
       {
-        "match": "git reset*",
+        "match": "git -C * merge",
         "approval": "deny"
       },
       {
-        "match": "git -C * reset*",
+        "match": "git -C * merge *",
         "approval": "deny"
       },
       {
-        "match": "git rebase*",
+        "match": "git checkout",
         "approval": "deny"
       },
       {
-        "match": "git -C * rebase*",
+        "match": "git checkout *",
         "approval": "deny"
       },
       {
-        "match": "git update-ref*",
+        "match": "git -C * checkout",
         "approval": "deny"
       },
       {
-        "match": "git -C * update-ref*",
+        "match": "git -C * checkout *",
         "approval": "deny"
       },
       {
-        "match": "git cherry-pick*",
+        "match": "git switch",
         "approval": "deny"
       },
       {
-        "match": "git -C * cherry-pick*",
+        "match": "git switch *",
         "approval": "deny"
       },
       {
-        "match": "git stash*",
+        "match": "git -C * switch",
         "approval": "deny"
       },
       {
-        "match": "git -C * stash*",
+        "match": "git -C * switch *",
         "approval": "deny"
       },
       {
-        "match": "git worktree*",
+        "match": "git reset",
         "approval": "deny"
       },
       {
-        "match": "git -C * worktree*",
+        "match": "git reset *",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * reset",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * reset *",
+        "approval": "deny"
+      },
+      {
+        "match": "git rebase",
+        "approval": "deny"
+      },
+      {
+        "match": "git rebase *",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * rebase",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * rebase *",
+        "approval": "deny"
+      },
+      {
+        "match": "git update-ref",
+        "approval": "deny"
+      },
+      {
+        "match": "git update-ref *",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * update-ref",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * update-ref *",
+        "approval": "deny"
+      },
+      {
+        "match": "git cherry-pick",
+        "approval": "deny"
+      },
+      {
+        "match": "git cherry-pick *",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * cherry-pick",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * cherry-pick *",
+        "approval": "deny"
+      },
+      {
+        "match": "git stash",
+        "approval": "deny"
+      },
+      {
+        "match": "git stash *",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * stash",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * stash *",
+        "approval": "deny"
+      },
+      {
+        "match": "git worktree",
+        "approval": "deny"
+      },
+      {
+        "match": "git worktree *",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * worktree",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * worktree *",
         "approval": "deny"
       },
       {
@@ -271,5 +362,11 @@
         "approval": "deny"
       }
     ]
+  },
+  "launch": {
+    "enabled": false
+  },
+  "ttsr": {
+    "builtinRules": false
   }
 }

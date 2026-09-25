@@ -20,7 +20,8 @@
   "settings": {
     "file": "config.yml",
     "source": "settings.json",
-    "roleSource": "settings/ROLE.settings.json"
+    "roleSource": "settings/ROLE.settings.json",
+    "overlayEnv": "PI_CONFIG_FILES"
   },
   "links": [
     {

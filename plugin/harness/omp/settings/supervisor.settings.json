@@ -2,11 +2,19 @@
   "bash": {
     "patterns": [
       {
-        "match": "git commit*",
+        "match": "git commit",
         "approval": "deny"
       },
       {
-        "match": "git -C * commit*",
+        "match": "git commit *",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * commit",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * commit *",
         "approval": "deny"
       },
       {

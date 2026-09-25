@@ -13,7 +13,8 @@
       "todo": "deny",
       "ast_grep": "deny",
       "wait": "deny",
-      "web_search": "deny"
+      "web_search": "deny",
+      "debug": "deny"
     }
   }
 }

@@ -90,6 +90,7 @@ export function seatEnv(kit: Kit, request: SessionOpen, seatPath: string, projec
       ...request.env,
       ...seat.harness.provider.env,
       [seat.harness.configDirEnv]: seatPath,
+      ...(seat.harness.settings.overlayEnv ? { [seat.harness.settings.overlayEnv]: join(seatPath, seat.harness.settings.file) } : {}),
       SEATWORKS_ROLE: seat.role.role,
       SEATWORKS_PROJECT: project.root,
       SEATWORKS_STATE: project.state,

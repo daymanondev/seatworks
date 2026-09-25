@@ -48,6 +48,7 @@ export const HarnessFile = z
       source: text,
       roleSource: text,
       inherits: z.strictObject({ from: text, keys: texts }).optional(),
+      overlayEnv: text.optional(),
     }),
     links: z.array(z.strictObject({ link: text, target: text, optional: z.boolean().optional() })).optional(),
     files: z.record(z.string(), z.array(z.string()).min(1)).optional(),

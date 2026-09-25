@@ -10,83 +10,163 @@
   "bash": {
     "patterns": [
       {
-        "match": "git add*",
+        "match": "git add",
         "approval": "deny"
       },
       {
-        "match": "git -C * add*",
+        "match": "git add *",
         "approval": "deny"
       },
       {
-        "match": "git commit*",
+        "match": "git -C * add",
         "approval": "deny"
       },
       {
-        "match": "git -C * commit*",
+        "match": "git -C * add *",
         "approval": "deny"
       },
       {
-        "match": "git restore*",
+        "match": "git commit",
         "approval": "deny"
       },
       {
-        "match": "git -C * restore*",
+        "match": "git commit *",
         "approval": "deny"
       },
       {
-        "match": "git revert*",
+        "match": "git -C * commit",
         "approval": "deny"
       },
       {
-        "match": "git -C * revert*",
+        "match": "git -C * commit *",
         "approval": "deny"
       },
       {
-        "match": "git clean*",
+        "match": "git restore",
         "approval": "deny"
       },
       {
-        "match": "git -C * clean*",
+        "match": "git restore *",
         "approval": "deny"
       },
       {
-        "match": "git rm*",
+        "match": "git -C * restore",
         "approval": "deny"
       },
       {
-        "match": "git -C * rm*",
+        "match": "git -C * restore *",
         "approval": "deny"
       },
       {
-        "match": "git mv*",
+        "match": "git revert",
         "approval": "deny"
       },
       {
-        "match": "git -C * mv*",
+        "match": "git revert *",
         "approval": "deny"
       },
       {
-        "match": "git apply*",
+        "match": "git -C * revert",
         "approval": "deny"
       },
       {
-        "match": "git -C * apply*",
+        "match": "git -C * revert *",
         "approval": "deny"
       },
       {
-        "match": "git am*",
+        "match": "git clean",
         "approval": "deny"
       },
       {
-        "match": "git -C * am*",
+        "match": "git clean *",
         "approval": "deny"
       },
       {
-        "match": "git config*",
+        "match": "git -C * clean",
         "approval": "deny"
       },
       {
-        "match": "git -C * config*",
+        "match": "git -C * clean *",
+        "approval": "deny"
+      },
+      {
+        "match": "git rm",
+        "approval": "deny"
+      },
+      {
+        "match": "git rm *",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * rm",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * rm *",
+        "approval": "deny"
+      },
+      {
+        "match": "git mv",
+        "approval": "deny"
+      },
+      {
+        "match": "git mv *",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * mv",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * mv *",
+        "approval": "deny"
+      },
+      {
+        "match": "git apply",
+        "approval": "deny"
+      },
+      {
+        "match": "git apply *",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * apply",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * apply *",
+        "approval": "deny"
+      },
+      {
+        "match": "git am",
+        "approval": "deny"
+      },
+      {
+        "match": "git am *",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * am",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * am *",
+        "approval": "deny"
+      },
+      {
+        "match": "git config",
+        "approval": "deny"
+      },
+      {
+        "match": "git config *",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * config",
+        "approval": "deny"
+      },
+      {
+        "match": "git -C * config *",
         "approval": "deny"
       }
     ]

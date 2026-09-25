@@ -6,8 +6,8 @@ import { fileURLToPath } from "node:url";
 import { renderPrompt, skillProblems, skillSources } from "../../server/catalog/content.ts";
 import { hiddenWordsIn } from "../../server/catalog/hidden-words.ts";
 import { loadKit, providerId, toolsOf } from "../../server/catalog/kit.ts";
-import { applyRole, stateWrites } from "../../server/catalog/launch.ts";
-import type { AgentConfig } from "../../server/core/ports.ts";
+import { applyRole, seatEnv, stateWrites } from "../../server/catalog/launch.ts";
+import type { AgentConfig, SessionOpen } from "../../server/core/ports.ts";
 import { desiredProvider, seatPairs } from "../../server/catalog/providers.ts";
 import { materialize, placeGuides, seatDir, seedRecords } from "../../server/catalog/seats.ts";
 import { git } from "../../server/core/git.ts";
@@ -114,12 +114,22 @@ test("every role builds on every agent the kit ships, each in that agent's own t
     }
     if (harness.id === "omp") {
       const denied = (settings.bash?.patterns ?? []).filter((rule: { approval: string }) => rule.approval === "deny").map((rule: { match: string }) => rule.match);
-      for (const command of DESK_GIT) assert.ok(denied.includes(`git ${command}*`) && denied.includes(`git -C * ${command}*`), `${where}: a seat does not git ${command}, with -C or without`);
-      assert.equal(denied.includes("git commit*"), ["supervisor", "lead", "reviewer"].includes(role.role), `${where}: commits only where the role may`);
+      const refuses = (command: string) => [`git ${command}`, `git ${command} *`, `git -C * ${command}`, `git -C * ${command} *`].every((rule) => denied.includes(rule));
+      for (const command of DESK_GIT) assert.ok(refuses(command), `${where}: a seat does not git ${command}, with -C or without`);
+      assert.ok(!denied.some((rule: string) => /^git (-C \* )?[a-z-]+\*$/.test(rule)), `${where}: no pattern takes in a longer command, as git merge* took git merge-base`);
+      assert.equal(refuses("commit"), ["supervisor", "lead", "reviewer"].includes(role.role), `${where}: commits only where the role may`);
       assert.equal(denied.includes("sleep *"), !waits, `${where}: sleeps only where the role may`);
       assert.equal(settings.ask?.enabled, false, `${where}: nobody is there to answer a question that stops the turn`);
       assert.equal(settings.tools?.approval?.task, "deny", `${where}: Paseo is the only control plane`);
-      assert.ok(["eval", "debug"].every((tool) => settings.tools?.approval?.[tool] === "deny"), `${where}: runs code only through bash, where its rules apply`);
+      assert.equal(settings.tools?.approval?.eval, "deny", `${where}: an eval cell starts agents through agent() and workpool(), past Paseo`);
+      assert.equal(settings.tools?.approval?.debug === "deny", bare, `${where}: debugs only where it has a shell that runs the same programs`);
+      assert.notEqual(settings.skills?.enablePiUser, false, `${where}: the skills linked into the seat's own directory load`);
+      assert.equal(settings.tools?.xdev, false, `${where}: no tool hides behind write, which the Lead and the Reviewer are denied`);
+      assert.equal(settings.ttsr?.builtinRules, false, `${where}: omp's own style rules do not overrule the project's`);
+      assert.deepEqual([settings.bash?.autoBackground?.enabled, settings.launch?.enabled], [false, false], `${where}: a command runs within its turn, and no service outlives it`);
+      assert.ok(settings.disabledProviders?.includes("omp-plugins"), `${where}: plugins installed for the owner's own omp do not load in a seat`);
+      const env = seatEnv(kit, { agentId: "a", workspaceId: null, provider: providerId(kit, role.role, "omp"), cwd: "/work/demo", reason: "create", purpose: "interactive", env: {} } as SessionOpen, dir, project).env;
+      assert.equal(env.PI_CONFIG_FILES, join(dir, harness.settings.file), `${where}: its settings overlay a repository's own .omp/config.yml, which would outrank them`);
       assert.equal(settings.tools?.approval?.web_search === "deny", !searches, `${where}: searches the web only where the role may`);
       if (bare) for (const tool of BUILT_INS.omp!) assert.equal(settings.tools?.approval?.[tool], "deny", `${where}: has no ${tool}`);
       assert.equal(["edit", "write", "ast_edit"].every((tool) => settings.tools?.approval?.[tool] === "deny"), !edits, `${where}: edits files only where the role may`);
