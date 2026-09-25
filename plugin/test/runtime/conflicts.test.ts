@@ -3,7 +3,7 @@ import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { tempDir } from "../tempdir.ts";
-import { harness } from "./harness.ts";
+import { harness, laneWithPeer } from "./harness.ts";
 
 const scope = { outcome: "a.txt changes", acceptance: ["a"], outOfScope: ["the rest"] };
 
@@ -109,4 +109,48 @@ test("a parallel task accepted with nothing committed merges as the nothing it i
   await h.idle(lane.lead!);
   assert.match(h.agents.get(lane.lead!)!.sent.at(-1) ?? "", /MERGED L1-T1 \(Look\): it changed no files, so there was nothing to merge\./);
   assert.ok(h.agents.get(task.peer!)!.archivedAt, "its Peer goes with its copy, as after any merge");
+});
+
+test("a parallel task accepted while the lane's copy has work uncommitted waits in the queue, and merges once a turn ends with the copy clean", async () => {
+  const { h, lane, peer } = await laneWithPeer();
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "s", title: "Side", goal: "g", acceptance: ["c"], owned: ["c.txt"], outOfScope: ["the rest"], parallel: true }] });
+  const side = h.ledger().tasks["L1-T2"]!;
+  h.commit(side.worktree!, "c.txt", "C\n");
+  await h.call(side.peer!, "peer", "done", { outcome: "complete", summary: "c" });
+  writeFileSync(join(lane.worktree!, "a.txt"), "half written\n");
+  assert.equal((await h.call(lane.lead!, "lead", "accept", { task: "L1-T2" })).ok, true);
+  await h.runtime.desk.settled(h.project);
+  const waits = h.ledger().tasks["L1-T2"]!;
+  assert.equal(waits.status, "queued", "the Lead accepted it, and a copy busy for now does not take that back");
+  assert.match(waits.held?.why ?? "", /a\.txt/);
+  assert.match(h.heard(lane.lead!).join("\n"), /MERGE WAITS L1-T2 \(Side\): the lane's working copy has uncommitted changes \(M a\.txt\), and L1-T1 holds it\. It merges by itself once that work is committed\.\n\nNext: Nothing now: MERGED arrives as mail, and cut withdraws the task\./);
+
+  await h.endTurn(lane.lead!, "nothing yet");
+  await h.runtime.desk.settled(h.project);
+  assert.equal(h.ledger().tasks["L1-T2"]!.status, "queued", "tried again at a turn's end, and the copy is still busy");
+  assert.equal(h.heard(lane.lead!).join("\n").match(/MERGE WAITS L1-T2/g)?.length, 1, "told once, not at every try");
+
+  h.commit(lane.worktree!, "a.txt", "whole\n");
+  await h.endTurn(peer, "committed a.txt");
+  await h.runtime.desk.settled(h.project);
+  assert.equal(h.ledger().tasks["L1-T2"]!.status, "merged");
+  assert.equal(h.ledger().tasks["L1-T2"]!.held, undefined);
+  assert.equal(h.git(lane.worktree!, "show", "HEAD:c.txt"), "C\n");
+});
+
+test("landing a lane while an accepted task waits on its copy tries that merge once more first, so the accepted work lands with it", async () => {
+  const { h, sup, lane } = await laneWithPeer();
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "s", title: "Side", goal: "g", acceptance: ["c"], owned: ["c.txt"], outOfScope: ["the rest"], parallel: true }] });
+  const side = h.ledger().tasks["L1-T2"]!;
+  h.commit(side.worktree!, "c.txt", "C\n");
+  await h.call(side.peer!, "peer", "done", { outcome: "complete", summary: "c" });
+  writeFileSync(join(lane.worktree!, "a.txt"), "half written\n");
+  await h.call(lane.lead!, "lead", "accept", { task: "L1-T2" });
+  await h.runtime.desk.settled(h.project);
+  assert.equal(h.ledger().tasks["L1-T2"]!.status, "queued");
+  h.commit(lane.worktree!, "a.txt", "whole\n");
+  const landed = await h.call(sup, "supervisor", "land_lane", { lane: "L1" });
+  assert.equal(landed.ok, true, landed.text);
+  assert.equal(h.ledger().tasks["L1-T2"]!.status, "merged", "no turn ended since the copy came clean, and landing does not cut what was accepted");
+  assert.equal(h.git(h.root, "show", "main:c.txt"), "C\n");
 });

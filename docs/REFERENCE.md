@@ -39,7 +39,7 @@ pages in), the seat's bridge shows that set as the field's choices.
 | `set_project` | Sets the base branch, the gate command and its timeout (30 min by default), whether the gate runs per lane or per task, the serial-only paths, `laneHome`, where lanes work when a call does not say (`onBranch`, `newBranch`, `isolate`), `askFirst`, the paths no landing touches before the Human looks, and `riskRules`, which replace the kit's rules for migrations, schemas and SQL. An empty gate is an answer, and the desk never detects one over it |
 | `add_tasks` | Records tasks in the lane in one call, each waiting for what it names, and starts what can start. A task in the lane's copy waits while another holds it, and goes to the Peer kept there unless it is `fresh`. The whole call is refused when two tasks that may run at once own one path, a parallel task owns a one-writer path, a task owns a path outside the lane's write set, or a task takes a path a running task still writes |
 | `start_review` | Seats a read-only reviewing role. It runs where the change is now: the task's copy, the lane's copy, or the task branch. A task in the lane's copy is read by its own commits up to its last hand-back, commit by commit when a task beside it was merged in meanwhile. Its brief carries the question of every risk rule the change reaches |
-| `accept` | Lane mode: marks the task merged in place, and its Peer stays in the lane copy for the next task there. That task goes to it by letter, unless it is added `fresh`, needs another role, or the team now starts the role as another agent, model or thinking; then the kept Peer is archived before a new one starts. It is refused if the lane copy is off its branch or dirty. Parallel mode: queues the task for merging |
+| `accept` | Lane mode: marks the task merged in place, and its Peer stays in the lane copy for the next task there. That task goes to it by letter, unless it is added `fresh`, needs another role, or the team now starts the role as another agent, model or thinking; then the kept Peer is archived before a new one starts. It is refused if the lane copy is off its branch or dirty. Parallel mode: queues the task for merging; while the lane's copy has work uncommitted, the task stays queued, its Lead is told once, and the merge is tried again as each turn ends and before the lane lands |
 | `rework` | Sends the task back with a letter. It is refused while another task holds the lane copy |
 | `amend_task` | Changes what a task asks while its Peer works, keeping what it asked before and why. The Peer reads it at its next turn. A parallel task's new owned paths are checked as a start would check them |
 | `cut` | Stops the task and archives its Peer. It resets the lane copy to where the task started, when nothing merged there since. It is refused while the task's merge runs |
@@ -107,7 +107,7 @@ the Lead or whoever supervises because the Lead is gone, whether the task merged
 |---|---|
 | Opening a seat | OWNER DIRECTIVE, TASK, REVIEW |
 | Between seats | MESSAGE, RECONCILE, ASK, ANSWER to your ask, ANSWERED FOR YOU, STILL OPEN, UNANSWERED, HUMAN WROTE, HUMAN ANSWERED |
-| Work moving | HANDBACK, REWORK, AMENDED, MERGED, MERGE FAILED, MERGE CONFLICT, BASE CONFLICT, REPORT, CAN LAND, CLEARED |
+| Work moving | HANDBACK, REWORK, AMENDED, MERGED, MERGE WAITS, MERGE FAILED, MERGE CONFLICT, BASE CONFLICT, REPORT, CAN LAND, CLEARED |
 | Landing held for the Human | LAND HELD, LANDED, HELD AGAIN, CHANGED, APPROVED, SENT BACK, LAND SENT BACK |
 | Waiting and starting again | WAITING, OPENED, NOT OPENED, NOT STARTED, LEAD GONE |
 | A lane stopped | HOLD, RESUMED |
@@ -127,7 +127,7 @@ short where the seat's agent allows it. ARCHITECTURE, STRUGGLING and TURNING wak
 the three moments SLP names, as the desk sees them: a Lead widening what a task owns; a task sent back a
 second time, or stalled; a Lead changing what a task is for. OPENED, WAITING for a lane that opened by
 itself, LANDED and SENT BACK ask nothing of the Supervisor, and WAITING for a task that started by itself,
-LAND HELD, LANE CLOSED and a MERGED with nothing to note while other tasks remain ask nothing of a Lead, so they
+LAND HELD, LANE CLOSED, a MERGE WAITS behind a task that still holds the lane's copy, and a MERGED with nothing to note while other tasks remain ask nothing of a Lead, so they
 wait for the next letter that does. A task handed to the Peer kept in the lane's copy reaches it as a TASK letter, its brief.
 
 ## Mail

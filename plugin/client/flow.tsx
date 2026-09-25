@@ -106,9 +106,10 @@ const Node = memo(function Node({ title, hint, state, alive, caret, theme, onPre
 /** Where a lane works: the Human's own checkout, or a copy of its own. */
 const where = (lane: FlowLane): string => (lane.copy ? `copy ${lane.copy}` : "your checkout");
 
-/** What a task's card says of it: why a waiting one waits, since when a handed-back one waits, else what its seat is doing. */
+/** What a task's card says of it: why it cannot start or merge yet, what a waiting one waits for, since when a handed-back one waits, else what its seat is doing. */
 const taskState = (task: FlowTask): string => {
-  if (task.status === "waiting") return task.held ? `waiting: ${task.held}` : task.after.length > 0 ? `waiting on ${task.after.join(", ")}` : "waiting";
+  if (task.held) return `${task.status}: ${task.held}`;
+  if (task.status === "waiting") return task.after.length > 0 ? `waiting on ${task.after.join(", ")}` : "waiting";
   if (task.handback !== null) return `${task.status} · handed back ${since(task.handback)}`;
   return `${task.status} · ${seatText(task.peer)}`;
 };

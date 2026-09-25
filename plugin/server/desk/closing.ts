@@ -111,7 +111,8 @@ export async function close(desk: DeskServices, project: Project, by: string, ar
   if (ctx.closing.has(key)) return no(`Lane ${lane.id} is already being closed by another call; read status once that call has answered.`);
   ctx.closing.add(key);
   try {
-    // Wait for queued merges: they run in the lane's copy, which closing gates, lands and removes.
+    // Wait for queued merges, one more try included for those waiting on a clean copy: they run in the copy closing gates, lands and removes.
+    await merges.retry(project);
     await merges.settled(project);
     const landed = args.land === true ? await land(desk, project, ledger, lane, by, args.overGate === true) : { how: `the branch ${lane.branch} is kept for the Human`, note: "" };
     if ("text" in landed) return landed;

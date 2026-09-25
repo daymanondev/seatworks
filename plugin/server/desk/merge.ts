@@ -1,4 +1,4 @@
-import { commitsAhead, diffCounts, git, headSha, mergeBranch, mergeOf, outsideOwned, pristineState } from "../core/git.ts";
+import { commitsAhead, diffCounts, git, headSha, mergeBranch, mergeOf, outsideOwned, pristineState, uncommittedIn } from "../core/git.ts";
 import { fileKinds } from "../catalog/kit.ts";
 import type { Agents } from "./agents.ts";
 import { type DeskContext } from "./context.ts";
@@ -8,9 +8,10 @@ import { gateNote } from "./gates.ts";
 import { type Lane, type Task, loadLedger, othersLeft } from "./ledger.ts";
 import type { Letter } from "./letters.ts";
 import { mergeLetters } from "./merge-letters.ts";
+import { holderOf } from "./holder.ts";
 import type { Project } from "./project.ts";
 
-type Outcome = "merged" | "unmerged" | "conflict" | "fail";
+type Outcome = "merged" | "conflict" | "fail";
 
 export class MergeQueue {
   private readonly ctx: DeskContext;
@@ -41,6 +42,12 @@ export class MergeQueue {
    */
   resume(project: Project): Promise<void> {
     return this.after(project, () => this.takeUp(project));
+  }
+
+  /** What waits for a lane's copy to be clean goes through again: at a turn's end, when a writer there may have committed. */
+  retry(project: Project): Promise<void> {
+    const waiting = Object.values(loadLedger(project.state).tasks).some((task) => task.status === "queued" && task.held);
+    return waiting ? this.resume(project) : Promise.resolve();
   }
 
   /** One merge at a time per project, each after the one before whatever became of it. */
@@ -87,9 +94,7 @@ export class MergeQueue {
     const cwd = lane.worktree;
     if (!cwd) return finish("fail", mergeLetters.mergeFailed(task, "the lane has no working copy", ""));
     const copy = await pristineState(cwd);
-    if (copy === "dirty") {
-      return finish("unmerged", mergeLetters.mergeFailed(task, "the lane's working copy has uncommitted changes from its current writer; accept again after that task hands back", ""));
-    }
+    if (copy === "dirty") return this.waitFor(project, task, lane, cwd);
     // A copy git could not read has no writer in it: it is already gone.
     if (copy === "unknown") {
       return finish("fail", mergeLetters.mergeFailed(task, `git could not read the lane's working copy at ${cwd}`, ""));
@@ -109,6 +114,18 @@ export class MergeQueue {
         : finish("fail", mergeLetters.mergeFailed(task, "git merge failed", merged.message));
     }
     await this.landed(project, task, lane, cwd, merged);
+  }
+
+  /** The lane's copy holds another writer's work: the Lead's accept stands, the task waits queued, and its Lead is told once for each reason. */
+  private async waitFor(project: Project, task: Task, lane: Lane, cwd: string): Promise<void> {
+    const holder = holderOf(loadLedger(project.state), lane);
+    const why = `the lane's working copy has uncommitted changes (${await uncommittedIn(cwd)})${holder ? `, and ${holder.id} holds it` : ""}`;
+    let told = false;
+    this.ctx.moveTask(project, task.id, "requeue", (entry) => {
+      told = entry.held?.why === why;
+      entry.held = { why };
+    });
+    if (!told) await this.ctx.post(lane.lead, mergeLetters.waits(task, why, holder?.id));
   }
 
   /** No seat may run git merge, so the task's own copy is given the lane branch to settle against, conflicts and all. */
@@ -134,7 +151,7 @@ export class MergeQueue {
 
   /** The record follows what the merge did, and its Lead is told. */
   private async finish(project: Project, task: Task, lane: Lane, move: Outcome, letter: Letter): Promise<void> {
-    const moved = this.ctx.moveTask(project, task.id, move);
+    const moved = this.ctx.moveTask(project, task.id, move, (entry) => delete entry.held);
     if (typeof moved !== "object") return;
     await this.ctx.post(lane.lead, letter);
     this.ctx.event(project, { kind: `merge.${moved.status}`, task: task.id });

@@ -742,7 +742,7 @@
     },
     {
       "name": "accept",
-      "description": "Accept a handed-back task. One in the lane's copy is already on the lane branch, and its Peer stays for the next task there; a parallel task merges in, and MERGED or MERGE FAILED comes as mail. The gate runs on the whole lane at ready, unless your directive says per task.",
+      "description": "Accept a handed-back task. One in the lane's copy is already on the lane branch, and its Peer stays for the next task there; a parallel task merges in once the lane's copy is clean, and MERGED, MERGE WAITS or MERGE FAILED comes as mail. The gate runs on the whole lane at ready, unless your directive says per task.",
       "inputSchema": {
         "type": "object",
         "properties": {

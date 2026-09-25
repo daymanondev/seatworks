@@ -20,6 +20,14 @@ export const mergeLetters = {
     return notes.length > 0 ? letter("Act on a note only if it matters to the lane.") : fyi(letter("Nothing now: the next hand-back arrives as mail."));
   },
 
+  /** The Lead's accept stands while the lane's copy is not clean: the task stays queued and merges once a turn ends with it clean. */
+  waits(task: Task, why: string, holder: string | undefined): Letter {
+    const text = `MERGE WAITS ${task.id} (${task.title}): ${why}. It merges by itself once ${holder ? "that work is committed" : "they are committed or cleared"}.`;
+    return holder
+      ? fyi(mail("merge", [task.id, Date.now()], text, "Nothing now: MERGED arrives as mail, and cut withdraws the task."))
+      : mail("merge", [task.id, Date.now()], text, "Have a task of the lane commit or clear them, or cut the task to withdraw it.");
+  },
+
   mergeFailed(task: Task, reason: string, tail: string): Letter {
     const lines = [`MERGE FAILED ${task.id} (${task.title}): ${reason}`, "The lane branch is unchanged."];
     if (tail) lines.push("", "```", tail, "```");

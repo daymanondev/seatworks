@@ -147,6 +147,7 @@ export class Desk {
     await this.services.slots.stopped(ended);
     const { ctx } = this.services;
     for (const project of ctx.projects.values()) {
+      this.services.merges.retry(project).catch((error) => ctx.log(project, `merge retry failed: ${errorText(error)}`));
       const waiting = Object.values(loadLedger(project.state).lanes).filter((lane) => lane.status === "open" && lane.landing?.writers.some(ended));
       for (const lane of waiting) {
         // Who is left is worked out where it is written: a turn that ended meanwhile must not be written back as still in the way.

@@ -198,6 +198,14 @@ export async function ownCounts(cwd: string, from: string, kinds: FileKinds): Pr
   return counts && { ...counts, files: counts.files.filter((path) => own!.has(path)) };
 }
 
+/** What is uncommitted in `cwd`, named: a stray message file reads as unfinished work otherwise. */
+export async function uncommittedIn(cwd: string): Promise<string> {
+  const run = await git(cwd, ["status", "--porcelain"]);
+  const lines = run.stdout.split("\n").filter((line) => line.trim());
+  const shown = lines.slice(0, 6).map((line) => line.trim()).join(", ");
+  return lines.length > 6 ? `${shown} and ${lines.length - 6} more` : shown || "something git reports but does not name";
+}
+
 /** Whether the desk merged anything into the copy's line between `from` and `to`: a diff across them then shows others' work too. */
 export async function mergesIn(cwd: string, from: string, to: string): Promise<boolean> {
   const run = await git(cwd, ["rev-list", "--first-parent", "--merges", "--count", `${from}..${to}`]);

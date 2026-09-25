@@ -14,7 +14,6 @@ const MOVES = {
   merge: { from: ["queued"], to: "merging" },
   requeue: { from: ["merging"], to: "queued" },
   merged: { from: ["merging"], to: "merged" },
-  unmerged: { from: ["merging"], to: "done" },
   conflict: { from: ["merging"], to: "rework" },
   fail: { from: ["queued", "merging"], to: "failed" },
   stall: { from: ["running", "rework", "failed"], to: "stalled" },

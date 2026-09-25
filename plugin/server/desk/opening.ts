@@ -3,11 +3,12 @@ import { headSha, trackedFiles } from "../core/git.ts";
 import type { SeatView } from "../core/paseo.ts";
 import { errorText } from "../core/errors.ts";
 import { firstOverlap, serialHits, serialPaths, serialReach } from "../core/scope.ts";
-import { HOLDS_COPY, TASK } from "../domain/task.ts";
+import { TASK } from "../domain/task.ts";
 import type { Issue } from "./issue.ts";
 import { type Lane, type Ledger, type Task, activeTasks, loadLedger, ownCopyHolder } from "./ledger.ts";
 import { outside } from "../core/text.ts";
 import { taskBrief } from "./briefs.ts";
+import { holderOf } from "./holder.ts";
 import { directiveFor } from "./directive.ts";
 import { type Project, loadConfig, serialOnlyOf } from "./project.ts";
 import type { DeskServices } from "./services.ts";
@@ -135,15 +136,6 @@ async function seatLead(desk: DeskServices, project: Project, lane: Lane, how: S
     await giveBack(slot);
     return `The Lead could not start: ${errorText(error)}`;
   }
-}
-
-/** Handed-back and stalled tasks still hold the copy (their Peer is seated there), unless the stalled Peer's seat is gone. */
-const holds = (task: Task): boolean => HOLDS_COPY.includes(task.status) && !(task.status === "stalled" && task.peerGone);
-
-export function holderOf(ledger: Ledger, lane: Lane, except?: string): Task | undefined {
-  return Object.values(ledger.tasks).find(
-    (task) => task.lane === lane.id && task.id !== except && task.kind === "code" && task.mode !== "parallel" && holds(task),
-  );
 }
 
 /** Where a task may start in its lane, or why not: decided in the transaction that starts it. `serial` counts for a parallel task. */

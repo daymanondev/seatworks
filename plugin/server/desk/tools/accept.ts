@@ -1,24 +1,16 @@
 import { z } from "zod";
 import { fileKinds } from "../../catalog/kit.ts";
-import { currentBranch, git, outsideOwned, ownCounts, pristineState } from "../../core/git.ts";
+import { currentBranch, outsideOwned, ownCounts, pristineState, uncommittedIn } from "../../core/git.ts";
 import { IN_QUEUE, TASK } from "../../domain/task.ts";
 import { no, ok, str } from "../context.ts";
 import { gateNote } from "../gates.ts";
 import { loadLedger, othersLeft } from "../ledger.ts";
 import { mergeLetters } from "../merge-letters.ts";
 import { closeIncidentsOf } from "../notice.ts";
-import { holderOf } from "../opening.ts";
+import { holderOf } from "../holder.ts";
 import { defineTool } from "../services.ts";
 import { startWaiting } from "../waiting.ts";
 import { laneTask } from "./lane-task.ts";
-
-/** What is in the way, named: a stray message file reads as unfinished work otherwise. */
-async function uncommittedIn(cwd: string): Promise<string> {
-  const run = await git(cwd, ["status", "--porcelain"]);
-  const lines = run.stdout.split("\n").filter((line) => line.trim());
-  const shown = lines.slice(0, 6).map((line) => line.trim()).join(", ");
-  return lines.length > 6 ? `${shown} and ${lines.length - 6} more` : shown || "something git reports but does not name";
-}
 
 export const accept = defineTool({
   name: "accept",
@@ -37,7 +29,7 @@ export const accept = defineTool({
       if (typeof queued !== "object") return no(`${task.id} is ${queued ?? "gone"}.`);
       const ahead = Object.values(loadLedger(project.state).tasks).filter((entry) => IN_QUEUE.includes(entry.status)).length - 1;
       merges.enqueue(project, task.id);
-      return ok(`${task.id} is in the merge queue${ahead > 0 ? ` behind ${ahead}` : ""}. MERGED or MERGE FAILED arrives as mail.`);
+      return ok(`${task.id} is in the merge queue${ahead > 0 ? ` behind ${ahead}` : ""}. MERGED, MERGE WAITS or MERGE FAILED arrives as mail.`);
     }
     // A copy off the lane branch (mid-bisect) has commits on no branch; clean and detached is not landed.
     if (lane.worktree && (await currentBranch(lane.worktree)) !== lane.branch) {

@@ -157,7 +157,9 @@ treated as empty.
 - **Parallel mode.** The task gets its own slot and `task/…` branch. `accept` queues it, and one merge
   queue per project merges branches into their lane, one at a time. The queue is the tasks' status in
   the ledger, so a restart picks it up: a merge cut off midway is undone and run again, and one git had
-  already made is only recorded.
+  already made is only recorded. A merge never runs into a lane copy with work uncommitted: the task
+  stays queued, its Lead is told once, and the merge is tried again as each turn ends and before the
+  lane lands. A task in the lane's copy is read by its own commits, never by the merges beside it.
 
 **Landing.** `land_lane` does four things in a fixed order:
 

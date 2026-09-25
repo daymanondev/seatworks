@@ -147,7 +147,7 @@ export type ModelsRefreshed = z.infer<typeof ModelsRefreshed>;
 
 const FlowSeat = z.object({ id: z.string(), role: z.string(), status: z.string(), minutes: z.number(), waiting: z.array(z.string()) });
 export type FlowSeat = z.infer<typeof FlowSeat>;
-/** `copy` names a parallel task's own copy; `after` and `held` say what a waiting task waits for or why it cannot start. */
+/** `copy` names a parallel task's own copy; `after` is what a waiting task waits for, and `held` why a task cannot start or merge yet. */
 const FlowTask = z.object({
   id: z.string(),
   title: z.string(),

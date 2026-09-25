@@ -6,7 +6,7 @@ import { repeatsIncident } from "../incidents.ts";
 import { type Task, loadLedger } from "../ledger.ts";
 import { letters } from "../letters.ts";
 import { tellMoment } from "../moments.ts";
-import { holderOf } from "../opening.ts";
+import { holderOf } from "../holder.ts";
 import { defineTool } from "../services.ts";
 import { laneTask } from "./lane-task.ts";
 
