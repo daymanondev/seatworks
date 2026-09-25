@@ -37,8 +37,6 @@ export const replaceLead = defineTool({
     if (!lane) return no(`There is no lane ${str(args.lane)}.`);
     if (lane.status !== "open") return no(`Lane ${lane.id} is ${lane.status}; only an open lane has a Lead to replace.`);
     const seats = await roster.open();
-    // An empty listing is a daemon that answered nothing, not word that the Lead is gone.
-    if (seats.length === 0) return no("Paseo listed no agents just now, so whether the lane's Lead is still seated cannot be told; try again.");
     if (seats.some((seat) => seat.id === lane.lead)) return no(`Lane ${lane.id}'s Lead ${lane.lead} is still seated; message it instead.`);
     const key = seatingKey(project, lane.id);
     const claimed = ctx.transact(project, (ledger) => {

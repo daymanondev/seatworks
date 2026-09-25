@@ -85,12 +85,6 @@ test("a seat waiting for its turn to end to be archived when the plugin stopped 
   // Their turns ended while the plugin was down, so no hook will say so.
   h.agents.get(lane.lead!)!.status = "idle";
   h.agents.get(peer)!.status = "idle";
-  // A daemon that lists nothing is no word that they are gone: nothing waiting on them is dropped for it.
-  const agents = (h.paseo as unknown as { agents: { list: () => Promise<unknown> } }).agents;
-  const list = agents.list;
-  agents.list = async () => ({ entries: [], pageInfo: { hasMore: false, nextCursor: null, prevCursor: null } });
-  await h.tick();
-  agents.list = list;
   await h.tick();
   assert.ok(h.agents.get(lane.lead!)!.archivedAt, "the Lead");
   assert.ok(h.agents.get(peer)!.archivedAt, "the Peer");

@@ -115,7 +115,7 @@ test("a case left unanswered is given up after a while, and the Watcher is let g
   assert.ok(watcher.archivedAt, "with no lane open, no case can come, and the idle Watcher is let go");
 });
 
-test("a case is given up only once it is sent: not while its Watcher is still being seated, nor on a listing with no seat in it", async (t) => {
+test("a case is not given up while its Watcher is still being seated: its time runs from when it is sent", async (t) => {
   const { h, handBack, watchers, caseOf } = await watched();
   type Create = (options: { config: { provider: string } }) => Promise<unknown>;
   const workspaces = (h.paseo as { workspaces: { ref(id: string): { agents: { create: Create } } } }).workspaces;
@@ -135,10 +135,6 @@ test("a case is given up only once it is sent: not while its Watcher is still be
   seat();
   await settle();
   const watcher = watchers()[0]!;
-  const listed = new Map(h.agents);
-  h.agents.clear();
-  await h.tick();
-  for (const [id, agent] of listed) h.agents.set(id, agent);
 
   const answered = await h.call(watcher.id, "watcher", "judge", { case: caseOf(watcher.prompt!), answers: [{ question: "summary_admits_gap", says: "no", why: "Nothing is left." }] });
   assert.equal(answered.ok, true, answered.text);

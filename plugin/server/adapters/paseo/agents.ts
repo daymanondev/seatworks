@@ -41,10 +41,9 @@ function lookOf(handle: Handle): SeatLook {
   };
 }
 
-/** Paged: an unpaged read is capped by the daemon, and a seat missing from this list is treated as gone. */
+/** Paged: an unpaged read is capped by the daemon, and a seat missing from this list is treated as gone, so with no handle it fails. */
 async function openSeats(bound: Bound): Promise<SeatView[]> {
-  const paseo = bound();
-  if (!paseo) return [];
+  const paseo = reach(bound);
   const found: SeatView[] = [];
   let cursor: string | undefined;
   for (let page = 0; page < 20; page++) {
@@ -115,8 +114,7 @@ export function workspacesOn(bound: Bound): Workspaces {
       return undefined;
     },
     async owned(prefix: string): Promise<{ id: string; name: string }[]> {
-      const paseo = bound();
-      if (!paseo) return [];
+      const paseo = reach(bound);
       const found: { id: string; name: string }[] = [];
       let cursor: string | undefined;
       for (let page = 0; page < 20; page++) {

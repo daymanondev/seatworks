@@ -156,8 +156,6 @@ async function putBackHalfStarted(desk: DeskServices, project: Project): Promise
   const halfStarted = (ledger: Ledger) => Object.values(ledger.tasks).filter((task) => task.status === "running" && !task.peer && !ctx.seating.has(seatingKey(project, task.id)));
   if (halfStarted(loadLedger(project.state)).length === 0) return;
   const seats = await roster.open();
-  // An empty listing is a daemon that answered nothing, not word that no Peer was started.
-  if (seats.length === 0) return;
   const stopped = ctx.transact(project, (ledger) =>
     halfStarted(ledger).flatMap((task) => {
       const seat = seats.find((entry) => !entry.archivedAt && entry.labels?.["seatworks.project"] === project.slug && entry.labels["seatworks.task"] === task.id);
@@ -191,8 +189,6 @@ async function putBackHalfOpen(desk: DeskServices, project: Project): Promise<vo
   const halfOpen = (ledger: Ledger) => Object.values(ledger.lanes).filter((lane) => lane.status === "open" && !lane.lead && !ctx.seating.has(seatingKey(project, lane.id)));
   if (halfOpen(loadLedger(project.state)).length === 0) return;
   const seats = await roster.open();
-  // An empty listing is a daemon that answered nothing, not word that no Lead was started.
-  if (seats.length === 0) return;
   const stopped = ctx.transact(project, (ledger) =>
     halfOpen(ledger).map((lane) => {
       const slot = Object.values(ledger.slots).find((entry) => entry.lane === lane.id);

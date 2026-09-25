@@ -72,13 +72,12 @@ export class Patrol {
       await this.step(project, "what a lane's history shows could not be read", () => this.history(project, loadLedger(project.state), seats));
       await this.step(project, "sweeping failed", () => this.sweep(project, loadLedger(project.state), seats));
       await this.step(project, "waiting lanes could not be opened", () => desk.openWaiting(project));
-      // An empty listing is a daemon that answered nothing, not a project whose every seat is gone.
-      if (seats.size > 0) await this.step(project, "finished lanes could not be archived", () => desk.archiveFinished(project, (id) => !seats.has(id) && outbox.pending(id).length === 0));
+      await this.step(project, "finished lanes could not be archived", () => desk.archiveFinished(project, (id) => !seats.has(id) && outbox.pending(id).length === 0));
       await this.step(project, "a copy waiting on a seat could not be put away", () => desk.reapSlots(project, new Set(seats.keys())));
       await this.step(project, "the Watcher's cases could not be tended", () => desk.watcher.tend(project, seats, now));
       await this.step(project, "the status page could not be written", async () => this.writeStatus(project, seats, now));
     }
-    if (!this.resumed && seats.size > 0) {
+    if (!this.resumed) {
       this.resumed = true;
       await this.resume(seats);
     }
@@ -93,8 +92,8 @@ export class Patrol {
   }
 
   /**
-   * A stop loses the turns that ended and the merges that waited while the plugin was down, so the first round that sees
-   * seats takes them up once, for every project on record; an empty listing is a daemon that answered nothing.
+   * A stop loses the turns that ended and the merges that waited while the plugin was down, so the first round takes them
+   * up once, for every project on record.
    */
   private async resume(seats: SeatMap): Promise<void> {
     const { desk } = this.deps;
@@ -161,10 +160,8 @@ export class Patrol {
     }
   }
 
-  /** A task whose Peer is no longer seated stalls, and its Lead is told; an empty listing, as for Leads, tells nothing. */
   private async goneTasks(project: Project, ledger: Ledger, seats: SeatMap): Promise<void> {
     const { desk } = this.deps;
-    if (seats.size === 0) return;
     for (const task of Object.values(ledger.tasks).filter((entry) => TASK.may(entry.status, "lose") && entry.peer)) {
       const gone = `${project.slug}:${task.id}`;
       if (seats.has(task.peer!) || this.goneFlag.has(gone)) continue;

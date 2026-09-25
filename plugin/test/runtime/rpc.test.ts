@@ -11,7 +11,9 @@ import { KEPT } from "../../shared/settings.ts";
 import { makeKit } from "../kit.ts";
 import { tempDir } from "../tempdir.ts";
 
-function served(paseo?: unknown) {
+const nobodySeated = { agents: { list: async () => ({ entries: [], pageInfo: { hasMore: false, nextCursor: null, prevCursor: null } }) } };
+
+function served(paseo: unknown = nobodySeated) {
   // Paseo's config is always there where a plugin runs, and the plugin writes its seats' providers into it.
   mkdirSync(dirname(paseoConfigPath()), { recursive: true });
   writeFileSync(paseoConfigPath(), "{}\n");

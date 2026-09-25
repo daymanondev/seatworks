@@ -113,8 +113,8 @@ export class Watcher {
   async tend(project: Project, open: Map<string, SeatView>, now: number): Promise<void> {
     for (const [id, entry] of this.waiting) {
       if (entry.project !== project.slug || !entry.sent) continue;
-      // Only a listing read after the case was sent can say its Watcher is gone, and an empty one says nothing.
-      const gone = open.size > 0 && entry.sent.at < now && !open.has(entry.sent.seat);
+      // Only a listing read after the case was sent can say its Watcher is gone.
+      const gone = entry.sent.at < now && !open.has(entry.sent.seat);
       if (!gone && now - entry.sent.at < ANSWER_WITHIN_MINUTES * 60_000) continue;
       this.waiting.delete(id);
       entry.failed(new Error(gone ? "the Watcher it was sent to is gone" : `no answer within ${ANSWER_WITHIN_MINUTES} minutes`));

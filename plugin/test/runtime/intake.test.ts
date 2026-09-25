@@ -344,12 +344,6 @@ test("a Lead Paseo started before a stop kept the desk from recording it is take
   delete ledger.agents[opened.lead!];
   saveLedger(h.project.state, ledger);
 
-  const agents = (h.paseo as unknown as { agents: { list: () => Promise<unknown> } }).agents;
-  const list = agents.list;
-  agents.list = async () => ({ entries: [], pageInfo: { hasMore: false, nextCursor: null, prevCursor: null } });
-  await h.tick(Date.now());
-  assert.deepEqual([h.ledger().lanes.L1!.status, h.git(h.root, "branch", "--show-current").trim()], ["open", opened.branch], "a daemon that listed nothing is no word that no Lead was started");
-  agents.list = list;
   await h.tick(Date.now());
   const lane = h.ledger().lanes.L1!;
   assert.deepEqual([lane.status, lane.lead, h.ledger().agents[opened.lead!]?.lane], ["open", opened.lead, "L1"]);
