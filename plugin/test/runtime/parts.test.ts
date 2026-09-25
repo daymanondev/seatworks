@@ -9,6 +9,7 @@ import { slugify } from "../../server/core/text.ts";
 import { directive } from "../../server/desk/directive.ts";
 import { askLetters } from "../../server/desk/ask-letters.ts";
 import { type Letter, letters } from "../../server/desk/letters.ts";
+import { landLetters } from "../../server/desk/land-letters.ts";
 import { mergeLetters } from "../../server/desk/merge-letters.ts";
 import { reviewBrief, taskBrief } from "../../server/desk/briefs.ts";
 import { takeRequests, writeReply } from "../../server/runtime/spool.ts";
@@ -64,19 +65,40 @@ test("ids count per ledger and per lane, and titles become branch slugs", () => 
   assert.equal(slugify("Chi tiêu định kỳ", 24), "chi-tieu-dinh-ky", "a title in Vietnamese keeps its letters, not a dash for each mark");
 });
 
-test("what a Peer and a Lead read carries none of the words hidden from them", () => {
+test("every letter a Peer, a reviewer or a Lead can be sent carries none of the words hidden from it", () => {
   const sending = { by: "agent-1", to: task.id, at: 0 };
-  const peerText = [taskBrief(task, lane), letters.rework(task, "fix it").text, letters.nudge(task, "done").text, letters.message("your lead", "hi", sending).text, reviewBrief({ ...task, id: "L1-R2", kind: "review" }, task, "Is rounding right?", lane.branch)].join("\n");
+  const call = { agent: "agent-3", tool: "done", started: 0 };
+  const ask: Ask = { id: "A1", from: "agent-3", fromRole: "peer", to: "agent-2", lane: "L1", task: task.id, kind: "question", text: "Which rounding?", default: "half up", status: "answered", openedAt: 0, reminders: 0, answer: "half even" };
+  const amendment = { at: 0, by: "agent-1", why: "the Human wants an upsert", was: { goal: "insert" } };
+  const late = [letters.later(call, { ok: true, text: "done" }), letters.later(call, { ok: false, text: "no" }), letters.unanswered(call)];
+  const worker = [
+    taskBrief(task, lane),
+    reviewBrief({ ...task, id: "L1-R2", kind: "review" }, task, "Is rounding right?", lane.branch),
+    ...[letters.rework(task, "fix it"), letters.nudge(task, "done"), letters.message("your lead", "hi", sending), letters.amended(task, amendment, "worker")],
+    ...[letters.onHold(lane, "the migration drops a table", task), letters.resumed(lane, "go on", task), askLetters.answered(ask), ...late],
+  ];
+  const incident = { id: "I1", seat: "agent-3", where: "the Peer on L1-T1", kind: "destructive", level: "attend" as const, quote: "rm -rf build", facts: ["rm"], opened: 0, last: 0, count: 1, open: true };
+  const counts = { src: 1, test: 5, docs: 0, files: ["src/pricing.js", "src/other.js"] };
+  const lead = [
+    directive({ ...lane, writeSet: ["src/discounts/**"], contracts: ["src/orders.ts"] }, { gate: "npm test runs on the whole lane when you report it ready", serial: ["package-lock.json"], concept: "/state/CONTEXT.md" }),
+    ...[letters.handback(task, "/h.md", "Outcome: complete", "agent-3", "lead"), letters.handback({ ...task, kind: "review" }, "/h.md", "Verdict: accept", "agent-4", "lead")],
+    ...[true, false].flatMap((last) => [mergeLetters.merged(task, counts, ["src/other.js"], "passed", last), mergeLetters.merged(task, undefined, [], "passed", last)]),
+    ...(["left", "clean", { not: "it has uncommitted changes" }] as const).map((settling) => mergeLetters.conflict(task, ["a.js"], lane.branch, settling)),
+    ...[mergeLetters.mergeFailed(task, "git merge failed", "CONFLICT"), letters.stalled(task, "bye", 2, { what: "Bash: npm test", refused: true }), letters.gone(task)],
+    ...[letters.failed("agent-3", 1, "Peer agent-3", "overloaded", "lead"), letters.permission("agent-3", "Peer agent-3", { id: "p1", name: "Bash", title: "npm install" }, "lead")],
+    ...[letters.incident(incident, { lane, task }, true, "lead"), letters.amended(lane, amendment, "lead"), letters.notStarted(task), letters.held(task, "L1-T1 is not accepted yet.", "It starts by itself.")],
+    ...[letters.started(task, "Started."), letters.reconciled(lane, task, "agent-9", "stop using the old client", sending), letters.message("the owner", "hi", sending)],
+    ...[askLetters.answered({ ...ask, fromRole: "lead" }), askLetters.answeredFor(ask, "the owner"), askLetters.askTo({ ...ask, status: "open" }, "the Peer on L1-T1", "lead"), askLetters.reminder(ask, 30)],
+    ...[landLetters.landHeld(lane, "It changes src/auth.", "abc"), landLetters.landSentBack(lane, "put it behind a flag", "abc"), landLetters.baseConflict(lane, ["a.js"])],
+    ...[landLetters.detourLanded({ ...lane, id: "L2" }, lane, "landed"), letters.onHold(lane, "the Human asked"), letters.resumed(lane, "go on"), ...late],
+  ];
+  const text = (items: (string | Letter)[]) => items.map((item) => (typeof item === "string" ? item : item.text)).join("\n");
   // Driven from the kit, not a copy: the copy had lost "seats", which `\bseat\b` does not cover.
   const kit = loadKit(join(import.meta.dirname, "..", ".."));
   const hides = (role: string) => kit.roles.find((entry) => entry.role === role)?.hidesWords ?? [];
-  assert.ok(hides("peer").length > 0 && hides("lead").length > 0, "both roles hide words to check for");
-  assert.deepEqual(hiddenWordsIn(peerText, hides("peer")), []);
-  const opening = directive({ ...lane, writeSet: ["src/discounts/**"], contracts: ["src/orders.ts"] }, { gate: "npm test runs on the whole lane when you report it ready", serial: ["package-lock.json"], concept: "/state/CONTEXT.md" });
-  const leadText = [opening, ...(["left", "clean", { not: "it has uncommitted changes" }] as const).map((settling) => mergeLetters.conflict(task, ["a.js"], lane.branch, settling).text), letters.stalled(task, "bye", 2).text, letters.reconciled(lane, task, "agent-9", "stop using the old client", sending).text].join("\n");
-  assert.deepEqual(hiddenWordsIn(leadText, hides("lead")), []);
+  assert.ok(hides("peer").length > 0 && hides("reviewer").length > 0 && hides("lead").length > 0, "each role hides words to check for");
+  assert.deepEqual([hiddenWordsIn(text(worker), hides("peer")), hiddenWordsIn(text(worker), hides("reviewer")), hiddenWordsIn(text(lead), hides("lead"))], [[], [], []]);
 });
-
 
 test("a hand-back names the Peer that wrote it, so its lead can read what it did", () => {
   const named = letters.handback(task, "/state/handbacks/L1-T1.md", "Outcome: complete", "agent-7", "lead").text;

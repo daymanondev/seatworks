@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { renderPrompt } from "../../server/catalog/content.ts";
+import { hiddenWordsIn } from "../../server/catalog/hidden-words.ts";
 import { loadKit, providerId, toolsOf } from "../../server/catalog/kit.ts";
 import { applyRole, stateWrites } from "../../server/catalog/launch.ts";
 import type { AgentConfig } from "../../server/core/ports.ts";
@@ -214,6 +215,17 @@ test("a Claude seat reads the project's own CLAUDE.md, though its settings come 
     const config = { provider: providerId(kit, role.role, "claude"), cwd: "/work/repo" } as AgentConfig;
     const next = applyRole(kit, team, config, () => "PROMPT", "/state/demo") as unknown as { providerOptions: { additionalDirectories?: string[] } };
     assert.deepEqual(next.providerOptions.additionalDirectories, ["/work/repo"], `${role.role}: the seat's own directory is the one added`);
+  }
+});
+
+test("the reasons Codex gives a seat for a command it refuses carry none of the words that seat's role must not see", () => {
+  const kit = loadKit(pluginRoot);
+  const reasons = (file: string) => (existsSync(file) ? [...readFileSync(file, "utf-8").matchAll(/justification = "([^"]*)"/g)].map((match) => match[1]!) : []);
+  const rules = join(pluginRoot, "harness", "codex", "rules");
+  for (const role of kit.roles) {
+    const given = [...reasons(join(rules, "seat.rules")), ...reasons(join(rules, `${role.role}.rules`))];
+    assert.ok(given.length > 0, `${role.role} is given reasons`);
+    assert.deepEqual(hiddenWordsIn(given.join("\n"), role.hidesWords ?? []), [], role.role);
   }
 });
 

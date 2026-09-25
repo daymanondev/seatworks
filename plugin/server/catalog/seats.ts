@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, renameSync, rmSync, statSync, symlinkSync, unlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { type PromptPaths, renderPrompt, renderText, skillProblems, skillSources } from "./content.ts";
+import { type PromptPaths, renderPrompt, renderText, skillProblems, skillSources, toolProblems } from "./content.ts";
 import { type HarnessSpec, type Kit, type McpServers, type RoleSpec, harnessFileSources, roleSettingsFile } from "./kit.ts";
 import { stateWrites } from "./launch.ts";
 import { contentRoot, expandHome, guidesDir, home } from "../core/paths.ts";
@@ -342,9 +342,8 @@ export function seatProblems(kit: Kit, team: Team, roleName: string, paths: Prom
   } catch (error) {
     say(error);
   }
-  for (const [name, source] of skillSources(kit, seat.role, skillDirsFor(team, roleName))) {
-    problems.push(...skillProblems(seat.role, name, source));
-  }
+  for (const [name, source] of skillSources(kit, seat.role, skillDirsFor(team, roleName))) problems.push(...skillProblems(seat.role, name, source));
+  problems.push(...toolProblems(kit, seat.role));
   for (const [path, sources] of Object.entries(harnessFileSources(kit, seat.harness, seat.role))) {
     for (const source of sources) if (!existsSync(source)) problems.push(`${seat.harness.label} lays down ${path} from ${source}, which is missing`);
   }

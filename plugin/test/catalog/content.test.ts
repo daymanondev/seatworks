@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import { renderPrompt, renderText, skillProblems } from "../../server/catalog/content.ts";
+import { renderPrompt, renderText, skillProblems, toolProblems } from "../../server/catalog/content.ts";
 import { seatProblems } from "../../server/catalog/seats.ts";
 import { resolveTeam } from "../../server/catalog/team.ts";
 import { makeKit } from "../kit.ts";
@@ -24,6 +24,17 @@ test("a seat's prompt ends with what its harness needs said against that agent's
   writeFileSync(join(kit.dir, "harness", "omp", "delta", "lead.md"), "Ask the supervisor.\n");
   assert.throws(() => renderPrompt(kit, lead, "omp", paths), /must not see: supervisor/);
   assert.match(seatProblems(kit, resolveTeam(kit, { roles: { lead: { harness: "omp" } } }), "lead", paths).join("\n"), /must not see: supervisor/, "so a Lead moved onto that agent is refused before anything is built");
+});
+
+test("a tool whose description shows a word its role must not see makes that role's seat unbuildable", () => {
+  const kit = makeKit();
+  const peer = kit.roles.find((role) => role.role === "peer")!;
+  assert.deepEqual(toolProblems(kit, peer), []);
+  const tools = JSON.parse(readFileSync(join(kit.dir, "mcp", "tools.json"), "utf-8"));
+  tools.peer[0].description = `Hand the task back; your ${peer.hidesWords![0]} is told.`;
+  writeFileSync(join(kit.dir, "mcp", "tools.json"), JSON.stringify(tools));
+  assert.deepEqual(toolProblems(kit, peer), [`the peer tools the peer is given show words it must not see: ${peer.hidesWords![0]}`]);
+  assert.match(seatProblems(kit, resolveTeam(kit), "peer", { guides: "/g", state: "/s" }).join("\n"), /the peer tools the peer is given show words it must not see/);
 });
 
 test("a placeholder the renderer does not know is refused rather than shipped", () => {
