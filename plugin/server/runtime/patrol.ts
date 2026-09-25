@@ -5,7 +5,7 @@ import type { SeatView, Seats } from "../core/ports.ts";
 import { TASK } from "../domain/task.ts";
 import type { Desk } from "../desk/desk.ts";
 import { loadIncidents, openFor, saidBefore } from "../desk/incidents.ts";
-import { type Ask, type Ledger, activeTasks, loadLedger, openAsksFrom } from "../desk/ledger.ts";
+import { type Ask, type Lane, type Ledger, type Task, activeTasks, loadLedger, openAsksFrom } from "../desk/ledger.ts";
 import { askLetters } from "../desk/ask-letters.ts";
 import { letters } from "../desk/letters.ts";
 import { type Project, loadConfig, projectOf } from "../desk/project.ts";
@@ -160,12 +160,23 @@ export class Patrol {
     }
   }
 
+  /**
+   * The round lists its seats before a step reads its ledger, so a seat that ledger names and the round did not list is
+   * looked for again: these are the ones a listing asked for now still misses.
+   */
+  private async missing(ids: string[]): Promise<Set<string>> {
+    if (ids.length === 0) return new Set();
+    const listed = new Set((await this.deps.seats.open()).map((seat) => seat.id));
+    return new Set(ids.filter((id) => !listed.has(id)));
+  }
+
   private async goneTasks(project: Project, ledger: Ledger, seats: SeatMap): Promise<void> {
     const { desk } = this.deps;
-    for (const task of Object.values(ledger.tasks).filter((entry) => TASK.may(entry.status, "lose") && entry.peer)) {
-      const gone = `${project.slug}:${task.id}`;
-      if (seats.has(task.peer!) || this.goneFlag.has(gone)) continue;
-      this.goneFlag.add(gone);
+    const key = (task: Task) => `${project.slug}:${task.id}`;
+    const unlisted = Object.values(ledger.tasks).filter((entry) => TASK.may(entry.status, "lose") && entry.peer && !seats.has(entry.peer) && !this.goneFlag.has(key(entry)));
+    const missing = await this.missing(unlisted.map((task) => task.peer!));
+    for (const task of unlisted.filter((entry) => missing.has(entry.peer!))) {
+      this.goneFlag.add(key(task));
       const lost = desk.moveTask(project, task.id, "lose", (entry) => {
         entry.peerGone = true;
       });
@@ -178,11 +189,12 @@ export class Patrol {
   private async goneLeads(project: Project, ledger: Ledger, seats: SeatMap): Promise<void> {
     const { desk } = this.deps;
     if (seats.size === 0) return;
-    for (const lane of Object.values(ledger.lanes).filter((entry) => entry.status === "open" && entry.lead && !seats.has(entry.lead))) {
-      const gone = `${project.slug}:${lane.id}:${lane.lead}`;
-      if (this.goneFlag.has(gone)) continue;
+    const key = (lane: Lane) => `${project.slug}:${lane.id}:${lane.lead}`;
+    const unlisted = Object.values(ledger.lanes).filter((entry) => entry.status === "open" && entry.lead && !seats.has(entry.lead) && !this.goneFlag.has(key(entry)));
+    const missing = await this.missing(unlisted.map((lane) => lane.lead!));
+    for (const lane of unlisted.filter((entry) => missing.has(entry.lead!))) {
       const posted = await desk.post(await desk.supervisorFor(project, lane.opener), letters.leadGone(lane));
-      if (posted !== "nobody") this.goneFlag.add(gone);
+      if (posted !== "nobody") this.goneFlag.add(key(lane));
     }
   }
 
@@ -190,10 +202,12 @@ export class Patrol {
     const { desk } = this.deps;
     const { askRemindMinutes, maxReminders } = this.deps.source.teamFor(project).attention;
     const waited = (ask: Ask) => now - (ask.remindedAt ?? ask.openedAt) >= askRemindMinutes * 60_000;
-    for (const ask of Object.values(ledger.asks).filter((entry) => entry.status === "open")) {
+    const open = Object.values(ledger.asks).filter((entry) => entry.status === "open");
+    const missing = await this.missing(open.filter((ask) => !seats.has(ask.to)).map((ask) => ask.to));
+    for (const ask of open) {
       const lane = ask.lane ? ledger.lanes[ask.lane] : undefined;
       // An ask whose reader has gone goes to whoever supervises now, a Lead's own ask included.
-      if (!seats.has(ask.to)) {
+      if (missing.has(ask.to)) {
         const to = await desk.supervisorFor(project, lane?.opener);
         if (!to || to === ask.to) continue;
         const moved = desk.transact(project, (current) => {

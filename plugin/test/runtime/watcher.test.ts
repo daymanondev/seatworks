@@ -5,7 +5,7 @@ import { test } from "node:test";
 import { stateRoot } from "../../server/core/paths.ts";
 import { loadConfig, saveConfig } from "../../server/desk/project.ts";
 import { settle } from "./fake-timeline.ts";
-import { harness, laneWithPeer } from "./harness.ts";
+import { harness, heldRound, laneWithPeer } from "./harness.ts";
 
 /** The machine settings, with the watch judged by `judge`. */
 function judgedBy(judge: string): void {
@@ -144,19 +144,7 @@ test("a case is not given up while its Watcher is still being seated: its time r
 
 test("a case sent while a round runs is not given up by that round, whose listing was read before its Watcher was seated", async (t) => {
   const { h, handBack, watchers, caseOf } = await watched();
-  const desk = h.runtime.desk;
-  const retell = desk.retell.bind(desk);
-  let reached = () => {};
-  let release = () => {};
-  const inRound = new Promise<void>((resolve) => (reached = resolve));
-  const held = new Promise<void>((resolve) => (release = resolve));
-  t.mock.method(desk, "retell", async (...args: Parameters<typeof retell>) => {
-    reached();
-    await held;
-    return retell(...args);
-  });
-  const round = h.tick();
-  await inRound;
+  const { round, release } = await heldRound(h, t);
   await handBack("Rounded.");
   release();
   await round;

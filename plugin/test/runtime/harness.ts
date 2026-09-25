@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { afterEach } from "node:test";
+import { type TestContext, afterEach } from "node:test";
 import { fileURLToPath } from "node:url";
 import { PaseoHost } from "../../server/adapters/paseo/host.ts";
 import { type SensorSpec, loadKit } from "../../server/catalog/kit.ts";
@@ -282,4 +282,22 @@ export async function laneWithPeer(settings?: Record<string, unknown>, options?:
   const peer = h.ledger().tasks["L1-T1"]!.peer!;
   await h.tick();
   return { h, sup, lane, peer, timeline: h.timelineOf(peer) };
+}
+
+/** A round started and held once it has listed the seats, until `release` lets it go on to its end. */
+export async function heldRound(h: ReturnType<typeof harness>, t: TestContext) {
+  const desk = h.runtime.desk;
+  const retell = desk.retell.bind(desk);
+  let reached = () => {};
+  let release = () => {};
+  const inRound = new Promise<void>((resolve) => (reached = resolve));
+  const held = new Promise<void>((resolve) => (release = resolve));
+  t.mock.method(desk, "retell", async (...args: Parameters<typeof retell>) => {
+    reached();
+    await held;
+    return retell(...args);
+  });
+  const round = h.tick();
+  await inRound;
+  return { round, release };
 }
