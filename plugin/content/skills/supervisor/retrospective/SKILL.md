@@ -12,7 +12,7 @@ You turn what the project state already recorded into updated rows of `$SEATWORK
 | Class | It looks like | The fix lives in |
 |---|---|---|
 | Specification | work nobody asked for, an invented contract, a different problem solved | the directive's fields, the brief's fields, the prompt that let work start without them |
-| Coordination | two writers on one path, a question that died, a result at the wrong agent, mail ignored | the tool fields (`add_tasks`, `done`, `ask`), what mail each role gets, what each layer sees |
+| Coordination | two writers on one path, a question that died, a result at the wrong agent, mail ignored | the fields of a task layout, a hand-back or an ask, what mail each role gets, what each layer sees |
 | Verification | a proof that passed without the behavior, a summary taken as evidence, a finding after a merge | acceptance wording, when a Lead starts a review, the project gate |
 
 ## Procedure

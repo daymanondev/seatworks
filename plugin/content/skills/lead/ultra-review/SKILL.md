@@ -37,7 +37,7 @@ Scouts read the lane branch, or a task's branch when started with that `task`. W
 - its units' files and rule text, and its directives and concerns, each with a search angle no other scout on that unit has, because copies of one focus find the same bugs twice;
 - warnings from earlier rounds: confirmed fixes, rejected false positives, open routes, where a rejection is a warning, not a filter;
 - static inspection only: run nothing that builds or tests, since ten scouts building at once collide;
-- the ask, returned in `done` findings: every candidate, speculative ones included, with severity `P0`–`P3`, confidence, `file:line`, evidence, contract violated, plausible failure, durable fix hypothesis and a read-only disconfirming check; and each assigned file marked reviewed, or skipped with a reason.
+- the ask, returned as findings in its hand-back: every candidate, speculative ones included, with severity `P0`–`P3`, confidence, `file:line`, evidence, contract violated, plausible failure, durable fix hypothesis and a read-only disconfirming check; and each assigned file marked reviewed, or skipped with a reason.
 
 End your turn; handbacks arrive as mail. Share no candidate before consolidation, and restart only a scout that went silent without handing back, under its original title and assignment. `cut` each scout once its findings are in the report. Then fill the report's TODOs: each file's coverage status, findings `F001`, `F002`, ... grouped by root cause with the fields above and no raw candidate list, one Verification Queue line per finding, and the strongest reason not to merge yet; with no candidates, `No candidates reported.` under Findings.
 
