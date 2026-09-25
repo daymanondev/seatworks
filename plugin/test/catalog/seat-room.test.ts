@@ -29,13 +29,20 @@ function open(env: Record<string, string>, args: string[]): Promise<{ code: numb
 }
 
 test("a launch the plugin did not configure is refused outright, and the agent never starts on the owner's own settings", async () => {
-  for (const args of [["--print"], []]) {
+  for (const args of [["--print"], [], ["--version", "--print"]]) {
     const { launched, env } = seat();
     const { code, stderr } = await open(env, args);
     assert.equal(code, 2, args.join(" "));
     assert.equal(existsSync(launched), false);
     assert.match(stderr, /^Seat room: ACME_HOME is unset, so this seat would run on your own settings/);
   }
+});
+
+test("Paseo asking the agent's version for its model catalog is answered even unconfigured, since that starts no session", async () => {
+  const { launched, env } = seat();
+  const { code } = await open(env, ["--version"]);
+  assert.equal(code, 0);
+  assert.equal(readFileSync(launched, "utf-8"), " --version\n");
 });
 
 test("a seat the plugin configured starts the agent on its own settings", async () => {
