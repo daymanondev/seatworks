@@ -142,6 +142,15 @@ test("a sensor's key is saved but never read back, and a save carrying what was 
   assert.doesNotMatch(readFileSync(file, "utf-8"), /kept-on-this-machine/, "a save without it removes it");
 });
 
+test("the watch is judged only by off, a sensor the kit has, or a role that can judge, and any other name is refused with the choices", async () => {
+  const { call } = served();
+  const read = await call("seatworks.settings.read");
+  const refused = await call("seatworks.settings.write", { revision: read.revision, values: { attention: { judge: "oracle" } } });
+  assert.equal(refused.status, "invalid");
+  assert.match(refused.error, /judged by oracle, which is neither off, a sensor the kit knows nor a role that can judge \(none\)/);
+  assert.equal((await call("seatworks.settings.write", { revision: read.revision, values: { attention: { judge: "off" } } })).status, "saved");
+});
+
 test("a project can be registered by its path before any agent has run in it", async () => {
   const { call } = served();
   const root = realpathSync(tempDir("sw2-rpc-project-"));
