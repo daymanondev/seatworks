@@ -93,3 +93,21 @@ test("a Lead changes what a task owns: the record and its Peer see the paths it 
   assert.equal(peer, h.ledger().tasks["L1-T1"]!.peer);
 });
 
+
+test("a task's brief names what is written beside it and who owns what, and one in the lane's copy only the tasks in copies of their own", async () => {
+  const { h, lane, peer } = await laneWithPeer();
+  const lead = lane.lead!;
+  await h.call(lead, "lead", "add_tasks", { tasks: [task("n", ["n.txt"]), task("b", ["b.txt"], { parallel: true }), task("c", ["c.txt"], { parallel: true }), task("w", ["w.txt"], { after: ["b", "c"] })] });
+  const brief = (id: string) => h.agents.get(h.ledger().tasks[id]!.peer!)!.prompt ?? "";
+  assert.match(brief("L1-T3"), /\n\nBeside you, in copies of their own or the lane's: L1-T1 \(Clean build\) owns a\.txt; L1-T2 \(Task n\) owns n\.txt; L1-T4 \(Task c\) owns c\.txt\. What they own may be missing or half-done in your copy: leave it to them, and ask if you need it first\.\n\nYou are on branch/, "L1-T5 comes after it, so it is not beside it");
+  assert.match(brief("L1-T4"), /Beside you, in copies of their own or the lane's: L1-T1 \(Clean build\) owns a\.txt; L1-T2 \(Task n\) owns n\.txt; L1-T3 \(Task b\) owns b\.txt\./);
+  // Added apart, it waits for the lane's copy with no after naming a task: it comes after whichever holds the copy, not beside it.
+  await h.call(lead, "lead", "add_tasks", { tasks: [task("z", ["z.txt"])] });
+
+  h.commit(lane.worktree!, "a.txt", "A\n");
+  await h.call(peer, "peer", "done", { outcome: "complete", summary: "a" });
+  await h.idle(peer);
+  await h.call(lead, "lead", "accept", { task: "L1-T1" });
+  assert.equal(h.ledger().tasks["L1-T2"]!.peer, peer, "the Peer kept in the lane's copy takes the task waiting there");
+  assert.match(h.heard(peer).at(-1)!, /\n\nBeside you, in copies of their own and merged into this one as each is accepted: L1-T3 \(Task b\) owns b\.txt; L1-T4 \(Task c\) owns c\.txt\. What they own may be missing or half-done here: leave it to them, and ask if you need it first\.\n\nYou work on branch/);
+});

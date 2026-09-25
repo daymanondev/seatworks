@@ -72,7 +72,10 @@ test("every letter a Peer, a reviewer or a Lead can be sent carries none of the 
   const amendment = { at: 0, by: "agent-1", why: "the Human wants an upsert", was: { goal: "insert" } };
   const late = [letters.later(call, { ok: true, text: "done" }), letters.later(call, { ok: false, text: "no" }), letters.unanswered(call)];
   const worker = [
-    taskBrief(task, lane),
+    taskBrief(task, lane, []),
+    taskBrief(task, lane, [], true),
+    taskBrief({ ...task, mode: "parallel" }, lane, [{ ...task, id: "L1-T3", owned: ["src/other.js"] }]),
+    taskBrief(task, lane, [{ ...task, id: "L1-T3", mode: "parallel", owned: [] }], true),
     reviewBrief({ ...task, id: "L1-R2", kind: "review" }, task, "Is rounding right?", lane.branch),
     ...[letters.rework(task, "fix it"), letters.nudge(task, "done"), letters.message("your lead", "hi", sending), letters.amended(task, amendment, "worker")],
     ...[letters.onHold(lane, "the migration drops a table", task), letters.resumed(lane, "go on", task), askLetters.answered(ask), ...late],
@@ -84,6 +87,7 @@ test("every letter a Peer, a reviewer or a Lead can be sent carries none of the 
     ...[letters.handback(task, "/h.md", "Outcome: complete", "agent-3", "lead"), letters.handback({ ...task, kind: "review" }, "/h.md", "Verdict: accept", "agent-4", "lead")],
     ...[true, false].flatMap((last) => [mergeLetters.merged(task, counts, ["src/other.js"], "passed", last), mergeLetters.merged(task, undefined, [], "passed", last)]),
     ...(["left", "clean", { not: "it has uncommitted changes" }] as const).map((settling) => mergeLetters.conflict(task, ["a.js"], lane.branch, settling)),
+    ...[mergeLetters.waits(task, "the lane's working copy has uncommitted changes (M a.js), and L1-T2 holds it", "L1-T2"), mergeLetters.waits(task, "the lane's working copy has uncommitted changes (?? junk)", undefined)],
     ...[mergeLetters.mergeFailed(task, "git merge failed", "CONFLICT"), letters.stalled(task, "bye", 2, { what: "Bash: npm test", refused: true }), letters.gone(task)],
     ...[letters.failed("agent-3", 1, "Peer agent-3", "overloaded", "lead"), letters.permission("agent-3", "Peer agent-3", { id: "p1", name: "Bash", title: "npm install" }, "lead")],
     ...[letters.incident(incident, { lane, task }, true, "lead"), letters.amended(lane, amendment, "lead"), letters.notStarted(task), letters.held(task, "L1-T1 is not accepted yet.", "It starts by itself.")],

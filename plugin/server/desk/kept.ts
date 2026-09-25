@@ -1,4 +1,5 @@
 import { landedRef } from "../core/git.ts";
+import { besideOf } from "./briefs.ts";
 import { keptLetters } from "./kept-letters.ts";
 import { type AgentRef, type Lane, type Ledger, type Task, loadLedger, tasksOf } from "./ledger.ts";
 import type { Project } from "./project.ts";
@@ -24,7 +25,7 @@ export async function keptTaker(desk: DeskServices, project: Project, kept: Agen
 
 /** Mails a task's brief to the kept Peer the claim bound it to, and records the hand-off. */
 export async function handOver(desk: DeskServices, project: Project, lane: Lane, task: Task, from: string): Promise<void> {
-  await desk.ctx.post(task.peer, keptLetters.brief(task, lane));
+  await desk.ctx.post(task.peer, keptLetters.brief(task, lane, besideOf(loadLedger(project.state), task)));
   desk.ctx.event(project, { kind: "task.handed", task: task.id, peer: task.peer!, from });
 }
 

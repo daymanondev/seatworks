@@ -28,6 +28,7 @@ test("a Peer whose task is accepted stays in the lane's copy, takes the task wai
   const second = h.ledger().tasks["L1-T2"]!;
   assert.deepEqual([second.peer, second.status, peers(h).length, h.agents.get(peer)!.archivedAt], [peer, "running", 1, null], "the kept Peer takes it, and no second Peer starts");
   assert.match(h.heard(peer).at(-1)!, /^TASK L1-T2: Second$/m);
+  assert.match(h.heard(peer).at(-1)!, /^Beside you: nobody now\.$/m, "a list its last brief gave does not stand");
   assert.deepEqual(sentBy({ clientMessageId: h.agents.get(peer)!.sentIds.at(-1) }), ["brief"], "its brief is the desk's, as a new Peer's first prompt is");
   assert.match(h.heard(lead).join("\n"), new RegExp(`Started L1-T2 in the lane's working copy on ${lane.branch}, with its Peer ${peer}, kept from L1-T1\\.`));
 

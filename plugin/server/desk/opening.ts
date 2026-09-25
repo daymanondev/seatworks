@@ -7,7 +7,7 @@ import { TASK } from "../domain/task.ts";
 import type { Issue } from "./issue.ts";
 import { type Lane, type Ledger, type Task, activeTasks, loadLedger, ownCopyHolder } from "./ledger.ts";
 import { outside } from "../core/text.ts";
-import { taskBrief } from "./briefs.ts";
+import { besideOf, taskBrief } from "./briefs.ts";
 import { holderOf } from "./holder.ts";
 import { directiveFor } from "./directive.ts";
 import { type Project, loadConfig, serialOnlyOf } from "./project.ts";
@@ -176,7 +176,7 @@ export async function startPeer(desk: DeskServices, project: Project, lane: Lane
     const peer = await agents.start(project, slot, how.role, {
       parent: how.parent,
       title: `${task.id} ${task.title}`,
-      prompt: taskBrief(task, lane),
+      prompt: taskBrief(task, lane, besideOf(loadLedger(project.state), task)),
       labels: { "seatworks.lane": lane.id, "seatworks.task": task.id, "seatworks.role": how.role },
     });
     ctx.setTask(project, task.id, (entry) => {
