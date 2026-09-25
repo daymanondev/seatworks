@@ -27,9 +27,12 @@ test("a decision only the Human can make waits in their queue, and what they sai
 
   const unsaid = await h.call(sup, "supervisor", "record_human_answer", { question: "H1", choice: "Delete", quote: "delete them all" });
   assert.match(unsaid.text, /The Human's own words "delete them all" are not in this chat/);
-  h.timelineOf(sup).add({ type: "user_message", text: "Hmm.  Archive them,\nplease." });
+  h.timelineOf(sup).add({ type: "user_message", text: "Hmm.  Archive them,\nplease.", clientMessageId: "app-1" });
   h.timelineOf(sup).add({ type: "user_message", text: "SEEN L1-T1 hand back", clientMessageId: "sw2-handback-1" });
   assert.match((await h.call(sup, "supervisor", "record_human_answer", { question: "H1", choice: "Delete", quote: "seen l1-t1 hand back" })).text, /are not in this chat/, "a letter from the desk is not the Human's word");
+  // As Paseo rebuilds a history after a daemon restart: every message without its id, the desk's letters too.
+  h.timelineOf(sup).add({ type: "user_message", text: "LANDED L1: delete the old invoices" });
+  assert.match((await h.call(sup, "supervisor", "record_human_answer", { question: "H1", choice: "Delete", quote: "delete the old invoices" })).text, /are not in this chat/, "a message that lost its id may be the desk's");
   assert.match((await h.call(sup, "supervisor", "record_human_answer", { question: "H1", choice: "Keep", quote: "archive them, please" })).text, /Keep is none of H1's options: Delete, Archive, or decline or cancel\./);
   const recorded = await h.call(sup, "supervisor", "record_human_answer", { question: "h1", choice: "Archive", quote: "archive them, please!" });
   assert.equal(recorded.text, "H1 is answered: Archive. Lane L1 is still on hold for it: resume_lane it once the answer is carried into the lane.");
@@ -56,7 +59,7 @@ test("a lane that went on without the Human's answer to a costly question stops 
   await h.idle(sup);
   assert.match(h.agents.get(sup)!.sent.join("\n"), /REPORT L1 \(Build\): ready to land\n\nIt is on hold: it went on without the Human's answer to H1/);
 
-  h.timelineOf(sup).add({ type: "user_message", text: "No. Don't touch invoices at all." });
+  h.timelineOf(sup).add({ type: "user_message", text: "No. Don't touch invoices at all.", clientMessageId: "app-2" });
   assert.match((await h.call(sup, "supervisor", "record_human_answer", { question: "H1", choice: "decline", quote: "no" })).text, /^H1 is declined: decline\. Lane L1 is still on hold for it/);
 });
 

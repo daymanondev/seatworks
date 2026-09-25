@@ -36,6 +36,14 @@ test("a Lead reads what its Peer did, a numbered step a line, with no output, no
   assert.match((await h.call(lane.lead!, "lead", "record", { of: "L1-T1", limit: 2.5 })).text, /limit must be a whole number/);
 });
 
+test("a record credits the Human only with a message that kept its id, which a daemon restart takes from every message", async () => {
+  const { h, lane, timeline } = await laneWithPeer();
+  timeline.add({ type: "user_message", text: "Use the cart helper" });
+  timeline.add({ type: "user_message", text: "Name it total", clientMessageId: "app-1" });
+  const lines = (await h.call(lane.lead!, "lead", "record", { of: "L1-T1" })).text.split("\n").slice(1);
+  assert.deepEqual(lines, ["#1 got a message: Use the cart helper", "#2 the Human wrote: Name it total"]);
+});
+
 test("the Supervisor reads a lane's Lead and any task; a Lead only the tasks of its own lane", async () => {
   const { h, sup, lane } = await laneWithPeer();
   h.timelineOf(lane.lead!).add({ type: "assistant_message", text: "Splitting the build into one task." });

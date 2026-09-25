@@ -67,8 +67,11 @@ function lineOf(item: Record<string, unknown>, quirks: Quirks): string | undefin
     return line ? `${label} ${line}` : undefined;
   };
   switch (item.type) {
-    case "user_message":
-      return sentBy(item)[0] === "person" ? quoted("the Human wrote:", str(item.text), 300) : quoted("got a letter:", str(item.text).split("\n")[0]!, 120);
+    case "user_message": {
+      const from = sentBy(item)[0];
+      if (from === "person") return quoted("the Human wrote:", str(item.text), 300);
+      return from === "unknown" ? quoted("got a message:", str(item.text), 300) : quoted("got a letter:", str(item.text).split("\n")[0]!, 120);
+    }
     case "assistant_message":
       return quoted("said:", str(item.text), 300);
     case "reasoning":

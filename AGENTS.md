@@ -88,6 +88,9 @@ runs in a HOME of its own, and a `console.error` the test did not ask for fails 
 - History comes back projected whatever the request asks: a tool call is one entry in its latest
   state and a run of text chunks one message. An entry's `seqEnd` can run past the entries after it,
   and an `after` page returns whole entries, restating rows before its cursor.
+- Every message sent into a chat carries a `clientMessageId`: the client makes one when the sender gives none. A
+  daemon restart, or a read of an archived agent, rebuilds the history from the agent's own transcript with none, so
+  a user message without one has no known sender.
 - `timeline.subscribe()` delivers live events only, prose and reasoning included. After a reconnect
   it sends `subscription_restored` and none of what was missed; a failed one sends `error` and is
   released. `timeline.append` writes a durable item into an agent's own timeline.

@@ -152,10 +152,10 @@ test("nothing is asked with the watch off or a sensor without its key, and a sen
   assert.match(said(), /assessments\.log write failed/, "a record that cannot be written is reported, and the desk goes on");
 });
 
-/** A turn of the Peer's: its instruction, from whoever `from` names, then its calls, one after another. */
+/** A turn of the Peer's: its instruction, in a letter of the kind `from` names, then its calls, one after another. */
 function turn(timeline: FakeTimeline, id: string, instruction: string, from: string, ...calls: Record<string, unknown>[]): void {
   timeline.beat("turn_started", id);
-  timeline.add({ type: "user_message", text: instruction, ...(from === "person" ? {} : { clientMessageId: `sw2-${from}-${id}` }) }, id);
+  timeline.add({ type: "user_message", text: instruction, clientMessageId: `sw2-${from}-${id}` }, id);
   calls.forEach((detail, index) => timeline.add({ type: "tool_call", callId: `${id}-${index}`, name: String(detail.name ?? detail.type), status: "completed", detail }, id));
 }
 
