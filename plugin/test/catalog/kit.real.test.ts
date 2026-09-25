@@ -57,6 +57,9 @@ test("the shipped kit resolves to a complete team, and every role's seat builds 
   }
 });
 
+/** What the git shim refuses every seat, as each agent's own rules refuse it before git runs. */
+const DESK_GIT = ["push", "pull", "merge", "checkout", "switch", "reset", "rebase", "cherry-pick", "update-ref", "stash", "worktree"];
+
 test("every role builds on every agent the kit ships, each in that agent's own terms", (t) => {
   const kit = loadKit(pluginRoot);
   const base = resolveTeam(kit, { mcp: Object.fromEntries(Object.keys(kit.mcp).map((id) => [id, { enabled: true }])) });
@@ -77,7 +80,7 @@ test("every role builds on every agent the kit ships, each in that agent's own t
     // Mail wakes a coordinating seat; one that sleeps in its turn only holds the turn open.
     const waits = !["lead", "supervisor"].includes(role.role);
     if (harness.id === "claude") {
-      assert.ok(["Bash(git push *)", "Bash(git -C * push *)"].every((rule) => settings.permissions.deny.includes(rule)), `${where}: a seat does not push, with -C or without`);
+      for (const command of DESK_GIT) assert.ok([`Bash(git ${command} *)`, `Bash(git -C * ${command} *)`].every((rule) => settings.permissions.deny.includes(rule)), `${where}: a seat does not git ${command}, with -C or without`);
       assert.equal(["Edit", "Write", "MultiEdit"].some((tool) => settings.permissions.deny.includes(tool)), !edits, `${where}: edits files only where the role may`);
       assert.equal(settings.permissions.deny.includes("Bash(sleep *)"), !waits, `${where}: sleeps only where the role may`);
     }
@@ -90,13 +93,13 @@ test("every role builds on every agent the kit ships, each in that agent's own t
       assert.ok(catalog.models.length > 0 && catalog.models.every((model: Record<string, unknown>) => model.multi_agent_version === null), `${where}: no model offers native agents`);
       assert.ok(settings.sandbox_workspace_write.writable_roots.every((path: string) => path.startsWith("/state/demo/")), `${where}: writes into the state only where its content says`);
       const rules = readFileSync(join(dir, "rules", "seatworks.rules"), "utf-8");
-      assert.match(rules, /"git", "push"/, `${where}: carries the rules every seat has`);
+      for (const command of DESK_GIT) assert.match(rules, new RegExp(`\\["git", (\\[[^\\]]*)?"${command}"`), `${where}: a seat does not git ${command}`);
       assert.equal(/"git", "commit"/.test(rules), ["supervisor", "lead"].includes(role.role), `${where}: commits only where the role commits`);
       assert.equal(/pattern = \["sleep"\]/.test(rules), !waits, `${where}: sleeps only where the role may`);
     }
     if (harness.id === "omp") {
       const denied = (settings.bash?.patterns ?? []).filter((rule: { approval: string }) => rule.approval === "deny").map((rule: { match: string }) => rule.match);
-      assert.ok(denied.includes("git push*") && denied.includes("git -C * push*"), `${where}: a seat does not push, with -C or without`);
+      for (const command of DESK_GIT) assert.ok(denied.includes(`git ${command}*`) && denied.includes(`git -C * ${command}*`), `${where}: a seat does not git ${command}, with -C or without`);
       assert.equal(denied.includes("git commit*"), ["supervisor", "lead", "reviewer"].includes(role.role), `${where}: commits only where the role may`);
       assert.equal(denied.includes("sleep *"), !waits, `${where}: sleeps only where the role may`);
       assert.equal(settings.ask?.enabled, false, `${where}: nobody is there to answer a question that stops the turn`);
@@ -109,7 +112,7 @@ test("every role builds on every agent the kit ships, each in that agent's own t
     if (harness.id === "opencode") {
       const { bash, task, question, external_directory: outside } = settings.permission ?? {};
       assert.equal(Object.keys(bash)[0], "*", `${where}: the allow comes first, since the last rule that matches wins`);
-      assert.ok(bash["git push *"] === "deny" && bash["git -C * push *"] === "deny", `${where}: a seat does not push, with -C or without`);
+      for (const command of DESK_GIT) assert.ok(bash[`git ${command} *`] === "deny" && bash[`git -C * ${command} *`] === "deny", `${where}: a seat does not git ${command}, with -C or without`);
       assert.equal(bash["git commit *"] === "deny", ["supervisor", "lead", "reviewer"].includes(role.role), `${where}: commits only where the role may`);
       assert.equal(bash["sleep *"] === "deny", !waits, `${where}: sleeps only where the role may`);
       assert.deepEqual([task, question, outside], ["deny", "deny", "allow"], `${where}: no subagents, no question that stops the turn, and nothing waiting on a person`);

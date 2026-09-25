@@ -29,9 +29,6 @@
       "git am": "deny",
       "git am *": "deny",
       "git -C * am *": "deny",
-      "git pull": "deny",
-      "git pull *": "deny",
-      "git -C * pull *": "deny",
       "git config": "deny",
       "git config *": "deny",
       "git -C * config *": "deny"

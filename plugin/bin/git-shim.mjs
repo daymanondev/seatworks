@@ -6,7 +6,7 @@ const [git, ...argv] = process.argv.slice(2);
 
 const VALUED = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--super-prefix", "--config-env", "--list-cmds", "--attr-source"]);
 
-const DESKS = new Set(["push", "merge", "checkout", "switch", "reset", "rebase", "cherry-pick", "update-ref", "stash"]);
+const DESKS = new Set(["push", "pull", "merge", "checkout", "switch", "reset", "rebase", "cherry-pick", "update-ref", "stash"]);
 
 const OWN = new Set([...DESKS, "add", "blame", "branch", "commit", "config", "diff", "fetch", "grep", "log", "ls-files", "rev-parse", "show", "status", "worktree"]);
 
@@ -17,11 +17,20 @@ function split(args) {
   return { globals: args.slice(0, at), command: args[at], rest: args.slice(at + 1) };
 }
 
+/** Whether `arg` asks git branch to force, delete, rename or overwrite: git takes a long option cut short, as `--del`, and a value such as `-committerdate` is no cluster of flags. */
+function rewritesBranch(arg) {
+  if (arg.startsWith("--")) {
+    const long = arg.slice(2).split("=")[0];
+    return long !== "" && ["force", "delete", "move"].some((name) => name.startsWith(long));
+  }
+  return /^-[acCdDfhilmMqrtuv]+$/.test(arg) && /[fdDmMC]/.test(arg);
+}
+
 /** Why `command` with `rest` is the desk's to run, not a seat's; nothing when it is the seat's. */
 function refusal(command, rest) {
   if (DESKS.has(command)) return `git ${command} moves branches or working copies, and that is the desk's to do`;
   if (command === "worktree" && rest[0] !== "list") return "git worktree changes working copies, and that is the desk's to do";
-  if (command === "branch" && rest.some((arg) => arg === "--force" || /^-[^-]*[fDM]/.test(arg))) return "git branch that forces, deletes or moves a branch is the desk's to do";
+  if (command === "branch" && rest.some(rewritesBranch)) return "git branch that forces, deletes, renames or overwrites a branch is the desk's to do";
   return undefined;
 }
 

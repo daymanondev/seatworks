@@ -81,14 +81,6 @@
         "approval": "deny"
       },
       {
-        "match": "git pull*",
-        "approval": "deny"
-      },
-      {
-        "match": "git -C * pull*",
-        "approval": "deny"
-      },
-      {
         "match": "git config*",
         "approval": "deny"
       },

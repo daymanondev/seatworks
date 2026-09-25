@@ -40,8 +40,11 @@ test("a seat's git refuses what only the desk does to branches and copies, howev
   assert.ok(refused("-C", root, "sw", "-c", "elsewhere"), "nor one kept in the repository's config");
   assert.ok(refused("--no-pager", `--git-dir=${join(root, ".git")}`, `--work-tree=${root}`, "checkout", "-b", "x"));
   assert.ok(refused("-C", root, "branch", "-D", "main"));
+  // A pull is a merge, and deleting, renaming or overwriting a branch leaves the desk's record naming one that is gone; git takes a long option cut short.
+  assert.ok(refused("-C", root, "pull", "--no-rebase", ".", "main"), "a pull merges as a merge does");
+  for (const flags of [["-d"], ["--delete"], ["--del"], ["-m", "moved"], ["--move", "moved"], ["--mo", "moved"], ["-C", "copied"], ["-vd"], ["--forc", "HEAD"]]) assert.ok(refused("-C", root, "branch", ...flags.slice(0, 1), "main", ...flags.slice(1)), `git branch ${flags[0]}`);
   assert.ok(refused("-C", root, "worktree", "add", join(root, "..", "aside")));
-  for (const allowed of [["status", "--short"], ["branch"], ["worktree", "list"], ["log", "--oneline"]]) {
+  for (const allowed of [["status", "--short"], ["branch"], ["branch", "-vv"], ["branch", "-c", "main", "copy"], ["branch", "aside"], ["branch", "--sort", "-committerdate"], ["worktree", "list"], ["log", "--oneline"]]) {
     const ran = run(shim, "-C", root, ...allowed);
     assert.equal(ran.status, 0, `${allowed.join(" ")}: ${ran.stderr}`);
   }
