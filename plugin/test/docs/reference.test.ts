@@ -43,7 +43,7 @@ const DRAWN: Record<string, () => string[]> = {
   attention: () => [
     "| Attention value | Default |",
     "|---|---|",
-    ...Object.entries(kit.attention).map(([name, value]) => `| \`${name}\` | ${typeof value === "string" ? "a pattern in `catalog/ecosystem.json`" : String(value)} |`),
+    ...Object.entries(kit.attention).map(([name, value]) => `| \`${name}\` | ${name in kit.ecosystem.watch ? "a pattern in `catalog/ecosystem.json`" : typeof value === "string" ? `\`${value}\`` : String(value)} |`),
   ],
 };
 

@@ -60,7 +60,13 @@ export const AttentionChoice = z.strictObject({
   longTurnMinutes: z.number().int().min(1).optional(),
   incidentsPerDay: z.number().int().min(0).optional(),
   questionsPerDay: z.number().int().min(0).optional(),
+  judge: z.string().min(1).optional(),
 });
+
+/** A sensor's key buys paid calls, so it is kept on this machine only and the screen never reads it back: it sees KEPT. */
+const SensorChoice = z.strictObject({ key: z.string().min(1).optional() });
+
+export const KEPT = "kept, not shown";
 
 const FlowChoice = z.strictObject({
   live: z.boolean().optional(),
@@ -74,6 +80,7 @@ export const LayerSchema = z.strictObject({
   rules: z.string().optional(),
   flow: FlowChoice.optional(),
   attention: AttentionChoice.optional(),
+  sensor: z.record(z.string(), SensorChoice).optional(),
 });
 
 export type Layer = z.infer<typeof LayerSchema>;

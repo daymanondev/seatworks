@@ -141,8 +141,8 @@ export function makeKit(): Kit {
   });
   put(dir, "catalog/mcp/docs/rule.md", "Look library APIs up in the docs.\n");
   // The fixture carries tool sets like the real kit, because a role names one and the kit is asked for it.
-  // The shipped ecosystem and Paseo's tools are the world's, not this fixture's to make up.
-  for (const name of ["ecosystem.json", "paseo.json"]) put(dir, `catalog/${name}`, readFileSync(new URL(`../catalog/${name}`, import.meta.url), "utf-8"));
+  // The shipped ecosystem, Paseo's tools and the watch's questions are the world's, not this fixture's to make up.
+  for (const name of ["ecosystem.json", "paseo.json", "checks.json"]) put(dir, `catalog/${name}`, readFileSync(new URL(`../catalog/${name}`, import.meta.url), "utf-8"));
   put(dir, "mcp/tools.json", {
     supervisor: [{ name: "open_lane" }, { name: "answer" }, { name: "status" }],
     lead: [{ name: "add_tasks" }, { name: "report" }, { name: "ask" }, { name: "status" }],

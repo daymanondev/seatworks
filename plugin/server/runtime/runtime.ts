@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { renderPrompt } from "../catalog/content.ts";
-import { type Kit, TEAM_SERVER, seatOf, watchPatterns } from "../catalog/kit.ts";
+import { type Kit, type SensorSpec, TEAM_SERVER, seatOf, watchPatterns } from "../catalog/kit.ts";
 import { type ModelCache, applyModels, fetchModels, listingProviders } from "../catalog/models.ts";
 import { applyRole, gitShim, seatEnv } from "../catalog/launch.ts";
 import { applyReconcile, reloadDaemon } from "../catalog/providers.ts";
@@ -9,7 +9,7 @@ import { placeGuides, seatDir, seedRecords, sweepSnapshots } from "../catalog/se
 import { stampKit } from "../upkeep/migrate.ts";
 import { type IndexedProxy, indexedProxies } from "../catalog/servers.ts";
 import { guidesDir, home, nodeBin, outboxPath, spoolDir, stateRoot } from "../core/paths.ts";
-import type { AgentConfig, HookAgent, Host, HostHooks, PermissionRequested, Seats, SessionOpen, TurnEnded, Workspaces } from "../core/ports.ts";
+import type { AgentConfig, HookAgent, Host, HostHooks, Judge, PermissionRequested, Seats, SessionOpen, TurnEnded, Workspaces } from "../core/ports.ts";
 import type { CodeIndex } from "../desk/context.ts";
 import { Desk } from "../desk/desk.ts";
 import { laneOfLead, laneOnHold, loadLedger, openAsksTo, taskOfPeer } from "../desk/ledger.ts";
@@ -35,7 +35,7 @@ import { errorText } from "../core/errors.ts";
 const TROUBLES = 10;
 
 
-type RuntimeOptions = { outboxFile?: string; codeIndex?: (proxy: IndexedProxy) => CodeIndex; reloadDaemon?: () => Promise<boolean> };
+type RuntimeOptions = { outboxFile?: string; codeIndex?: (proxy: IndexedProxy) => CodeIndex; reloadDaemon?: () => Promise<boolean>; sensor?: (spec: SensorSpec, key: string) => Judge };
 
 export class Runtime implements HostHooks {
   readonly kit: Kit;
@@ -86,6 +86,7 @@ export class Runtime implements HostHooks {
       log,
       teamFor: (project) => this.source.teamFor(project),
       indexesFor: (project) => this.indexesFor(project),
+      sensor: options.sensor,
     });
     this.turns = new TurnRules({ kit, desk: this.desk, seats: this.seats, remember, log: (project, line) => this.log(project, line) });
     this.watches = new Watches({

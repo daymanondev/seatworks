@@ -38,7 +38,7 @@ const LONG_FILES: Record<string, number> = {
   "mcp/code.mjs": 308,
   "server/catalog/seats.ts": 370,
   "server/desk/slots.ts": 362,
-  "server/runtime/control.ts": 453,
+  "server/runtime/control.ts": 452,
   "server/runtime/runtime.ts": 389,
   "test/runtime/facts.test.ts": 401,
   "test/runtime/intake.test.ts": 559,
@@ -270,14 +270,15 @@ test("everything the plugin exports is imported by another file", () => {
   assert.deepEqual(unused, [], "Drop the export of what only its own file uses, and delete what nothing uses.");
 });
 
-test("the plugin's code names no agent or MCP server its catalog describes, apart from what NAMED still lists", () => {
-  const names = [...readdirSync(join(PLUGIN, "harness")), ...readdirSync(join(PLUGIN, "catalog", "mcp"))];
+test("the plugin's code names no agent, MCP server or sensor its catalog describes, apart from what NAMED still lists", () => {
+  const sensors = readdirSync(join(PLUGIN, "catalog", "sensor")).map((name) => name.replace(/\.json$/, ""));
+  const names = [...readdirSync(join(PLUGIN, "harness")), ...readdirSync(join(PLUGIN, "catalog", "mcp")), ...sensors];
   const found = new Set<string>();
   for (const path of product) {
     for (const name of names) if (sources.get(path)!.words.some((word) => new RegExp(`\\b${name}\\b`, "i").test(word))) found.add(`${path} > ${name}`);
   }
   const problems = [
-    ...[...found].filter((entry) => !NAMED.includes(entry)).map((entry) => `${entry}: an agent or a server is data; say what the code needs of it in its catalog file instead. NAMED only ever shrinks.`),
+    ...[...found].filter((entry) => !NAMED.includes(entry)).map((entry) => `${entry}: an agent, a server or a sensor is data; say what the code needs of it in its catalog file instead. NAMED only ever shrinks.`),
     ...NAMED.filter((entry) => !found.has(entry)).map((entry) => `${entry} is gone: take it off NAMED.`),
   ];
   assert.deepEqual(problems, []);

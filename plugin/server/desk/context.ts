@@ -1,5 +1,6 @@
 import type { Team } from "../catalog/team.ts";
-import type { Kit, RoleSpec } from "../catalog/kit.ts";
+import type { Kit, RoleSpec, SensorSpec } from "../catalog/kit.ts";
+import type { Judge } from "../core/ports.ts";
 import { LANE, type LaneMove } from "../domain/lane.ts";
 import { TASK, type TaskMove, type TaskStatus } from "../domain/task.ts";
 import type { DeskEvent } from "./events.ts";
@@ -45,6 +46,7 @@ type DeskDeps = {
   log: (project: Project, line: string) => void;
   teamFor: (project?: Project) => Team;
   indexesFor: (project: Project) => CodeIndex[];
+  sensor?: (spec: SensorSpec, key: string) => Judge;
 };
 
 export class DeskContext {
@@ -67,6 +69,11 @@ export class DeskContext {
 
   indexes(project: Project): CodeIndex[] {
     return this.deps.indexesFor(project);
+  }
+
+  /** A sensor asked over HTTP, where the host gave the desk a way to ask one. */
+  sensor(spec: SensorSpec, key: string): Judge | undefined {
+    return this.deps.sensor?.(spec, key);
   }
 
   log(project: Project, line: string): void {

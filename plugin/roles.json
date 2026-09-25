@@ -4,7 +4,8 @@
     "tickSeconds": 30,
     "leadIdleMinutes": 12,
     "askRemindMinutes": 15,
-    "maxReminders": 2
+    "maxReminders": 2,
+    "judge": "jev"
   },
   "roles": [
     {

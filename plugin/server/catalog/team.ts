@@ -8,6 +8,7 @@ import {
   type McpTransport,
   type ModelSpec,
   type RoleSpec,
+  type SensorSpec,
   PASEO_SERVER,
   TEAM_SERVER,
   supportsRole,
@@ -28,10 +29,13 @@ type McpState = {
   settings: Record<string, SettingValue>;
 };
 type RoleSeat = { role: RoleSpec; harness: HarnessSpec; model?: ModelSpec; thinking?: string; rules: string; mcp: string[] };
+/** Who answers the watch's questions, as the settings chose: a sensor, and its key where a settings layer keeps one. */
+type JudgeChoice = { id: string; sensor: SensorSpec; key?: string };
 export type Team = {
   roles: Record<string, RoleSeat>;
   mcp: Record<string, McpState>;
   attention: Attention;
+  judge?: JudgeChoice;
   rules: string;
   errors: string[];
 };
@@ -188,13 +192,26 @@ export function resolveTeam(kit: Kit, machine: Layer = {}, project: Layer = {}, 
     const seat = role.follows === undefined ? own[role.role] : resolveRole(kit, role, layers, mcp, errors, origin);
     if (seat) roles[role.role] = seat;
   }
+  const attention = { ...kit.attention, ...stripUndefined(machine.attention), ...stripUndefined(project.attention) };
   return {
     roles,
     mcp,
-    attention: { ...kit.attention, ...stripUndefined(machine.attention), ...stripUndefined(project.attention) },
+    attention,
+    judge: judgeOf(kit, attention.judge, layers, errors),
     rules: [machine.rules, project.rules].filter((text) => text && text.trim()).join("\n\n"),
     errors,
   };
+}
+
+function judgeOf(kit: Kit, id: string, layers: Layer[], errors: string[]): JudgeChoice | undefined {
+  if (id === "off") return undefined;
+  const sensor = kit.sensors[id];
+  if (!sensor) {
+    errors.push(`The watch is set to be judged by ${id}, which is neither off nor a sensor the kit knows (${Object.keys(kit.sensors).join(", ") || "none"})`);
+    return undefined;
+  }
+  const key = layers.map((layer) => layer.sensor?.[id]?.key).filter(Boolean).at(-1);
+  return { id, sensor, ...(key ? { key } : {}) };
 }
 
 function stripUndefined<T extends object>(value: T | undefined): Partial<T> {

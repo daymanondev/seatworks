@@ -9,4 +9,5 @@ export const ATTENTION: Omit<Attention, "destructive" | "testPath" | "suppressed
   longTurnMinutes: 30,
   incidentsPerDay: 5,
   questionsPerDay: 3,
+  judge: "off",
 };

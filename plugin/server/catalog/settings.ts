@@ -4,7 +4,7 @@ import { dirname } from "node:path";
 import { z } from "zod";
 import { readJson, sortKeys, writeJson } from "../core/store.ts";
 import { errorText } from "../core/errors.ts";
-import { type Layer, LayerSchema } from "../../shared/settings.ts";
+import { KEPT, type Layer, LayerSchema } from "../../shared/settings.ts";
 import type { LayerRead, WriteResult } from "../../shared/views.ts";
 
 export function revisionOf(values: unknown): string {
@@ -37,6 +37,30 @@ export function readLayer(file: string): LayerRead {
   const revision = revisionOf(raw);
   const parsed = LayerSchema.safeParse(raw);
   return parsed.success ? { status: "ready", revision, values: parsed.data } : { status: "invalid", revision, error: z.prettifyError(parsed.error) };
+}
+
+/** A sensor's key buys paid calls, so the screen never reads it back: it sees KEPT in its place. */
+export function withoutKeys(layer: Layer): Layer {
+  if (!layer.sensor) return layer;
+  return { ...layer, sensor: Object.fromEntries(Object.entries(layer.sensor).map(([id, kept]) => [id, kept.key ? { ...kept, key: KEPT } : kept])) };
+}
+
+/** A save carrying KEPT keeps the key on disk; KEPT for a key no longer there saves no key. */
+export function withKeys(values: unknown, stored: Layer): unknown {
+  const asked = values as { sensor?: Record<string, { key?: unknown } | undefined> } | null;
+  if (!asked || typeof asked !== "object" || !asked.sensor || typeof asked.sensor !== "object") return values;
+  const sensor = Object.entries(asked.sensor).map(([id, entry]): [string, unknown] => {
+    if (entry?.key !== KEPT) return [id, entry];
+    const { key: _shown, ...rest } = entry;
+    const key = stored.sensor?.[id]?.key;
+    return [id, key ? { ...rest, key } : rest];
+  });
+  return { ...asked, sensor: Object.fromEntries(sensor) };
+}
+
+export function readShown(file: string): LayerRead {
+  const read = readLayer(file);
+  return read.status === "ready" ? { ...read, values: withoutKeys(read.values) } : read;
 }
 
 export function layerValues(file: string): Layer {

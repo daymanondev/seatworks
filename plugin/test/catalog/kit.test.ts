@@ -7,11 +7,11 @@ import { renderPrompt } from "../../server/catalog/content.ts";
 import { HarnessFile } from "../../server/catalog/schema.ts";
 import { tempDir } from "../tempdir.ts";
 
-/** A kit of the test's own, holding the shipped ecosystem and Paseo's tools, which are no fixture's to make up. */
+/** A kit of the test's own, holding the shipped ecosystem, Paseo's tools and the watch's questions, which are no fixture's to make up. */
 function kitDir(prefix: string): string {
   const dir = tempDir(prefix);
   mkdirSync(join(dir, "catalog"), { recursive: true });
-  for (const name of ["ecosystem.json", "paseo.json"]) copyFileSync(new URL(`../../catalog/${name}`, import.meta.url), join(dir, "catalog", name));
+  for (const name of ["ecosystem.json", "paseo.json", "checks.json"]) copyFileSync(new URL(`../../catalog/${name}`, import.meta.url), join(dir, "catalog", name));
   return dir;
 }
 
@@ -85,6 +85,28 @@ test("loading a kit refuses a harness that breaks the contract, naming the field
 
   write(good());
   assert.deepEqual(Object.keys(loadKit(dir).harnesses), ["acme"]);
+});
+
+test("a sensor or a question the watch could not ask by is refused as the kit loads, naming its file", () => {
+  const dir = kitDir("sw2-kit-");
+  writeFileSync(join(dir, "roles.json"), JSON.stringify({ roles: [] }));
+  mkdirSync(join(dir, "catalog", "sensor"), { recursive: true });
+  const sensor = { id: "judge", label: "Judge", key: "Judge key", url: "https://judge.example/api", model: "judge-1", timeoutSeconds: 5, retries: 1 };
+  const place = (name: string, value: object) => writeFileSync(join(dir, "catalog", "sensor", name), JSON.stringify(value));
+  place("judge.json", { ...sensor, url: "http://judge.example/api" });
+  assert.throws(() => loadKit(dir), /catalog\/sensor\/judge\.json is not as the kit reads it:[^]*is not an https address/);
+  place("judge.json", { ...sensor, id: "other" });
+  assert.throws(() => loadKit(dir), /catalog\/sensor\/judge\.json names itself other/);
+  place("judge.json", sensor);
+  assert.deepEqual(Object.keys(loadKit(dir).sensors), ["judge"]);
+
+  const checks = join(dir, "catalog", "checks.json");
+  const shipped = JSON.parse(readFileSync(checks, "utf-8"));
+  const question = shipped.review_ran_invariant;
+  writeFileSync(checks, JSON.stringify({ ...shipped, review_ran_invariant: { ...question, no: 0.9 } }));
+  assert.throws(() => loadKit(dir), /checks\.json is not as the kit reads it:[^]*no must sit below yes/);
+  writeFileSync(checks, JSON.stringify({ ...shipped, review_ran_invariant: { ...question, instructions: { invariant: null } } }));
+  assert.throws(() => loadKit(dir), /checks\.json is not as the kit reads it:[^]*names no question/);
 });
 
 test("the shipped harnesses satisfy their own contract", () => {

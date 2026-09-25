@@ -280,6 +280,12 @@ one reply is two lines the desk writes, and Paseo pushes an agent's first finish
 once until someone opens it, so each page has a Pager of its own. A sighting whose exact words were already marked `noise` for that seat and kind
 opens nothing. Archiving a seat closes its incidents, and they still wait to be marked.
 
+The watch also asks what a code fact cannot read, at the moment it matters: of a task handed back complete, whether
+its summary says something asked for was not done; of a review that accepts a change a risk rule reaches, whether its
+report says the rule's invariant was checked by running code. `attention.judge` names who answers, `off` or a sensor
+in `catalog/sensor/`, and each question in `catalog/checks.json` has its wording, thresholds and mode. Every question
+ships `shadow`: the answer is kept in the project's `assessments.log`, and no seat reads it.
+
 ## Settings
 
 There are two layers: `~/.local/share/seatworks-v3/settings.json` for the machine, and
@@ -293,6 +299,8 @@ There are two layers: `~/.local/share/seatworks-v3/settings.json` for the machin
 | The Flow switch | panel |
 | Rules per role, or for every seat | by hand |
 | The Flow interval, and the other attention values | by hand |
+| `attention.judge`, who answers the watch's questions | by hand |
+| A sensor's key, `sensor.<id>.key`, which the panel never reads back | by hand |
 
 `tickSeconds` is read from the machine layer only.
 
@@ -310,6 +318,7 @@ There are two layers: `~/.local/share/seatworks-v3/settings.json` for the machin
 | `longTurnMinutes` | 30 |
 | `incidentsPerDay` | 5 |
 | `questionsPerDay` | 3 |
+| `judge` | `jev` |
 | `destructive` | a pattern in `catalog/ecosystem.json` |
 | `testPath` | a pattern in `catalog/ecosystem.json` |
 | `suppressed` | a pattern in `catalog/ecosystem.json` |

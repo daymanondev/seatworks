@@ -5,7 +5,7 @@ import type { Attention } from "../../shared/views.ts";
 import { ATTENTION } from "./attention.ts";
 import type { FileKinds } from "../core/git.ts";
 import { DESK_OWNED } from "../core/paths.ts";
-import { EcosystemFile, HarnessFile, McpFile, PaseoFile, RolesFile } from "./schema.ts";
+import { ChecksFile, EcosystemFile, HarnessFile, McpFile, PaseoFile, RolesFile, SensorFile } from "./schema.ts";
 
 type ThinkingSpec = { id: string; label: string; isDefault?: boolean };
 export type ModelSpec = { id: string; label: string; isDefault?: boolean; thinkingOptions?: ThinkingSpec[] };
@@ -20,6 +20,8 @@ export type McpEntry = z.infer<typeof McpFile> & { dir: string };
 export type McpTransport = HarnessSpec["mcp"]["transports"][number];
 export type Ecosystem = z.infer<typeof EcosystemFile>;
 export type ProxySpec = NonNullable<McpEntry["proxy"]>;
+export type SensorSpec = z.infer<typeof SensorFile>;
+export type CheckSpec = z.infer<typeof ChecksFile>[string];
 
 export type Kit = {
   dir: string;
@@ -32,6 +34,8 @@ export type Kit = {
   attention: Attention;
   ecosystem: Ecosystem;
   paseoTools: string[];
+  sensors: Record<string, SensorSpec>;
+  checks: Record<string, CheckSpec>;
 };
 
 function subdirs(root: string): string[] {
@@ -72,6 +76,17 @@ function loadMcp(dir: string): Record<string, McpEntry> {
     entries[id] = { ...entry, dir: join(root, id) };
   }
   return entries;
+}
+
+function loadSensors(dir: string): Record<string, SensorSpec> {
+  const root = join(dir, "catalog", "sensor");
+  const sensors: Record<string, SensorSpec> = {};
+  for (const name of existsSync(root) ? readdirSync(root).filter((entry) => entry.endsWith(".json")) : []) {
+    const sensor = parsed(SensorFile, join(root, name), `catalog/sensor/${name}`);
+    if (`${sensor.id}.json` !== name) throw new Error(`catalog/sensor/${name} names itself ${sensor.id}`);
+    sensors[sensor.id] = sensor;
+  }
+  return sensors;
 }
 
 /** The shipped file, unless the state root holds one of the same name, which replaces it: the SLP preset, or the ecosystem. */
@@ -118,6 +133,8 @@ export function loadKit(dir: string, stateDir?: string): Kit {
     attention: { ...ATTENTION, destructive: ecosystem.watch.destructive, testPath: ecosystem.watch.testPath, suppressed: ecosystem.watch.suppressed, ...raw.attention },
     ecosystem,
     paseoTools: parsed(PaseoFile, chosen(join(dir, "catalog", "paseo.json"), stateDir), "paseo.json").tools,
+    sensors: loadSensors(dir),
+    checks: parsed(ChecksFile, join(dir, "catalog", "checks.json"), "checks.json"),
   };
 }
 

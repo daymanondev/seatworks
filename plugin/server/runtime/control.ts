@@ -2,7 +2,7 @@ import { existsSync, readdirSync, realpathSync, rmSync, statSync } from "node:fs
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { type Kit, can, providerId, rolesThatCan, seatOf, supportsRole } from "../catalog/kit.ts";
-import { layerValues, readLayer, writeLayer } from "../catalog/settings.ts";
+import { layerValues, readShown, withKeys, withoutKeys, writeLayer } from "../catalog/settings.ts";
 import type { Connect, Layer } from "../../shared/settings.ts";
 import { type Team, resolveTeam, rulesFor, skillDirsFor, templateRoles, transportOf } from "../catalog/team.ts";
 import { gitCommonDir } from "../core/git.ts";
@@ -185,10 +185,10 @@ export class SettingsControl implements Control {
   }
 
   readSettings(slug?: string): SettingsRead {
-    const machine = slug ? this.deps.source.machineLayer() : {};
+    const machine = withoutKeys(slug ? this.deps.source.machineLayer() : {});
     const target = this.target(slug);
     if (typeof target === "string") return { status: "invalid", revision: "", error: target, machine };
-    return { ...readLayer(target.file), machine };
+    return { ...readShown(target.file), machine };
   }
 
   writeSettings(slug: string | undefined, revision: string, values: unknown): WriteResult {
@@ -205,12 +205,12 @@ export class SettingsControl implements Control {
       const already = new Set(unbuildable(resolve(layerValues(target.file))));
       return unbuildable(team).filter((problem) => !already.has(problem));
     };
-    const result = writeLayer(target.file, revision, values, check);
+    const result = writeLayer(target.file, revision, withKeys(values, layerValues(target.file)), check);
     if (result.status === "saved") {
       seating.forget();
       if (!target.project) reconcile();
     }
-    return result;
+    return result.status === "saved" ? { ...result, values: withoutKeys(result.values) } : result;
   }
 
   projects(): ProjectRow[] {

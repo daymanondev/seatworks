@@ -56,6 +56,7 @@ const Attention = z.object({
   longTurnMinutes: z.number(),
   incidentsPerDay: z.number(),
   questionsPerDay: z.number(),
+  judge: z.string(),
 });
 export type Attention = z.infer<typeof Attention>;
 

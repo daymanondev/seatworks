@@ -1,4 +1,5 @@
 import type { PluginServerContext } from "@getpaseo/plugin/server";
+import { decisionsJudge } from "./server/adapters/decisions.ts";
 import { PaseoHost } from "./server/adapters/paseo/host.ts";
 import { loadKit } from "./server/catalog/kit.ts";
 import { applyModels, readModels } from "./server/catalog/models.ts";
@@ -17,7 +18,7 @@ export default function contribute(server: PluginServerContext) {
   try {
     const kit = loadKit(dir, stateRoot());
     applyModels(kit, readModels(stateRoot()));
-    runtime = new Runtime(kit, host);
+    runtime = new Runtime(kit, host, { sensor: (spec, key) => decisionsJudge(spec, key) });
   } catch (error) {
     console.error(`${PLUGIN_ID}: the kit in ${dir} failed to load:`, error);
     return () => {};

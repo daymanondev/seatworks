@@ -32,12 +32,12 @@ function world(): MigrateContext & { file: string } {
 
 test("migrate drops only the settings this version refuses, names them by path, and keeps a copy", () => {
   const ctx = world();
-  const held = { roles: { lead: { harness: "claude", colour: "red" } }, shelf: { docs: true }, attention: { by: "nobody", tickSeconds: 60 }, sensor: { key: "sk-or-v1-fake-dropped" } };
+  const held = { roles: { lead: { harness: "claude", colour: "red" } }, shelf: { docs: true }, attention: { by: "nobody", tickSeconds: 60 }, critic: { key: "a-fake-key-dropped" } };
   writeFileSync(ctx.file, JSON.stringify(held));
 
   const plan = migrationPlan(ctx);
-  assert.deepEqual(plan.steps.map((step) => [step.where, step.detail.slice().sort()]), [["machine", ["attention.by", "roles.lead.colour", "sensor", "shelf"]]]);
-  assert.ok(!JSON.stringify(plan).includes("sk-or-v1"), "a key it drops is named by its path, never shown");
+  assert.deepEqual(plan.steps.map((step) => [step.where, step.detail.slice().sort()]), [["machine", ["attention.by", "critic", "roles.lead.colour", "shelf"]]]);
+  assert.ok(!JSON.stringify(plan).includes("a-fake-key-dropped"), "a key it drops is named by its path, never shown");
 
   const after = migrate(ctx);
   assert.deepEqual(after.steps, []);

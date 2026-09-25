@@ -4,7 +4,9 @@ import { z } from "zod";
 import { changedFiles, currentBranch, headSha, outsideOwned, pristineState } from "../../core/git.ts";
 import { IN_QUEUE, SETTLED, TASK } from "../../domain/task.ts";
 import { type Args, type Caller, type ToolReply, no, ok, str, strs } from "../context.ts";
+import { handbackCase } from "../checks.ts";
 import { taskGate } from "../gates.ts";
+import { judge } from "../judging.ts";
 import { type Lane, type Task, loadLedger, taskOfPeer } from "../ledger.ts";
 import { clip } from "../../core/text.ts";
 import { letters } from "../letters.ts";
@@ -66,8 +68,20 @@ async function readerOf(roster: DeskServices["roster"], project: Caller["project
   return { to: await roster.supervisorFor(project, lane?.opener), as: "supervisor" };
 }
 
+/** Whoever reads the hand-back is told and it goes on record; the watch's questions about it are asked, and not waited for. */
+async function tell(services: DeskServices, caller: Caller, task: Task, lane: Lane | undefined, handed: { file: string; outcome: string; body: string; summary: string; commit?: string }): Promise<void> {
+  const { ctx, roster } = services;
+  const heading = task.kind === "review" ? { ...task, title: task.of ? `review of ${task.of}` : `review: ${task.title}` } : task;
+  const reader = await readerOf(roster, caller.project, lane);
+  await ctx.post(reader.to, letters.handback(heading, handed.file, handed.body, caller.id, reader.as));
+  ctx.event(caller.project, { kind: task.kind === "review" ? "review.done" : "task.done", task: task.id, outcome: handed.outcome, commit: handed.commit });
+  const judged = handbackCase(ctx.kit, caller.project, task, handed);
+  if (judged) void judge(services, caller.project, judged);
+}
+
 /** One hand-back for tasks and reviews: the task's kind says which of the two a seat sent. */
-async function handBack({ ctx, roster }: DeskServices, caller: Caller, args: Partial<z.infer<typeof HandBack> & z.infer<typeof Verdict>>): Promise<ToolReply> {
+async function handBack(services: DeskServices, caller: Caller, args: Partial<z.infer<typeof HandBack> & z.infer<typeof Verdict>>): Promise<ToolReply> {
+  const { ctx } = services;
   const { project } = caller;
   const ledger = loadLedger(project.state);
   const task = taskOfPeer(ledger, caller.id);
@@ -107,10 +121,7 @@ async function handBack({ ctx, roster }: DeskServices, caller: Caller, args: Par
         : `${task.id} is already ${already === "merged" ? "accepted" : already}; there is nothing to hand back.`,
     );
   }
-  const heading = review ? { ...task, title: task.of ? `review of ${task.of}` : `review: ${task.title}` } : task;
-  const reader = await readerOf(roster, project, ledger.lanes[task.lane]);
-  await ctx.post(reader.to, letters.handback(heading, file, body, caller.id, reader.as));
-  ctx.event(project, { kind: review ? "review.done" : "task.done", task: task.id, outcome, commit });
+  await tell(services, caller, task, ledger.lanes[task.lane], { file, outcome, body, summary: str(review ? args.answer : args.summary), commit });
   const reminder = review ? "" : await reminderOf(task, ledger.lanes[task.lane]?.branch, work.uncommitted);
   const outside = work.outside.length > 0 ? ` You changed ${work.outside.join(", ")} outside your owned paths; your Lead sees that with the hand-back.` : "";
   return ok(`Handed back.${outside}${reminder} End your turn now; if anything changes you will get a message.`);

@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { chmodSync, mkdirSync, realpathSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { PaseoHost } from "../../server/adapters/paseo/host.ts";
 import { paseoConfigPath, stateRoot } from "../../server/core/paths.ts";
 import { registerRpc } from "../../server/runtime/rpc.ts";
 import { Runtime } from "../../server/runtime/runtime.ts";
+import { KEPT } from "../../shared/settings.ts";
 import { makeKit } from "../kit.ts";
 import { tempDir } from "../tempdir.ts";
 
@@ -116,6 +117,29 @@ test("settings a team can't run on are refused with the reason, and stale writes
   assert.equal((await call("seatworks.settings.write", { revision: read.revision, values: { rules: "two" } })).status, "conflict");
   const unknown = await call("seatworks.settings.read", { project: "nowhere" });
   assert.equal(unknown.status, "invalid");
+});
+
+test("a sensor's key is saved but never read back, and a save carrying what was shown in its place keeps it", async () => {
+  const { call } = served();
+  const file = join(stateRoot(), "settings.json");
+  const secret = "a-key-kept-on-this-machine";
+  const read = await call("seatworks.settings.read");
+  const saved = await call("seatworks.settings.write", { revision: read.revision, values: { sensor: { jev: { key: secret } } } });
+  assert.deepEqual([saved.status, saved.values.sensor], ["saved", { jev: { key: KEPT } }]);
+  const shown = await call("seatworks.settings.read");
+  assert.equal(shown.values.sensor.jev.key, KEPT);
+  const state = join(stateRoot(), "projects/shop-abc123");
+  mkdirSync(state, { recursive: true });
+  writeFileSync(join(state, "meta.json"), JSON.stringify({ root: "/work/shop", slug: "shop-abc123" }));
+  const project = await call("seatworks.settings.read", { project: "shop-abc123" });
+  assert.equal(project.machine.sensor.jev.key, KEPT, "a project's screen shows the machine layer under it, key and all, as KEPT");
+  assert.doesNotMatch(JSON.stringify([shown, project, await call("seatworks.team.read")]), /kept-on-this-machine/);
+
+  const again = await call("seatworks.settings.write", { revision: shown.revision, values: { ...shown.values, rules: "keep it small" } });
+  assert.equal(again.status, "saved");
+  assert.match(readFileSync(file, "utf-8"), /kept-on-this-machine/, "KEPT saved back keeps the key");
+  await call("seatworks.settings.write", { revision: again.revision, values: { rules: "keep it small" } });
+  assert.doesNotMatch(readFileSync(file, "utf-8"), /kept-on-this-machine/, "a save without it removes it");
 });
 
 test("a project can be registered by its path before any agent has run in it", async () => {

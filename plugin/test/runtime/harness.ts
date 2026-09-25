@@ -5,10 +5,10 @@ import { dirname, join } from "node:path";
 import { afterEach } from "node:test";
 import { fileURLToPath } from "node:url";
 import { PaseoHost } from "../../server/adapters/paseo/host.ts";
-import { loadKit } from "../../server/catalog/kit.ts";
+import { type SensorSpec, loadKit } from "../../server/catalog/kit.ts";
 import { applyModels } from "../../server/catalog/models.ts";
 import { stateRoot } from "../../server/core/paths.ts";
-import type { HookAgent, TimelineItem } from "../../server/core/ports.ts";
+import type { HookAgent, Judge, TimelineItem } from "../../server/core/ports.ts";
 import { loadLedger } from "../../server/desk/ledger.ts";
 import { type Project, projectOf } from "../../server/desk/project.ts";
 import { registerRpc } from "../../server/runtime/rpc.ts";
@@ -181,7 +181,8 @@ const ide = {
   },
 };
 
-export function harness() {
+/** `sensor` stands in for the HTTP one the host gives the desk, so no test asks a real model. */
+export function harness(options: { sensor?: (spec: SensorSpec, key: string) => Judge } = {}) {
   // One harness is one machine: a test that builds two gets two, since a daemon never shares its state.
   process.env.HOME = tempDir("sw2-home-");
   const { root, git } = repo();
@@ -191,7 +192,7 @@ export function harness() {
   const { paseo, agents, add, workspaces, workspaceNames, workspaceProjects, archivedWorkspaces, timelineOf } = fakePaseo();
   const project = projectOf(root);
   const start = () => {
-    const next = new Runtime(kit, new PaseoHost(paseo), { codeIndex: (proxy: { id: string; gitExclude?: string[] }) => ({ ...ide, id: proxy.id, gitExclude: proxy.gitExclude ?? [] }), reloadDaemon: async () => true });
+    const next = new Runtime(kit, new PaseoHost(paseo), { codeIndex: (proxy: { id: string; gitExclude?: string[] }) => ({ ...ide, id: proxy.id, gitExclude: proxy.gitExclude ?? [] }), reloadDaemon: async () => true, sensor: options.sensor });
     made.push(next);
     // Paseo seats a project's agents through the create hook, which records the project; the seats added here skip it.
     (next as unknown as { remember(project: Project): void }).remember(project);

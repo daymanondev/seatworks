@@ -166,3 +166,25 @@ export const EcosystemFile = z.strictObject({
     runners: texts,
   }),
 });
+
+/** A model the watch may ask over HTTP; `key` names the secret it takes, which the machine settings keep. */
+export const SensorFile = z.strictObject({
+  id: text,
+  label: text,
+  key: text,
+  url: z.url({ protocol: /^https$/, error: "is not an https address" }),
+  model: text,
+  body: Json.optional(),
+  timeoutSeconds: z.number().min(1).max(30),
+  retries: z.number().int().min(0).max(3),
+});
+
+/** A field the code fills is null in `instructions` until the moment it is asked at fills it; `question` is the question itself. */
+const Instructions = z.union([text, z.record(z.string(), text.nullable()).refine((fields) => typeof fields.question === "string", { error: "names no question" })]);
+
+/** One condition, answered yes or no: at or above `yes` it holds, at or below `no` it does not, and between is unclear. */
+const Noul = z
+  .strictObject({ type: z.literal("noul"), instructions: Instructions, criteria: z.strictObject({ true: text, false: text }), mode: z.enum(["off", "shadow"]), yes: z.number().min(0).max(1), no: z.number().min(0).max(1) })
+  .refine((check) => check.no < check.yes, { error: "no must sit below yes" });
+
+export const ChecksFile = z.record(z.string().regex(/^[a-z][a-z_]*$/, { error: "is not a lowercase name" }), Noul);

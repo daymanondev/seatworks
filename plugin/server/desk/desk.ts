@@ -1,10 +1,10 @@
 import type { Team } from "../catalog/team.ts";
-import { type Kit, schemaOf, seatOf } from "../catalog/kit.ts";
+import { type Kit, type SensorSpec, schemaOf, seatOf } from "../catalog/kit.ts";
 import type { Finding } from "../domain/incident.ts";
 import type { TaskMove, TaskStatus } from "../domain/task.ts";
 import { intentsPath } from "../core/paths.ts";
 import { midTurn } from "../core/paseo.ts";
-import type { SeatView, Seats, Workspaces } from "../core/ports.ts";
+import type { Judge, SeatView, Seats, Workspaces } from "../core/ports.ts";
 import { Agents } from "./agents.ts";
 import { argsProblems, shapeOf, withoutNulls } from "./args.ts";
 import { sortKeys } from "../core/store.ts";
@@ -36,6 +36,7 @@ type DeskOptions = {
   log: (project: Project, line: string) => void;
   teamFor: (project?: Project) => Team;
   indexesFor?: (project: Project) => CodeIndex[];
+  sensor?: (spec: SensorSpec, key: string) => Judge;
 };
 
 const SPEAKS = ["done", "ask", "answer", "message", "report"];
@@ -63,6 +64,7 @@ export class Desk {
       log: options.log,
       teamFor: options.teamFor,
       indexesFor: options.indexesFor ?? (() => []),
+      sensor: options.sensor,
     });
     this.intents = new Intents(intentsPath());
     const roster = new Roster(options.kit, options.seats, this.intents);
