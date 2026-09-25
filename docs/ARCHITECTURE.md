@@ -124,7 +124,10 @@ Each role declares in `roles.json` what it writes under the project's state (`wr
 folder ending in `/`). On Claude Code and Codex, a seat's shell may write there and nowhere else under
 state. The lint fails a prompt, rule or skill that names a path under state (`{{state}}/…` or
 `$SEATWORKS_STATE/…`) its role does not write, unless it is the desk's own record, which seats only
-read. A role may not declare the desk's own files, and only the Supervisor writes `CONTEXT.md`. Pi,
+read. A role may not declare the desk's own files, and only the Supervisor writes `CONTEXT.md`. Claude
+Code's file tools are outside its sandbox, so their rules deny them the desk's records, the plugin's
+own files beside the projects (the spool that carries seats' tool calls, the content seats read, the
+`git` launcher), every agent's configuration and git's, and deny reads of every agent's login. Pi,
 Oh My Pi and OpenCode have no sandbox.
 
 What each agent's seat directory holds is in [the reference](REFERENCE.md#seat-directories).

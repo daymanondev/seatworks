@@ -430,7 +430,8 @@ it:
 - **Oh My Pi can't be steered through Paseo.** Mail to a running omp seat waits for its turn to end.
 - **Pi, Oh My Pi and OpenCode have no sandbox.** Pi has no command rules either, so a Pi seat is held
   only by its tools. Oh My Pi and OpenCode have command denials, such as `git push` and `gh`, but no
-  path rules.
+  path rules, so a seat there can write the desk's records and the spool its tool calls travel
+  through.
 - **Reading an archived seat's history leaves its agent running.** Paseo resumes the agent to serve
   it and never closes it; `paseo logs` or the app's history view does this. The watch stops rather
   than read a seat once it is archived.

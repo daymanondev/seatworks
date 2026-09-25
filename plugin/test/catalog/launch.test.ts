@@ -88,6 +88,28 @@ test("a seat's shell may write under state only what its role declares, and a ro
   assert.equal(peer.providerOptions, undefined, "a harness that declares no write list is untouched");
 });
 
+test("a Claude seat's file tools stay off what sets up the machine's agents and the plugin, and its reads off every agent's login", () => {
+  const real = loadKit(join(dirname(fileURLToPath(import.meta.url)), "..", ".."));
+  const deny: string[] = JSON.parse(readFileSync(join(real.dir, "harness", "claude", "settings.json"), "utf-8")).permissions.deny;
+  const denied = (tool: "Edit" | "Read", path: string) => deny.some((rule) => rule.startsWith(`${tool}(`) && matchesGlob(path, rule.slice(tool.length + 1, -1)));
+  const home = (path: string) => path.replace(/^HOME/, "~");
+  for (const harness of Object.values(real.harnesses)) {
+    // Another seat's settings hold that seat's own denials, and what the seats link to is the owner's.
+    assert.ok(denied("Edit", `${home(harness.profileRoot)}/sw2-supervisor-${harness.id}-shop-1a2b/${harness.settings.file}`), `a Claude seat may edit ${harness.id} seats' settings`);
+    for (const link of harness.links ?? []) assert.ok(denied("Edit", home(link.target)) || denied("Edit", `${home(link.target)}/x`), `a Claude seat may edit ${link.target}`);
+  }
+  // A request in the spool is served as whichever seat it names; every seat reads the content copies and runs the git launcher.
+  const machine = stateRoot("~");
+  for (const path of ["intents.json", "kit.json", "content.json", "models.json", "bin/git", "spool/requests/1.json", "content/grilling-09b6abde7462/SKILL.md", "guides/PLANS.md"]) {
+    assert.ok(denied("Edit", `${machine}/${path}`), `a Claude seat may edit ${path} in the plugin's own state`);
+  }
+  for (const login of ["~/.paseo/config.json", "~/.codex/auth.json", "~/.pi/agent/auth.json", "~/.omp/agent/agent.db", "~/.local/share/opencode/auth.json", "~/.claude/.credentials.json"]) {
+    assert.ok(deny.includes(`Read(${login})`), `a Claude seat may read ${login}, a login; named without a glob, the only kind Claude's sandbox keeps on Linux`);
+  }
+  assert.ok(denied("Read", "~/.codex/seats/sw2-peer-codex-shop-1a2b/auth.json"), "nor through the link to it in a seat's directory");
+  assert.ok(denied("Edit", "~/.gitconfig") && denied("Edit", "~/.config/git/config"), "a Claude seat may edit git's own configuration, which the desk's git reads too");
+});
+
 test("a seat is handed its own working directory where its harness reads a project's instructions from that alone", () => {
   const config = { provider: "sw2-lead-claude", cwd: "/repo", providerOptions: { additionalDirectories: ["/elsewhere"] } } as unknown as AgentConfig;
   const next = applyRole(kit, team, config, render) as unknown as { providerOptions: { additionalDirectories: string[] } };
