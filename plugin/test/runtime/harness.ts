@@ -284,6 +284,11 @@ export async function laneWithPeer(settings?: Record<string, unknown>, options?:
   return { h, sup, lane, peer, timeline: h.timelineOf(peer) };
 }
 
+/** Every seat archived, as Paseo lists a machine nobody sits at any more. */
+export function nobodySeated(h: ReturnType<typeof harness>): void {
+  for (const agent of h.agents.values()) Object.assign(agent, { archivedAt: new Date().toISOString(), status: "closed" });
+}
+
 /** A round started and held once it has listed the seats, until `release` lets it go on to its end. */
 export async function heldRound(h: ReturnType<typeof harness>, t: TestContext) {
   const desk = h.runtime.desk;

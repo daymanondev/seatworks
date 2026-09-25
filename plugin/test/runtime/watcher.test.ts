@@ -5,7 +5,7 @@ import { test } from "node:test";
 import { stateRoot } from "../../server/core/paths.ts";
 import { loadConfig, saveConfig } from "../../server/desk/project.ts";
 import { settle } from "./fake-timeline.ts";
-import { harness, heldRound, laneWithPeer } from "./harness.ts";
+import { harness, heldRound, laneWithPeer, nobodySeated } from "./harness.ts";
 
 /** The machine settings, with the watch judged by `judge`. */
 function judgedBy(judge: string): void {
@@ -113,6 +113,16 @@ test("a case left unanswered is given up after a while, and the Watcher is let g
   assert.equal((await h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "not wanted after all" })).ok, true);
   await h.tick();
   assert.ok(watcher.archivedAt, "with no lane open, no case can come, and the idle Watcher is let go");
+});
+
+test("with nobody seated, a case whose Watcher has gone is given up by the next round", async () => {
+  const { h, handBack, watchers } = await watched();
+  await handBack("Rounded.");
+  assert.equal(watchers().length, 1);
+  nobodySeated(h);
+  await h.tick();
+  await settle();
+  assert.equal(kept(h.project.state)[0]!.unasked, "the Watcher it was sent to is gone");
 });
 
 test("a case is not given up while its Watcher is still being seated: its time runs from when it is sent", async (t) => {

@@ -125,8 +125,8 @@ export class Desk {
   }
 
   /**
-   * The first round that sees seats after a start. The turns that ended while the plugin was down end now, so what
-   * waited on them goes on, and an answer promised as mail that the stop lost is owned up to.
+   * The first round after a start. The turns that ended while the plugin was down end now, so what waited on them goes
+   * on, and an answer promised as mail that the stop lost is owned up to.
    */
   async resume(listed: Map<string, SeatView>): Promise<void> {
     await this.services.roster.archiveWaiting(listed);

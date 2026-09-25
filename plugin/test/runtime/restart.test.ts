@@ -5,7 +5,7 @@ import { test } from "node:test";
 import type { Desk } from "../../server/desk/desk.ts";
 import { saveLedger } from "../../server/desk/ledger.ts";
 import { tempDir } from "../tempdir.ts";
-import { harness, laneWithPeer } from "./harness.ts";
+import { harness, laneWithPeer, nobodySeated } from "./harness.ts";
 
 /** A lane whose second task worked in a copy of its own and handed its commit back, ready to be merged. */
 async function handedBack() {
@@ -36,6 +36,16 @@ test("a merge the queue held when the plugin stopped goes through once it starts
   assert.equal(readFileSync(join(lane.worktree!, "c.txt"), "utf-8"), "beside\n");
   await h.idle(lane.lead!);
   assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /MERGED L1-T2/);
+});
+
+test("a merge the queue held when the plugin stopped goes through on its first round, even with nobody seated", async () => {
+  const { h, stopped } = await handedBack();
+  stopped("queued");
+  nobodySeated(h);
+  h.restart();
+  await h.tick();
+  await h.runtime.desk.settled(h.project);
+  assert.equal(h.ledger().tasks["L1-T2"]!.status, "merged");
 });
 
 test("a merge the plugin stopped in the middle of is run again from the start, and one that had landed is only finished", async () => {
