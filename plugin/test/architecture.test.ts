@@ -27,9 +27,7 @@ const MAY_IMPORT: Record<string, string[]> = {
 
 const PACKAGES = ["@getpaseo/plugin/server", "@getpaseo/plugin/client", "@getpaseo/plugin"];
 
-const NAMED = [
-  "server/catalog/project-files.ts > claude",
-];
+const NAMED: string[] = [];
 
 const LIMITS = { file: 300, testFile: 400, function: 50 };
 

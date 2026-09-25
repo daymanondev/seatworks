@@ -294,10 +294,7 @@ Supervisor settles new work with you through the `grilling` skill and writes eac
 following `guides/CONTEXT_FORMAT.md`. The desk never writes in it. It only names the file in a Lead's
 directive once the file exists.
 
-**What every role shares is in each role's own prompt**, not in the project's files. An earlier
-version wrote it into the project's `AGENTS.md` between `seatworks:begin` and `seatworks:end`, with a
-pointer in `CLAUDE.md`. The desk leaves those files alone: the Supervisor's `status` says while that
-block is still there, for the Human to take out.
+**What every role shares is in each role's own prompt**, not in the project's files.
 
 ## The patrol
 

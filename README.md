@@ -119,9 +119,7 @@ The desk seats everyone else as the work needs them. The first lane works in you
 later one in a working copy of its own.
 
 **Your project's `AGENTS.md` stays yours.** The plugin writes nothing into your project's files: the
-team's shared rules are in each role's own prompt. If an earlier version wrote a marked `seatworks`
-block into your `AGENTS.md` (and a pointer into `CLAUDE.md`), the Supervisor asks you to delete it and
-commit that.
+team's shared rules are in each role's own prompt.
 
 A project's panel has **Team** (agents and the watch), **Flow** (lanes, tasks, your questions and
 landings, live), **Report** (the last day), **Orders** (your standing orders and the concept), **MCP**

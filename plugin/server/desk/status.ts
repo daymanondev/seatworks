@@ -31,7 +31,7 @@ function keptLines(ledger: Ledger, seats: Map<string, SeatView>, now: number): s
 }
 
 /** What the status tool read from the project's own checkout; `work` is undefined when git could not say. */
-export type OwnCopy = { branch?: string; head?: string; work?: string[]; oldBlock?: string[] };
+export type OwnCopy = { branch?: string; head?: string; work?: string[] };
 
 const SHOWN_FILES = 10;
 const SHOWN_OUTCOME = 300;
@@ -47,7 +47,6 @@ function ownCopyLines(project: Project, ledger: Ledger, config: ProjectConfig, c
   const holder = ownCopyHolder(Object.values(ledger.lanes));
   const held = holder?.status === "open" ? `Lane ${holder.id} is working in it.` : holder ? `Lane ${holder.id} is closed, and its Lead is ending a turn in it; it goes back to ${holder.base} after.` : "No lane is working in it.";
   const lines = ["## The project's own copy", "", `${project.root} is ${at}, ${state}.`, held];
-  if (copy.oldBlock?.length) lines.push(`${copy.oldBlock.join(" and ")} still ${copy.oldBlock.length === 1 ? "holds" : "hold"} the team block an earlier version wrote, whose rules are out of date: ask the Human to delete it, from the seatworks:begin mark to the seatworks:end mark, and commit that.`);
   if (config.laneHome) lines.push(`Lanes open ${HOMES[config.laneHome]}, as the Human chose for every lane (laneHome).`);
   const home = holder ? undefined : laneHomeFor(undefined, config, copy.branch, work);
   if (typeof home === "object") lines.push(`The Human decides where the next lane works, before it opens: ${home.question}.`);
