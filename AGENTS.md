@@ -44,6 +44,20 @@ paseo plugin reload seatworks-v2   # after a client change, to see it in the pan
 No build step; tests are `node --test` over `test/**/*.test.ts`, loaded after `test/setup.ts`: every test
 runs in a HOME of its own, and a `console.error` the test did not ask for fails it.
 
+## Working here
+
+- **There is no CI.** `npm run check` before every commit is the whole net.
+- **Never start the daemon or launch seats to test.** Seats are real agents with broad permissions
+  and they cost money. The suite, your reading and `~/.paseo/daemon.log` are the evidence.
+- **Never print or cat a file that can hold a key:** `settings.json` under
+  `~/.local/share/seatworks-v3/`, any project `settings.json`, `~/.paseo/config.json`. Fake keys in
+  tests never start with OpenRouter's real key prefix, so a scan for it before a push finds only a
+  real key.
+- **Before touching a file the KEEP list names** (prompts, skills, harness settings, some code), read
+  its row in `../v3/CONCEPT.md` §6: `plugin/test/catalog/keep.test.ts` fails when one of its anchors
+  goes.
+- **Don't click settings in the user's live Paseo** to test the panel: it writes their config.
+
 ## Conventions that differ from the defaults
 
 - **One live contract, hard cut.** No dual path, version branch, shim, facade, old-shape adapter,
@@ -59,17 +73,20 @@ runs in a HOME of its own, and a `console.error` the test did not ask for fails 
 - **A test that invents an API before its contract exists is a defect:** the next agent will bend
   the code to it. See `plugin/content/skills/peer/test-first/references/test-antipatterns.md`.
 - **Fail first.** For every fix, put the old behaviour back and watch the new test fail. Green suites
-  here have agreed with bugs before.
+  here have agreed with bugs before: one compared tool names where schemas mattered.
 - **No dormant machinery:** no framework, abstraction or setting without a real consumer today.
 - **`test/architecture.test.ts` is a ratchet** on import layers, cycles, file and function sizes,
   unused exports, and agent or server names in code. Its lists of known breaches only shrink: split or
   move the code, never add an entry or raise a number.
 - **No docs or decision records unless asked.** Git history is the record; the owner's decisions,
-  and the exceptions to these conventions, live in `../v3/DECISIONS.md`.
+  and the exceptions to these conventions, live in `../v3/DECISIONS.md`. No new markdown files
+  either: plans go outside the repository, and a change that needs explaining is explained in its
+  commit message.
 - **Comments are few and short.** At most one docstring per function, method, class or type, one or
   two lines, saying what the name and code don't: why, a hidden constraint, a platform quirk. None on
   a field, member, constant or single line, and none that restates the code. Inside a body, a `//`
-  only where the reason is invisible in the code, one line.
+  only where the reason is invisible in the code, one line. A comment cleanup changes comments only:
+  the code with comments stripped must print the same before and after.
 - **Commit subjects:** one imperative sentence on what changed in behaviour, sentence case, no
   prefix, often two clauses. E.g. "Let the work decide how many agents run, not a quota". Never
   `fix:`/`feat:` or a file name.
@@ -121,7 +138,8 @@ runs in a HOME of its own, and a `console.error` the test did not ask for fails 
 - `plugin/content/**` is runtime content, not docs: prompts, skills and guides. An edit there
   changes agent behaviour. Keep prompts short and complete: one line per rule, an example
   only where a rule is subtle.
-- `roles.json` `hidesWords` is a lint that throws: a Peer's prompt may not say "seat".
+- `roles.json` `hidesWords` is a lint that throws: a Peer's prompt may not say "seat". Rephrase the
+  text; never remove the lint.
 - `plugin/harness/<agent>/settings/<role>.*` holds each role's sandbox and approval policy, and
   `plugin/harness/<agent>/delta/<role>.md` is runtime text added after that role's prompt on that
   agent: only what the agent's own instructions would lead the role wrong on.
