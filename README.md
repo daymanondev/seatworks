@@ -137,8 +137,8 @@ task sent back three times.
 A finding becomes an **incident**. An ordinary one about a Peer goes to its Lead. One about a Lead,
 an urgent one (a *page*), or one whose Lead is gone goes to the Supervisor. Whoever gets it marks it
 `useful`, `noise` or `unknown`. The watched seat never hears of it. Each lane gets two ordinary ones a
-day; a kind whose last ten marks were mostly noise is held back until the marks say otherwise; a page
-always goes.
+day; a kind whose last ten marks were mostly noise is held back, and goes if seen again once the marks
+turn; a page goes unless nobody is there to tell.
 
 What code cannot read, the watch asks as one question at a time, at the moment it matters: was this
 destructive command asked for, does a complete hand-back's summary admit a gap, did a review that

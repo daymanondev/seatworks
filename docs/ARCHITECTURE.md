@@ -56,7 +56,7 @@ These are mostly absences, so the code won't show them to you.
 - **One table per lifecycle.** A task, lane, ask or incident changes status only through its table
   in `server/domain/`, checked inside the ledger transaction against the status it has then.
 - **One place writes letters.** Everything the desk mails a seat is in `desk/letters.ts` and, for
-  asks, merges and landings, the `*-letters.ts` beside it: each letter is keyed by its kind and ids, and
+  asks, merges, landings and the Watcher's cases, the `*-letters.ts` beside it: each letter is keyed by its kind and ids, and
   ends with one `Next:` line, what it asks of whoever reads it. What a seat starts from is in
   `desk/briefs.ts`, and a Lead's directive in `desk/directive.ts`.
 - **One writer per working copy.** A lane-mode task holds the lane's copy from start until it is

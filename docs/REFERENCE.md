@@ -94,9 +94,9 @@ of the same name in the state root replaces it, as `roles.json` does.
 
 ## Letters
 
-They are written in `desk/letters.ts` and, for asks, merges and landings, in `desk/ask-letters.ts`,
-`desk/merge-letters.ts` and `desk/land-letters.ts`; what a seat starts from is in `desk/briefs.ts` and, for
-a Lead, `desk/directive.ts`. Each letter carries a key made of its kind and the ids that make it that
+They are written in `desk/letters.ts` and, for asks, merges, landings and the Watcher's cases, in
+`desk/ask-letters.ts`, `desk/merge-letters.ts`, `desk/land-letters.ts` and `desk/case-letters.ts`; what a
+seat starts from is in `desk/briefs.ts` and, for a Lead, `desk/directive.ts`. Each letter carries a key made of its kind and the ids that make it that
 letter, never written by hand where it is posted, and ends with one `Next:` line: what it asks of whoever
 reads it, which the desk picks from what it knows (a red gate, the kind of an ask, whether its reader is
 the Lead or whoever supervises because the Lead is gone, whether the task merged was the lane's last).
@@ -214,7 +214,7 @@ settings revision changes, its settings file is gone, or a login appeared since.
 | Agent | Directory | Written there | Launch |
 |---|---|---|---|
 | Claude Code | `~/.claude/profiles/…` | `settings.json` (deny rules, sandbox), `.claude.json` (its own MCP servers cleared), `skills/`, a `projects` link, `CLAUDE.md` for working rules | `bin/seat-room` with `--setting-sources user`, so the project's settings, hooks and skills stay out |
-| Codex | `~/.codex/seats/…` | `config.toml` (`model_provider` and `model_providers` from your own `~/.codex/config.toml`; `workspace-write`, or `read-only` for the Reviewer and the Watcher; `approval_policy = "never"`; subagents off), `model-catalog.json`, `rules/seatworks.rules`, `skills/`, an `auth.json` link, `AGENTS.md` | Paseo's Codex provider |
+| Codex | `~/.codex/seats/…` | `config.toml` (`model_provider` and `model_providers` from your own `~/.codex/config.toml`; `workspace-write`, or `read-only` for the Reviewer, the Watcher and the Pager; `approval_policy = "never"`; subagents off), `model-catalog.json`, `rules/seatworks.rules`, `skills/`, an `auth.json` link, `AGENTS.md` | Paseo's Codex provider |
 | Pi | `~/.pi/seats/…` | `settings.json` (`pi-mcp-adapter`, project trust off, tool lists for the Lead and Reviewer), `mcp.json`, `skills/`, links to login, models and npm | Paseo's Pi provider |
 | OpenCode | `~/.config/opencode-seats/…` | `opencode/opencode.json` (your providers, permissions with command denials, subagents and questions off, autoupdate and sharing off), `opencode/AGENTS.md`, `opencode/skills/`, a link to your git config | Paseo's OpenCode provider, with its env given at each session |
 | Oh My Pi | `~/.omp/seats/…` | `config.yml` (command denials in `bash.patterns`, tool denials, subagents, questions, memory and other agents' config off), `mcp.json`, `AGENTS.md`, `skills/`, links to its login and models | Paseo's omp provider |
@@ -395,7 +395,7 @@ project keeps its ledger and logs, and is refused while a lane is open or a work
   projects/<slug>/                        slug = repo folder name + 6 hex chars of sha1(root)
     meta.json  settings.json  project.json
     ledger.json  incidents.json
-    events.log  attention.log  status.md
+    events.log  attention.log  assessments.log  status.md
     handbacks/  gates/  notebook.md  CONTEXT.md
 <profileRoot>/sw2-<role>-<agent>-<slug>/  one seat directory per role, agent and project
 ```
@@ -406,7 +406,7 @@ gains fields, and a field that changes meaning takes a new kind. The watch write
 
 | Group | Kinds |
 |---|---|
-| Watch | `watch.fact`, `watch.finding`, `watch.unbriefed`, `watch.offline` |
+| Watch | `watch.fact`, `watch.finding`, `watch.unbriefed`, `watch.unasked`, `watch.offline`, `watcher.seated` |
 | Incidents | `incident.open`, `incident.held`, `incident.told`, `incident.read`, `incident.ack`, `incident.lookup-failed`, `incident.post-failed` |
 
 `call.malformed` is logged when a seat's own harness rejected a tool call before it reached the desk.
