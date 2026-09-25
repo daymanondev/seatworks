@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { no, ok, str, strs } from "../context.ts";
 import { laneGate } from "../gates.ts";
-import { askFirstHits, changeOf, landFacts, reviewFacts } from "../landing.ts";
+import { askFirstHits, changeOf, changesStanding, landFacts, reviewFacts } from "../landing.ts";
 import { type Lane, laneOfLead, loadLedger } from "../ledger.ts";
 import { letters } from "../letters.ts";
 import { putOnHold } from "../hold.ts";
@@ -22,9 +22,10 @@ async function parkAtCheckpoint(desk: DeskServices, project: Project, lane: stri
 }
 
 /** What landing a lane reported ready would bring and wait for, read before whoever lands it decides to. */
-async function readAhead(desk: DeskServices, project: Project, lane: Lane): Promise<{ asks: string[]; facts: string[] }> {
+async function readAhead(desk: DeskServices, project: Project, lane: Lane): Promise<{ asks: string[]; facts: string[]; changes: boolean }> {
   const change = await changeOf(project, lane);
-  return { asks: askFirstHits(project, change), facts: await landFacts(desk.ctx.kit, project, loadLedger(project.state), lane, change) };
+  const ledger = loadLedger(project.state);
+  return { asks: askFirstHits(project, change), facts: await landFacts(desk.ctx.kit, project, ledger, lane, change), changes: changesStanding(ledger, lane) };
 }
 
 export const report = defineTool({
@@ -47,7 +48,7 @@ export const report = defineTool({
     if (!still) return no(`Lane ${lane.id} is no longer yours to report on: it closed, or has another Lead, while this was asked.`);
     const to = await roster.supervisorFor(caller.project, lane.opener);
     const parked = args.ready === true ? await parkAtCheckpoint(desk, caller.project, lane.id) : undefined;
-    const ahead = args.ready === true ? await readAhead(desk, caller.project, lane) : { asks: [], facts: [] };
+    const ahead = args.ready === true ? await readAhead(desk, caller.project, lane) : { asks: [], facts: [], changes: false };
     const letter = letters.report(lane, summary, args.ready === true, strs(args.carried), { gate, parked, ...ahead });
     const posted = await ctx.post(to, letter);
     ctx.event(caller.project, { kind: "lane.report", lane: lane.id, ready: args.ready === true, gate: gate?.ok, to: to ?? null, text: posted === "nobody" ? letter.text : undefined });

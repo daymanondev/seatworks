@@ -19,26 +19,51 @@ const shown = (paths: string[]) => (paths.length > SHOWN ? `${paths.slice(0, SHO
 
 type Reviewed = Task & { handback: NonNullable<Task["handback"]> };
 
-/**
- * What a lane's reviews leave standing, read from the record: no review of the whole lane, a latest review that did not
- * accept, and a task accepted over its own review's changes. Evidence for whoever lands it, never a refusal.
- */
-export function reviewFacts(ledger: Ledger, lane: Lane): string[] {
+/** A task accepted after its own latest review did not accept it: whether it was handed back again after that review, and whether a review accepted it since. */
+type Over = { task: string; review: string; outcome: string; again: boolean; since: boolean };
+
+/** A lane's reviews as the record has them, by when each came back rather than when it was asked for. */
+function reviewRecord(ledger: Ledger, lane: Lane): { whole: boolean; latest?: Reviewed; after: string[]; over: Over[] } {
   const tasks = tasksOf(ledger, lane.id);
   const reviews = tasks.filter((task): task is Reviewed => task.kind === "review" && task.handback !== undefined).sort((a, b) => a.handback.at - b.handback.at);
   const accepted = tasks.filter((task): task is Task & { acceptedAt: number } => task.kind === "code" && task.status === "merged" && task.acceptedAt !== undefined);
-  const facts = reviews.some((review) => !review.of) ? [] : ["No review of the whole lane is on record."];
   const latest = reviews.at(-1);
-  if (latest && latest.handback.outcome !== "accept") {
-    const since = accepted.filter((task) => task.acceptedAt > latest.handback.at).map((task) => task.id);
-    const after = since.length > 0 ? `; ${since.join(", ")} ${since.length === 1 ? "was" : "were"} accepted after it, with no review since.` : ", and nothing was accepted after it.";
-    facts.push(`The lane's latest review, ${latest.id}, ended in ${latest.handback.outcome}${after}`);
-  }
-  for (const task of accepted) {
+  const after = latest ? accepted.filter((task) => task.acceptedAt > latest.handback.at).map((task) => task.id) : [];
+  const over = accepted.flatMap((task): Over[] => {
     const own = reviews.filter((review) => review.of === task.id && review.handback.at < task.acceptedAt).at(-1);
-    if (own && own.handback.outcome !== "accept") facts.push(`${task.id} was accepted over ${own.id}, a review of it that ended in ${own.handback.outcome}.`);
+    if (!own || own.handback.outcome === "accept") return [];
+    const since = reviews.some((review) => (!review.of || review.of === task.id) && review.handback.outcome === "accept" && review.handback.at > task.acceptedAt);
+    return [{ task: task.id, review: own.id, outcome: own.handback.outcome, again: (task.handback?.at ?? 0) > own.handback.at, since }];
+  });
+  return { whole: reviews.some((review) => !review.of), latest, after, over };
+}
+
+/**
+ * What a lane's reviews leave standing, read from the record: no review of the whole lane, a latest review that did not
+ * accept, and a task accepted over its own review's changes, or on a hand-back after them that no review has read.
+ * Evidence for whoever lands it, never a refusal.
+ */
+export function reviewFacts(ledger: Ledger, lane: Lane): string[] {
+  const { whole, latest, after, over } = reviewRecord(ledger, lane);
+  const facts = whole ? [] : ["No review of the whole lane is on record."];
+  if (latest && latest.handback.outcome !== "accept") {
+    const since = after.length > 0 ? `; ${after.join(", ")} ${after.length === 1 ? "was" : "were"} accepted after it, with no review since.` : ", and nothing was accepted after it.";
+    facts.push(`The lane's latest review, ${latest.id}, ended in ${latest.handback.outcome}${since}`);
+  }
+  for (const entry of over) {
+    if (!entry.again) facts.push(`${entry.task} was accepted over ${entry.review}, a review of it that ended in ${entry.outcome}.`);
+    else if (!entry.since) facts.push(`${entry.task} was handed back again after ${entry.review}, a review of it that ended in ${entry.outcome}, and accepted with no review since.`);
   }
   return facts;
+}
+
+/**
+ * Whether reviews asked for changes the record shows no answer to: the lane's latest review, with nothing accepted after
+ * it, or a task accepted on the very hand-back its own review did not accept, with no review accepting it since.
+ */
+export function changesStanding(ledger: Ledger, lane: Lane): boolean {
+  const { latest, after, over } = reviewRecord(ledger, lane);
+  return (latest !== undefined && latest.handback.outcome !== "accept" && after.length === 0) || over.some((entry) => !entry.again && !entry.since);
 }
 
 export async function changeOf(project: Project, lane: Lane): Promise<Change> {

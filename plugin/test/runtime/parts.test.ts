@@ -118,6 +118,7 @@ test("a letter ends with one Next line, what it asks of whoever reads it, which 
   assert.match(next(letters.report(lane, "done", true, [], { ...found, gate: { ok: true, text: "passed" } })), /^land_lane it if acceptance is met and nothing carried loses or corrupts data/);
   assert.match(next(letters.report(lane, "done", true, [], { ...found, gate: { ok: false, text: "failed" } })), /^Landing over a red gate is your call: land_lane with overGate/);
   assert.match(next(letters.report(lane, "done", true, [], { ...found, asks: ["It changes src/auth/a.ts."] })), /then waits for the Human on the Flow tab/);
+  assert.match(next(letters.report(lane, "done", true, [], { ...found, asks: ["It changes src/auth/a.ts."], changes: true })), /^Its reviews asked for changes that nothing on record answers: ask the Lead/);
   assert.match(next(letters.report(lane, "done", true, [], { ...found, parked: "It is on hold." })), /^Tell the Human it waits for their answer/);
 
   const ask: Ask = { id: "A1", from: "agent-2", fromRole: "lead", to: "sup", lane: "L1", kind: "need", text: "A key for the API", status: "open", openedAt: 0, reminders: 0 };

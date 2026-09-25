@@ -53,12 +53,17 @@ test("a lane reported ready carries what its reviews leave standing, and each fa
     await new Promise((resolve) => setTimeout(resolve, 2));
   };
   const ready = async (summary: string) => (await h.call(lane.lead!, "lead", "report", { summary, ready: true })).text;
+  const told = () => {
+    const heard = h.heard(sup).join("\n");
+    return /\nNext: (.*)/.exec(heard.slice(heard.lastIndexOf("REPORT L1")))![1]!;
+  };
 
   await handBack(await start("L1-T1"), "changes");
   assert.equal((await h.call(lane.lead!, "lead", "accept", { task: "L1-T1" })).ok, true);
   const first = await ready("first");
   assert.match(first, /No review of the whole lane is on record\. The lane's latest review, L1-R1, ended in changes; L1-T1 was accepted after it, with no review since\. L1-T1 was accepted over L1-R1, a review of it that ended in changes\./);
   assert.match(h.heard(sup).join("\n"), /REPORT L1 \(Rounding\): ready to land[^]*What the desk read of it:\n[^]*- No review of the whole lane is on record\.\n- The lane's latest review, L1-R1/);
+  assert.match(told(), /^Its reviews asked for changes that nothing on record answers/, "accepted on the very hand-back its review asked changes to");
 
   // Latest by when it came back, not by when it was asked for.
   const [asked, second] = [await start(), await start()];
@@ -67,11 +72,66 @@ test("a lane reported ready carries what its reviews leave standing, and each fa
   const again = await ready("second");
   assert.doesNotMatch(again, /No review of the whole lane/);
   assert.match(again, /The lane's latest review, L1-R2, ended in changes, and nothing was accepted after it\. L1-T1 was accepted over L1-R1/);
+  assert.match(told(), /^Its reviews asked for changes that nothing on record answers/);
 
   await handBack(await start(), "accept");
   const third = await ready("third");
   assert.doesNotMatch(third, /latest review/);
   assert.match(third, /It also carries what the record has of the lane's reviews: L1-T1 was accepted over L1-R1, a review of it that ended in changes\. Stay quiet/, "the Lead's own acceptance stands on the record, for whoever lands it to weigh");
+  assert.match(told(), /^land_lane it if acceptance is met/, "a review of the whole lane accepted it since");
+});
+
+test("a review's changes stand until a hand-back after them or a review accepting the task answers them, and only then does the report stop asking", async () => {
+  const h = harness();
+  const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
+  await h.call(sup, "supervisor", "open_lane", { title: "Rounding", outcome: "money rounds correctly", acceptance: ["a"], outOfScope: ["anything else"] });
+  const lane = h.ledger().lanes.L1!;
+  const tick = () => new Promise((resolve) => setTimeout(resolve, 2));
+  const handBack = async (task: string, file: string, text: string) => {
+    h.commit(lane.worktree!, file, `${text}\n`);
+    await h.call(h.ledger().tasks[task]!.peer!, "peer", "done", { outcome: "complete", summary: text });
+    await tick();
+  };
+  const review = async (task: string, verdict: string) => {
+    await h.call(lane.lead!, "lead", "start_review", { task, focus: "Is the rounding right?" });
+    const reviewer = Object.values(h.ledger().tasks).filter((entry) => entry.kind === "review").at(-1)!.peer!;
+    const findings = verdict === "accept" ? {} : { findings: [{ severity: "P1", where: "a.txt:1", failure: "rounds half down", fix: "round half up" }] };
+    assert.equal((await h.call(reviewer, "reviewer", "done", { verdict, answer: "Read the diff.", ...findings })).ok, true);
+    await tick();
+  };
+  const accept = async (task: string) => {
+    assert.equal((await h.call(lane.lead!, "lead", "accept", { task })).ok, true);
+    await tick();
+  };
+  const ready = async () => {
+    const reply = (await h.call(lane.lead!, "lead", "report", { summary: "done", ready: true })).text;
+    const heard = h.heard(sup).join("\n");
+    return { reply, next: /\nNext: (.*)/.exec(heard.slice(heard.lastIndexOf("REPORT L1")))![1]! };
+  };
+  const add = (key: string, owned: string) => h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key, title: "Round", goal: "g", acceptance: ["a"], owned: [owned], outOfScope: ["the rest"] }] });
+
+  await add("t", "a.txt");
+  await handBack("L1-T1", "a.txt", "rounded");
+  await review("L1-T1", "changes");
+  await h.call(lane.lead!, "lead", "rework", { task: "L1-T1", text: "Round half up, as L1-R1 asks." });
+  await handBack("L1-T1", "a.txt", "rounds half up now");
+  await accept("L1-T1");
+  const reworked = await ready();
+  assert.match(reworked.reply, /L1-T1 was handed back again after L1-R1, a review of it that ended in changes, and accepted with no review since\./);
+  assert.doesNotMatch(reworked.reply, /accepted over L1-R1/);
+  assert.match(reworked.next, /^land_lane it if acceptance is met/, "the rework answered the review, though no review read it");
+
+  await add("u", "b.txt");
+  await handBack("L1-T2", "b.txt", "rounded totals");
+  await review("L1-T2", "changes");
+  await accept("L1-T2");
+  const over = await ready();
+  assert.equal(h.heard(sup).join("\n").split("REPORT L1 ").length - 1, 2, "the same summary again still reaches the Supervisor once what the desk read of the lane changed");
+  assert.match(over.next, /^Its reviews asked for changes that nothing on record answers/, "accepted on the very hand-back its review asked changes to");
+  await review("L1-T1", "accept");
+  assert.match((await ready()).next, /^Its reviews asked for changes that nothing on record answers/, "a review of another task accepting answers nothing of L1-T2's");
+  await review("L1-T2", "accept");
+  assert.match((await ready()).next, /^land_lane it if acceptance is met/, "its own review accepted it since");
 });
 
 test("a review of a change a risk rule covers is asked the rule's question, and its verdict is refused until it answers", async () => {

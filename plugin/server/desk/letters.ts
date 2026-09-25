@@ -176,8 +176,8 @@ export const letters = {
     return mail("incident", [incident.id, incident.opened, incident.level], lines.join("\n"), next);
   },
 
-  /** `found` is what the desk read itself rather than took from the Lead: the gate, a park, what landing it waits for, and what it brings. */
-  report(lane: Lane, summary: string, ready: boolean, carried: string[] | undefined, found: { gate?: { ok: boolean; text: string }; parked?: string; asks: string[]; facts: string[] }): Letter {
+  /** `found` is what the desk read itself rather than took from the Lead: the gate, a park, what landing it waits for, what it brings, and whether review changes stand. */
+  report(lane: Lane, summary: string, ready: boolean, carried: string[] | undefined, found: { gate?: { ok: boolean; text: string }; parked?: string; asks: string[]; facts: string[]; changes?: boolean }): Letter {
     const lines = [`REPORT ${lane.id} (${lane.title}): ${ready ? "ready to land" : "not ready"}`];
     if (found.parked) lines.push("", found.parked);
     if (found.gate) lines.push("", `Gate: ${found.gate.text}`);
@@ -190,10 +190,13 @@ export const letters = {
         ? "Tell the Human it waits for their answer; once they give it, carry it into the lane and resume_lane it."
         : found.gate && !found.gate.ok
           ? "Landing over a red gate is your call: land_lane with overGate and a reason, or message the Lead."
-          : found.asks.length > 0
-            ? "land_lane it if acceptance is met: it then waits for the Human on the Flow tab, so tell them it waits, and why."
-            : "land_lane it if acceptance is met and nothing carried loses or corrupts data; then tell the Human in two lines.";
-    return mail("report", [lane.id, hash(summary)], lines.join("\n"), next);
+          : found.changes
+            ? "Its reviews asked for changes that nothing on record answers: ask the Lead whether they were met before you land_lane it."
+            : found.asks.length > 0
+              ? "land_lane it if acceptance is met: it then waits for the Human on the Flow tab, so tell them it waits, and why."
+              : "land_lane it if acceptance is met and nothing carried loses or corrupts data; then tell the Human in two lines.";
+    const text = lines.join("\n");
+    return mail("report", [lane.id, hash(`${text}\n${next}`)], text, next);
   },
 
   amended(entry: Lane | Task, amendment: Amendment, reader: "lead" | "worker"): Letter {
