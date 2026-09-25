@@ -4,7 +4,7 @@ import { SettingsCard, SettingsRow, SettingsSection, SettingsSwitch } from "@get
 import { memo, useMemo } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Button, Empty } from "./bits.tsx";
-import type { FlowAsk, FlowLane, FlowSeat, FlowView } from "../shared/views.ts";
+import type { FlowAsk, FlowLane, FlowSeat, FlowTask, FlowView } from "../shared/views.ts";
 import { countsInstead } from "./data.ts";
 import { ApprovalsCards } from "./approvals.tsx";
 import { QuestionCards } from "./questions.tsx";
@@ -103,6 +103,16 @@ const Node = memo(function Node({ title, hint, state, alive, caret, theme, onPre
   );
 });
 
+/** Where a lane works: the Human's own checkout, or a copy of its own. */
+const where = (lane: FlowLane): string => (lane.copy ? `copy ${lane.copy}` : "your checkout");
+
+/** What a task's card says of it: why a waiting one waits, since when a handed-back one waits, else what its seat is doing. */
+const taskState = (task: FlowTask): string => {
+  if (task.status === "waiting") return task.held ? `waiting: ${task.held}` : task.after.length > 0 ? `waiting on ${task.after.join(", ")}` : "waiting";
+  if (task.handback !== null) return `${task.status} · handed back ${since(task.handback)}`;
+  return `${task.status} · ${seatText(task.peer)}`;
+};
+
 /** What a lane's Lead card says of it: the Human's part first, then a hold, a READY, and what is running. */
 const leadState = (lane: FlowLane): string => {
   if (lane.landApproval) return lane.landApproval.approved ? "landing approved, not landed yet" : "landing waits for your approval";
@@ -111,8 +121,60 @@ const leadState = (lane: FlowLane): string => {
   return countsInstead(lane) ? `${lane.taskCount} task${lane.taskCount === 1 ? "" : "s"}, ${lane.running} running` : seatText(lane.lead);
 };
 
-const Lane = memo(function Lane({ lane, theme, onOpen, navigation }: { lane: FlowLane; theme: PluginTheme; onOpen(id: string): void; navigation: Navigation }) {
+type LaneProps = { lane: FlowLane; theme: PluginTheme; navigation: Navigation };
+
+/** A closed lane's Lead the Supervisor has not released yet, kept for more work with any copy of its own. */
+function KeptLead({ lane, theme, navigation }: LaneProps) {
   const styles = useStyles(theme);
+  return (
+    <View style={styles.lane}>
+      <Node
+        theme={theme}
+        title={`Kept Lead · ${lane.id} ${lane.title}`}
+        hint={`${lane.landed ? "landed" : "dropped"}${lane.copy ? ` · keeps copy ${lane.copy}` : ""} · until released`}
+        state={seatText(lane.lead)}
+        alive={Boolean(lane.lead && lane.lead.status !== "gone")}
+        onChat={chatOf(navigation, lane.lead)}
+      />
+    </View>
+  );
+}
+
+/** An open lane's seats below its Lead: each task's, then the Peer kept idle in the lane's copy. */
+function Peers({ lane, theme, navigation }: LaneProps) {
+  const styles = useStyles(theme);
+  return (
+    <>
+      <View style={styles.spine} />
+      <View style={styles.rail} />
+      <View style={styles.children}>
+        {lane.tasks.map((task) => (
+          <View key={task.id} style={styles.stub}>
+            <View style={styles.link} />
+            <Node
+              theme={theme}
+              title={`${task.kind === "review" ? "Reviewer" : "Peer"} · ${task.id}${task.mode === "parallel" ? " · parallel" : ""}`}
+              hint={task.copy ? `${task.copy} · ${task.title}` : task.title}
+              state={taskState(task)}
+              alive={task.status === "running" || task.status === "rework"}
+              onChat={chatOf(navigation, task.peer)}
+            />
+          </View>
+        ))}
+        {lane.kept ? (
+          <View style={styles.stub}>
+            <View style={styles.link} />
+            <Node theme={theme} title="Peer · kept" hint="takes the next task in the lane's copy" state={seatText(lane.kept)} alive={false} onChat={chatOf(navigation, lane.kept)} />
+          </View>
+        ) : null}
+      </View>
+    </>
+  );
+}
+
+const Lane = memo(function Lane({ lane, theme, onOpen, navigation }: LaneProps & { onOpen(id: string): void }) {
+  const styles = useStyles(theme);
+  if (lane.status === "closed") return <KeptLead lane={lane} theme={theme} navigation={navigation} />;
   if (lane.status === "waiting") {
     return (
       <View style={styles.lane}>
@@ -120,42 +182,23 @@ const Lane = memo(function Lane({ lane, theme, onOpen, navigation }: { lane: Flo
       </View>
     );
   }
+  const opens = lane.taskCount > 0 || lane.kept !== null;
   return (
     <View style={styles.lane}>
       <View style={{ gap: 8 }}>
         <Node
           theme={theme}
           title={`Lead · ${lane.id} ${lane.title}`}
-          hint={lane.base ? `${lane.branch} off ${lane.base}` : `${lane.branch}, carried on in place`}
+          hint={`${where(lane)} · ${lane.base ? `${lane.branch} off ${lane.base}` : `${lane.branch}, carried on in place`}`}
           state={leadState(lane)}
           alive={Boolean(lane.lead && lane.lead.status !== "gone" && !lane.onHold)}
-          caret={lane.taskCount === 0 ? undefined : lane.open ? "▾" : "▸"}
-          onPress={lane.taskCount === 0 ? undefined : () => onOpen(lane.id)}
+          caret={opens ? (lane.open ? "▾" : "▸") : undefined}
+          onPress={opens ? () => onOpen(lane.id) : undefined}
           onChat={chatOf(navigation, lane.lead)}
         />
         {navigation && lane.workspaceId && lane.open ? <Button label={`Open ${lane.id}'s diff`} theme={theme} onPress={() => navigation.openWorkspace({ workspaceId: lane.workspaceId! })} /> : null}
       </View>
-      {lane.open && lane.tasks.length > 0 ? (
-        <>
-          <View style={styles.spine} />
-          <View style={styles.rail} />
-          <View style={styles.children}>
-            {lane.tasks.map((task) => (
-              <View key={task.id} style={styles.stub}>
-                <View style={styles.link} />
-                <Node
-                  theme={theme}
-                  title={`${task.kind === "review" ? "Reviewer" : "Peer"} · ${task.id}`}
-                  hint={task.title}
-                  state={task.handback !== null ? `${task.status} · handed back ${since(task.handback)}` : `${task.status} · ${seatText(task.peer)}`}
-                  alive={task.status === "running" || task.status === "rework"}
-                  onChat={chatOf(navigation, task.peer)}
-                />
-              </View>
-            ))}
-          </View>
-        </>
-      ) : null}
+      {lane.open && (lane.tasks.length > 0 || lane.kept) ? <Peers lane={lane} theme={theme} navigation={navigation} /> : null}
     </View>
   );
 });
@@ -183,7 +226,7 @@ export function FlowSection({ following, flow, error, live, theme, disabled, onL
   const empty = flow !== null && flow.lanes.length === 0 && flow.supervisors.length === 0;
 
   return (
-    <SettingsSection title="Flow" info="Only what the team is holding right now. Open a lane to see its Peers.">
+    <SettingsSection title="Flow" info="Only what the team is holding right now, seats kept for more work included. Open a lane to see its Peers.">
       <SettingsCard>
         <SettingsSwitch
           label="Follow the team live"
@@ -230,7 +273,7 @@ export function FlowSection({ following, flow, error, live, theme, disabled, onL
         <SettingsCard>
           <SettingsRow
             label={`${flow.moreLanes} more lane${flow.moreLanes === 1 ? "" : "s"}`}
-            hint={`This screen draws the first ${flow.lanes.length} open lanes and no more. The rest are open or waiting; the status page lists every one of them.`}
+            hint={`This screen draws the first ${flow.lanes.length} lanes and no more. The rest are open, waiting, or closed with their Lead kept; the status page lists every one of them.`}
           />
         </SettingsCard>
       ) : null}

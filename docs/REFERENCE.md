@@ -367,7 +367,7 @@ it is given its own. Each role still needs its settings files under `harness/<ag
 | Tab | What it holds |
 |---|---|
 | **Team** | The agent per role, its model and thinking. The Supervisor's chip also holds *Mail incidents* |
-| **Flow** | First what waits for you: each question the Supervisor put to you, answered there with an option or declined, with a note; and each landing that waits for your approval. Then supervisors, lanes, tasks and open asks, live, each seat opening its chat in Paseo and an open lane its diff; then the incidents not yet marked |
+| **Flow** | First what waits for you: each question the Supervisor put to you, answered there with an option or declined, with a note; and each landing that waits for your approval. Then supervisors, lanes, tasks and open asks, live, each seat opening its chat in Paseo and an open lane its diff. A lane says whether it works in your checkout or a copy of its own; a task whether it runs in parallel, in which copy, and what a waiting one waits for; a Peer kept for the lane's next task, and a Lead kept after its lane closed, show until they are released. Then the incidents not yet marked |
 | **Report** | The project's last day, read from the record with no agent's words in it: what needs you, what went ahead on a recommendation, what landed, what could not be undone, and the counts |
 | **Orders** | What you settled for the project, read only: the paths asked about first, the risk rules, where lanes work, and `CONTEXT.md`. You change them by telling the Supervisor |
 | **MCP** | Servers on or off, their roles and options, and adding one from a snippet |

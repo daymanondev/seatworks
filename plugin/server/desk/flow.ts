@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { SeatView } from "../core/paseo.ts";
 import { AT_WORK, SETTLED } from "../domain/task.ts";
+import { keptCopy, keptPeer } from "./kept.ts";
 import type { Lane, Ledger } from "./ledger.ts";
 import type { FlowAsk, FlowLane, FlowQuestion, FlowSeat, FlowTask, FlowView } from "../../shared/views.ts";
 import type { Project } from "./project.ts";
@@ -38,7 +39,19 @@ function tasksByLane(ledger: Ledger, seats: Map<string, SeatView>, now: number, 
     counts.set(task.lane, count);
     if (!open.has(task.lane)) continue;
     const peer = seatOf(seats, task.peer, ledger.agents[task.peer ?? ""]?.role ?? task.kind, now);
-    const built: FlowTask = { id: task.id, title: task.title, status: task.status, kind: task.kind, peer, minutes: minutes(now, task.updatedAt), handback: task.handback ? minutes(now, task.handback.at) : null };
+    const built: FlowTask = {
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      kind: task.kind,
+      mode: task.mode,
+      copy: task.mode === "parallel" ? (task.slot ?? null) : null,
+      after: task.after ?? [],
+      held: task.held?.why ?? null,
+      peer,
+      minutes: minutes(now, task.updatedAt),
+      handback: task.handback ? minutes(now, task.handback.at) : null,
+    };
     held.set(task.lane, [...(held.get(task.lane) ?? []), built]);
   }
   return { counts, held };
@@ -46,13 +59,18 @@ function tasksByLane(ledger: Ledger, seats: Map<string, SeatView>, now: number, 
 
 function laneOf(lane: Lane, ledger: Ledger, seats: Map<string, SeatView>, now: number, count: Counted, tasks: FlowTask[], open: boolean): FlowLane {
   const land = lane.landApproval;
+  const closed = lane.status === "closed";
+  const idle = closed ? undefined : keptPeer(ledger, lane.id);
   return {
     id: lane.id,
     title: lane.title,
     status: lane.status,
     branch: lane.branch,
     ...(lane.onBranch ? {} : { base: lane.base }),
+    copy: (closed ? keptCopy(ledger, lane) : lane.slot) ?? null,
     lead: seatOf(seats, lane.lead, ledger.agents[lane.lead ?? ""]?.role ?? "lead", now),
+    kept: idle && seats.has(idle.id) ? seatOf(seats, idle.id, idle.role, now) : null,
+    ...(closed ? { landed: Boolean(lane.landed) } : {}),
     tasks,
     taskCount: count.total,
     running: count.running,
@@ -106,7 +124,8 @@ export function flowView(
   seated: { id: string; role: string }[] = [],
 ): Omit<FlowView, "watch"> {
   const { counts, held } = tasksByLane(ledger, seats, now, open);
-  const active = Object.values(ledger.lanes).filter((lane) => lane.status !== "closed");
+  // A closed lane stays live while its Lead is kept, until the Supervisor releases it or the Human archives it.
+  const active = Object.values(ledger.lanes).filter((lane) => lane.status !== "closed" || (lane.lead !== undefined && seats.has(lane.lead)));
   const lanes = active.slice(0, LANE_CAP).map((lane) => laneOf(lane, ledger, seats, now, counts.get(lane.id) ?? { total: 0, running: 0 }, held.get(lane.id) ?? [], open.has(lane.id)));
   const body = { project: project.slug, supervisors: supervisorsOf(ledger, seats, now, supervises, seated), lanes, moreLanes: Math.max(0, active.length - LANE_CAP), asks: asksOf(ledger, now), questions: questionsOf(ledger, now) };
   const revision = createHash("sha1").update(JSON.stringify(body)).digest("hex").slice(0, 16);

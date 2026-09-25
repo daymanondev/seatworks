@@ -147,15 +147,32 @@ export type ModelsRefreshed = z.infer<typeof ModelsRefreshed>;
 
 const FlowSeat = z.object({ id: z.string(), role: z.string(), status: z.string(), minutes: z.number(), waiting: z.array(z.string()) });
 export type FlowSeat = z.infer<typeof FlowSeat>;
-const FlowTask = z.object({ id: z.string(), title: z.string(), status: z.string(), kind: z.string(), peer: FlowSeat.nullable(), minutes: z.number(), handback: z.number().nullable() });
+/** `copy` names a parallel task's own copy; `after` and `held` say what a waiting task waits for or why it cannot start. */
+const FlowTask = z.object({
+  id: z.string(),
+  title: z.string(),
+  status: z.string(),
+  kind: z.string(),
+  mode: z.enum(["lane", "parallel"]),
+  copy: z.string().nullable(),
+  after: z.array(z.string()),
+  held: z.string().nullable(),
+  peer: FlowSeat.nullable(),
+  minutes: z.number(),
+  handback: z.number().nullable(),
+});
 export type FlowTask = z.infer<typeof FlowTask>;
+/** `copy` is the lane's own working copy, none for the Human's checkout; `kept` the Peer idle in it; `landed` how a lane whose Lead is kept closed. */
 const FlowLane = z.object({
   id: z.string(),
   title: z.string(),
   status: z.string(),
   branch: z.string(),
   base: z.string().optional(),
+  copy: z.string().nullable(),
   lead: FlowSeat.nullable(),
+  kept: FlowSeat.nullable(),
+  landed: z.boolean().optional(),
   tasks: z.array(FlowTask),
   taskCount: z.number(),
   running: z.number(),
