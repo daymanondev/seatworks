@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { test } from "node:test";
-import { laneWithPeer } from "./harness.ts";
+import { harness, laneWithPeer } from "./harness.ts";
 
 const packet = (extra: Record<string, unknown> = {}) => ({
   question: "Delete old invoices, or keep them archived?",
@@ -56,4 +58,24 @@ test("a lane that went on without the Human's answer to a costly question stops 
 
   h.timelineOf(sup).add({ type: "user_message", text: "No. Don't touch invoices at all." });
   assert.match((await h.call(sup, "supervisor", "record_human_answer", { question: "H1", choice: "decline", quote: "no" })).text, /^H1 is declined: decline\. Lane L1 is still on hold for it/);
+});
+
+test("a question about a lane that writes where the Human asked to be asked first is costly at least, whatever it is called", async () => {
+  const h = harness();
+  const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
+  await h.call(sup, "supervisor", "set_project", { askFirst: ["src/auth"] });
+  const scope = { outcome: "x", acceptance: ["a"], outOfScope: ["the rest"] };
+  await h.call(sup, "supervisor", "open_lane", { title: "Login", ...scope, writeSet: ["src/**"] });
+  await h.call(sup, "supervisor", "open_lane", { title: "Session", ...scope, isolate: true });
+  const copy = h.ledger().lanes.L2!.worktree!;
+  mkdirSync(join(copy, "src", "auth"), { recursive: true });
+  h.commit(copy, "src/auth/session.ts", "export const session = 1;\n");
+
+  const declared = await h.call(sup, "supervisor", "ask_human", packet({ lane: "L1" }));
+  assert.match(declared.text, /^Asked the Human as H1; it waits in their question queue\. It is costly, not reversible\. Lane L1 may write under src\/auth, which the Human asked to be asked about first\. The lane goes on/);
+  const worked = await h.call(sup, "supervisor", "ask_human", packet({ lane: "L2" }));
+  assert.match(worked.text, /It is costly, not reversible\. Lane L2: It changes src\/auth\/session\.ts, under src\/auth, which the Human asked to be asked about first\./);
+  assert.deepEqual([h.ledger().questions.H1!.class, h.ledger().questions.H2!.class], ["costly", "costly"]);
+  await h.call(sup, "supervisor", "ask_human", packet({ lane: "L1", class: "irreversible" }));
+  assert.equal(h.ledger().questions.H3!.class, "irreversible", "the Supervisor may raise a question, never lower it");
 });

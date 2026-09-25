@@ -330,7 +330,7 @@
               "costly",
               "irreversible"
             ],
-            "description": "reversible: the default runs now and they can overturn it. costly: the default runs until the lane reports ready. irreversible: nothing it decides goes ahead until they answer."
+            "description": "reversible: the default runs now and they can overturn it. costly: the default runs until the lane reports ready. irreversible: nothing it decides goes ahead until they answer. A question about a lane that writes where the Human asked to be asked first (askFirst) is costly at least."
           }
         },
         "required": [
