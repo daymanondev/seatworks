@@ -49,6 +49,10 @@
   "task": {
     "maxRecursionDepth": 0
   },
+  "eval": {
+    "py": false,
+    "js": false
+  },
   "tools": {
     "approval": {
       "task": "deny",

@@ -220,7 +220,7 @@ settings revision changes, its settings file is gone, or a login appeared since.
 | Codex | `~/.codex/seats/…` | `config.toml` (`model_provider` and `model_providers` from your own `~/.codex/config.toml`; `workspace-write`, or `read-only` for the Reviewer, the Watcher and the Pager; `approval_policy = "never"`; subagents off), `model-catalog.json`, `rules/seatworks.rules`, `skills/`, an `auth.json` link, `AGENTS.md` | Paseo's Codex provider |
 | Pi | `~/.pi/seats/…` | `settings.json` (`pi-mcp-adapter`, project trust off, tool lists for the Lead and Reviewer), `mcp.json`, `skills/`, links to login, models and npm | Paseo's Pi provider |
 | OpenCode | `~/.config/opencode-seats/…` | `opencode/opencode.json` (your providers, permissions with command denials, subagents and questions off, autoupdate and sharing off), `opencode/AGENTS.md`, `opencode/skills/`, a link to your git config | Paseo's OpenCode provider, with its env given at each session |
-| Oh My Pi | `~/.omp/seats/…` | `config.yml` (command denials in `bash.patterns`, tool denials, subagents, questions, memory and other agents' config off), `mcp.json`, `AGENTS.md`, `skills/`, links to its login and models | Paseo's omp provider |
+| Oh My Pi | `~/.omp/seats/…` | `config.yml` (command denials in `bash.patterns`, tool denials, code eval, subagents, questions, memory and other agents' config off), `mcp.json`, `AGENTS.md`, `skills/`, links to its login and models | Paseo's omp provider |
 
 - **Claude Code** still reads the project's `CLAUDE.md`: the working directory is passed as an
   additional directory. Claude never reads an added directory's `AGENTS.md`, so where the project

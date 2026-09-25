@@ -122,6 +122,7 @@ test("every role builds on every agent the kit ships, each in that agent's own t
       assert.equal(settings.ask?.enabled, false, `${where}: nobody is there to answer a question that stops the turn`);
       assert.equal(settings.tools?.approval?.task, "deny", `${where}: Paseo is the only control plane`);
       assert.equal(settings.tools?.approval?.eval, "deny", `${where}: an eval cell starts agents through agent() and workpool(), past Paseo`);
+      assert.deepEqual([settings.eval?.py, settings.eval?.js], [false, false], `${where}: omp offers no eval tool with both backends off, and PI_PY or PI_JS bringing one back still meets the deny`);
       assert.equal(settings.tools?.approval?.debug === "deny", bare, `${where}: debugs only where it has a shell that runs the same programs`);
       assert.notEqual(settings.skills?.enablePiUser, false, `${where}: the skills linked into the seat's own directory load`);
       assert.equal(settings.tools?.xdev, false, `${where}: no tool hides behind write, which the Lead and the Reviewer are denied`);
