@@ -60,6 +60,7 @@
       "Bash(git -C * stash *)",
       "Bash(git -C * worktree *)",
       "Edit(~/.local/share/seatworks-v3/settings.json)",
+      "Read(~/.local/share/seatworks-v3/settings.json)",
       "Read(~/.local/share/seatworks-v3/settings.json*)",
       "Edit(~/.local/share/seatworks-v3/outbox.json)",
       "Edit(~/.local/share/seatworks-v3/projects/*/ledger.json)",

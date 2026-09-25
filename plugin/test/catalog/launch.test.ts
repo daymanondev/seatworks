@@ -82,6 +82,7 @@ test("a seat's shell may write under state only what its role declares, and a ro
   for (const dir of [stateRoot("~"), `${stateRoot("~")}/projects/shop-1a2b`]) {
     for (const name of ["settings.json", backup, "settings.json.4242.tmp"]) assert.ok(readDenied(`${dir}/${name}`), `a Claude seat may read ${dir}/${name}, which can hold a sensor's key`);
   }
+  assert.ok(deny.includes(`Read(${stateRoot("~")}/settings.json)`), "the machine's settings are also named without a glob, the only kind Claude's sandbox keeps on Linux");
 
   const peer = applyRole(kit, team, { provider: "sw2-peer-omp", cwd: "/repo" } as AgentConfig, render, "/state/repo");
   assert.equal(peer.providerOptions, undefined, "a harness that declares no write list is untouched");

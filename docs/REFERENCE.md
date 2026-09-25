@@ -329,7 +329,8 @@ There are two layers: `~/.local/share/seatworks-v3/settings.json` for the machin
 
 `tickSeconds` is read from the machine layer only. A seat runs as you: a Claude seat is denied reading either
 settings file and the copies beside it (Migrate's backups, a save's staging copy), but a seat on another harness can
-read them all, a sensor's key included.
+read them all, a sensor's key included. On Linux, Claude's sandbox skips every rule with a glob in it, so there its
+shell is kept off only the machine's settings file itself; its file tools still honour every rule.
 
 <!-- drawn from the code: attention -->
 | Attention value | Default |
