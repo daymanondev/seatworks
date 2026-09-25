@@ -105,7 +105,7 @@ export class Runtime implements HostHooks {
       models: () => this.refreshModels(),
       seats: this.seats,
       held: () => this.outbox.letters(),
-      watch: (project) => watchView(project, this.troubles.get(project.slug) ?? []),
+      watch: (project) => watchView(project, this.troubles.get(project.slug) ?? [], this.source.teamFor(project), kit),
       human: this.desk.human,
     });
   }

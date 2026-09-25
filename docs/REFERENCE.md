@@ -294,7 +294,8 @@ The watch also asks what a code fact cannot read, one condition at a time, at th
 
 `attention.judge` names who answers: `off`, a sensor in `catalog/sensor/` asked over HTTP (the preset's `jev`), or a
 role that can `judge`, the Watcher, a seat. Each question in `catalog/checks.json` has its wording, thresholds and
-mode. Every question ships `shadow`: the answer is kept in the project's `assessments.log`, and no seat reads it. A
+mode. Every question ships `shadow`: the answer is kept in the project's `assessments.log`, and no seat reads it. The Flow tab says who answers and how that stands: nobody, a sensor with no
+key, nothing asked yet, the last answer, or the last failure. A
 first change before any look is a fact of its own, `edit-before-look`, a note that opens `instruction_kind` and
 nothing else.
 
@@ -318,8 +319,8 @@ There are two layers: `~/.local/share/seatworks-v3/settings.json` for the machin
 | The Flow switch | panel |
 | Rules per role, or for every seat | by hand |
 | The Flow interval, and the other attention values | by hand |
-| `attention.judge`, who answers the watch's questions | by hand |
-| A sensor's key, `sensor.<id>.key`, which the panel never reads back | by hand |
+| `attention.judge`, who answers the watch's questions | panel (Team › Watcher, *Answered by*) |
+| A sensor's key, `sensor.<id>.key`, which the panel never reads back | panel (Machine defaults › Watcher); a project's by hand |
 
 `tickSeconds` is read from the machine layer only.
 

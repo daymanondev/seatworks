@@ -8,7 +8,7 @@ import type { FlowAsk, FlowLane, FlowSeat, FlowView } from "../shared/views.ts";
 import { countsInstead } from "./data.ts";
 import { ApprovalsCards } from "./approvals.tsx";
 import { QuestionCards } from "./questions.tsx";
-import { IncidentsCard } from "./watching.tsx";
+import { WatchCard } from "./watching.tsx";
 
 /** Paseo's own navigation, absent on older hosts: every place that opens something hides without it. */
 type Navigation = PluginSurfaceProps["navigation"];
@@ -235,7 +235,7 @@ export function FlowSection({ following, flow, error, live, theme, disabled, onL
         </SettingsCard>
       ) : null}
 
-      {live && flow ? <IncidentsCard watch={flow.watch} theme={theme} /> : null}
+      {live && flow ? <WatchCard watch={flow.watch} theme={theme} /> : null}
 
       {live && flow && flow.asks.length > 0 ? <AsksCard asks={flow.asks} theme={theme} /> : null}
     </SettingsSection>

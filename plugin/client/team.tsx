@@ -8,6 +8,7 @@ import { sourceLabel } from "./bits.tsx";
 import type { Layer, RoleChoice } from "../shared/settings.ts";
 import type { CatalogView, ModelsRefreshed, TeamView } from "../shared/views.ts";
 import { message, modelRow, setAttention, setRole, sourceOf } from "./data.ts";
+import { JudgeCard } from "./judge.tsx";
 import { ModelPicker } from "./model-picker.tsx";
 import { TabBar } from "./tabs.tsx";
 
@@ -143,7 +144,7 @@ export function TeamSection(props: Props) {
   return (
     <SettingsSection title="Team" info={role.description}>
       <TabBar theme={theme} active={role.id} disabled={disabled} onPick={onActive} tabs={catalog.roles.map((entry) => ({ id: entry.id, label: entry.label }))} />
-      <SettingsCard>{roleRows({ ...props, role })}</SettingsCard>
+      {role.can.includes("judge") ? <JudgeCard {...props} role={role} rows={roleRows({ ...props, role })} /> : <SettingsCard>{roleRows({ ...props, role })}</SettingsCard>}
       {role.can.includes("supervise") ? <IncidentMailCard {...props} /> : null}
       <ModelsCard catalog={props.catalog} disabled={props.disabled} reload={props.reload} />
     </SettingsSection>

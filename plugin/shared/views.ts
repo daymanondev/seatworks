@@ -37,6 +37,7 @@ export const CatalogView = z.object({
       roles: z.array(z.string()),
     }),
   ),
+  sensors: z.array(z.object({ id: z.string(), label: z.string(), key: z.string(), model: z.string() })),
 });
 export type CatalogView = z.infer<typeof CatalogView>;
 
@@ -194,8 +195,11 @@ const WatchIncident = z.object({
   held: z.string().nullable(),
 });
 export type WatchIncident = z.infer<typeof WatchIncident>;
-/** What the code noticed about the seats and nobody has marked yet, and the trouble nobody is mailed about. */
-const WatchView = z.object({ incidents: z.array(WatchIncident), trouble: z.array(z.object({ kind: z.string(), minutes: z.number(), detail: z.string() })) });
+/** Who answers the watch's questions, and how that stands: off, a sensor with no key, nothing asked yet, its last answer, or its last failure. */
+const WatchJudge = z.object({ label: z.string(), state: z.enum(["off", "nokey", "waiting", "answering", "failing"]), minutes: z.number().nullable(), detail: z.string().nullable() });
+export type WatchJudge = z.infer<typeof WatchJudge>;
+/** What the code noticed about the seats and nobody has marked yet, the trouble nobody is mailed about, and who answers the watch's questions. */
+const WatchView = z.object({ incidents: z.array(WatchIncident), trouble: z.array(z.object({ kind: z.string(), minutes: z.number(), detail: z.string() })), judge: WatchJudge });
 export type WatchView = z.infer<typeof WatchView>;
 const FlowView = z.object({ project: z.string(), at: z.number(), revision: z.string(), supervisors: z.array(FlowSeat), lanes: z.array(FlowLane), moreLanes: z.number(), asks: z.array(FlowAsk), questions: z.array(FlowQuestion), watch: WatchView });
 export type FlowView = z.infer<typeof FlowView>;

@@ -6,6 +6,7 @@ import type { SensorSpec } from "../../server/catalog/kit.ts";
 import { stateRoot } from "../../server/core/paths.ts";
 import type { Answer, Judge, Question } from "../../server/core/ports.ts";
 import { loadConfig, saveConfig } from "../../server/desk/project.ts";
+import { contracts } from "../../shared/rpc.ts";
 import { type FakeTimeline, settle } from "./fake-timeline.ts";
 import { harness, laneWithPeer } from "./harness.ts";
 
@@ -216,4 +217,39 @@ test("a first change made before any look is asked what the instruction did, whe
 
   assert.deepEqual(kinds(), ["The total is wrong: it rounds half down.", "The refund is off by a cent."], "not after a look, nor after a sender the catalog leaves out");
   assert.deepEqual(kept(h.project.state).find((line) => "instruction_kind" in line.checks)!.verdicts, { instruction_kind: "unclear" }, "a choice below its sure line is unclear");
+});
+
+test("the Flow tab says who answers the watch and how that stands: off, no key, nothing asked yet, answering, or failing", async () => {
+  let says: number | Error = 0.3;
+  const h = harness({ sensor: () => ({ ask: async (_state, questions) => {
+    if (says instanceof Error) throw says;
+    return { answers: Object.fromEntries(Object.keys(questions).map((name) => [name, { noul: says as number }])), model: "vendor/model-1" };
+  } }) });
+  const opened = await lane(h, "a.txt");
+  const peer = h.ledger().tasks["L1-T1"]!.peer!;
+  const line = async () => {
+    const view = await h.rpc(contracts.flow, { project: h.project.slug });
+    assert.ok("watch" in view);
+    return view.watch.judge;
+  };
+  const handBack = async (again: boolean) => {
+    if (again) await h.call(opened.lead!, "lead", "rework", { task: "L1-T1", text: "Again." });
+    await h.call(peer, "peer", "done", { outcome: "complete", summary: "Rounded." });
+    await settle();
+  };
+
+  judgedBy("off");
+  assert.deepEqual(await line(), { label: "", state: "off", minutes: null, detail: null });
+  judgedBy("jev");
+  assert.deepEqual(await line(), { label: "Jev", state: "nokey", minutes: null, detail: "OpenRouter key" });
+  assert.deepEqual((await h.rpc(contracts.catalog, {})).sensors, [{ id: "jev", label: "Jev", key: "OpenRouter key", model: "typesafe/jev-1.13" }], "the switch offers each sensor the kit has, by name and the key it takes");
+  judgedBy("jev", KEY);
+  assert.equal((await line()).state, "waiting");
+  await handBack(false);
+  assert.deepEqual(await line(), { label: "Jev", state: "answering", minutes: 0, detail: null });
+  says = new Error("503: busy");
+  await handBack(true);
+  assert.deepEqual(await line(), { label: "Jev", state: "failing", minutes: 0, detail: "503: busy" });
+  judgedBy("watcher");
+  assert.deepEqual(await line(), { label: "The Watcher", state: "waiting", minutes: null, detail: null }, "what another judge answered is not its");
 });

@@ -1,10 +1,10 @@
 import { existsSync, readdirSync, realpathSync, rmSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { type Kit, can, providerId, rolesThatCan, seatOf, supportsRole } from "../catalog/kit.ts";
+import { type Kit, can, providerId, rolesThatCan, seatOf } from "../catalog/kit.ts";
 import { layerValues, readShown, withKeys, withoutKeys, writeLayer } from "../catalog/settings.ts";
 import type { Connect, Layer } from "../../shared/settings.ts";
-import { type Team, resolveTeam, rulesFor, skillDirsFor, templateRoles, transportOf } from "../catalog/team.ts";
+import { type Team, resolveTeam, rulesFor, skillDirsFor, transportOf } from "../catalog/team.ts";
 import { gitCommonDir } from "../core/git.ts";
 import type { SeatView, Seats } from "../core/ports.ts";
 import { seatProblems } from "../catalog/seats.ts";
@@ -20,6 +20,7 @@ import { contentChanges, decide } from "../upkeep/content.ts";
 import { loadLedger, readLedger } from "../desk/ledger.ts";
 import { type Project, gitRoot, loadConfig, projectOf } from "../desk/project.ts";
 import { statusText } from "../desk/status.ts";
+import { describeCatalog } from "./catalog-view.ts";
 import { HumanPanel } from "./human.ts";
 import { type Check, doctor } from "./doctor.ts";
 import type { Control } from "./rpc.ts";
@@ -83,41 +84,6 @@ function connectFrom(value: unknown): Connect | string {
   const headers = table(value.headers);
   if (typeof headers === "string") return `The server's headers give ${headers} a value that is not text.`;
   return { type, url, ...(headers ? { headers } : {}) };
-}
-
-function describeCatalog(kit: Kit): CatalogView {
-  return {
-    roles: kit.roles.map((role) => ({
-      id: role.role,
-      label: role.label,
-      description: role.description ?? "",
-      can: role.can ?? [],
-      concern: role.concern ?? null,
-      defaults: role.defaults,
-      follows: role.follows ?? null,
-      harnesses: Object.values(kit.harnesses)
-        .filter((harness) => supportsRole(kit, harness, role))
-        .map((harness) => harness.id),
-    })),
-    harnesses: Object.values(kit.harnesses).map((harness) => ({
-      id: harness.id,
-      label: harness.label,
-      models: harness.models ?? [],
-      transports: harness.mcp.transports,
-    })),
-    mcp: Object.values(kit.mcp)
-      .sort((a, b) => (a.order ?? 100) - (b.order ?? 100))
-      .map((entry) => ({
-        id: entry.id,
-        label: entry.label,
-        description: entry.description ?? "",
-        kind: entry.kind,
-        transport: entry.kind === "proxy" ? "stdio" : (entry.server?.type ?? "stdio"),
-        settings: entry.settings,
-        defaults: entry.defaults,
-        roles: templateRoles(entry),
-      })),
-  };
 }
 
 function describeTeam(kit: Kit, team: Team, project?: Project): TeamView {

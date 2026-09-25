@@ -3,8 +3,9 @@ import { SettingsCard } from "@getpaseo/plugin/client/ui";
 import { type ReactNode, useMemo } from "react";
 import { Text, View } from "react-native";
 import { Dot, Rule } from "./bits.tsx";
-import type { WatchView } from "../shared/views.ts";
+import type { WatchJudge, WatchView } from "../shared/views.ts";
 import { incidentState } from "./data.ts";
+import { judgeWords } from "./judging.ts";
 
 const ago = (minutes: number): string => (minutes < 1 ? "just now" : minutes < 60 ? `${minutes} min ago` : `${Math.round(minutes / 60)} h ago`);
 
@@ -59,12 +60,32 @@ function Trouble({ watch, theme }: { watch: WatchView; theme: PluginTheme }) {
   );
 }
 
-/** What the code noticed and nobody has marked yet, in one short card like the open asks. */
-export function IncidentsCard({ watch, theme }: { watch: WatchView; theme: PluginTheme }) {
+function JudgeLine({ judge, theme }: { judge: WatchJudge; theme: PluginTheme }) {
   const styles = useStyles(theme);
-  if (watch.incidents.length === 0 && watch.trouble.length === 0) return null;
+  const words = judgeWords(judge);
+  const tone = { success: theme.colors.statusSuccess, warning: theme.colors.statusWarning, muted: theme.colors.foregroundMuted }[words.tone];
+  return (
+    <Section title="The watch" theme={theme}>
+      <View style={styles.row}>
+        <View style={styles.dot}>
+          <Dot color={tone} />
+        </View>
+        <View style={styles.labels}>
+          <Text style={styles.title}>{words.title}</Text>
+          <Text style={styles.hint}>{words.hint}</Text>
+        </View>
+        {judge.minutes !== null ? <Text style={styles.hint}>{ago(judge.minutes)}</Text> : null}
+      </View>
+    </Section>
+  );
+}
+
+/** Who answers the watch, then what the code noticed and nobody has marked yet, in short cards like the open asks. */
+export function WatchCard({ watch, theme }: { watch: WatchView; theme: PluginTheme }) {
+  const styles = useStyles(theme);
   return (
     <View style={{ gap: 10 }}>
+      <JudgeLine judge={watch.judge} theme={theme} />
       {watch.incidents.length > 0 ? (
         <Section title={`Incidents · ${watch.incidents.length} not yet marked`} theme={theme}>
           {watch.incidents.map((item, index) => (
