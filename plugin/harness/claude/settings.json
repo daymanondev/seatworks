@@ -22,7 +22,6 @@
       "ReportFindings",
       "Artifact",
       "DesignSync",
-      "NotebookEdit",
       "Bash(git push *)",
       "Bash(git pull *)",
       "Bash(gh *)",

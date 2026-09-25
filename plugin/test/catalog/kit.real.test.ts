@@ -93,7 +93,7 @@ test("every role builds on every agent the kit ships, each in that agent's own t
     const bare = ["watcher", "pager"].includes(role.role);
     if (harness.id === "claude") {
       for (const command of DESK_GIT) assert.ok([`Bash(git ${command} *)`, `Bash(git -C * ${command} *)`].every((rule) => settings.permissions.deny.includes(rule)), `${where}: a seat does not git ${command}, with -C or without`);
-      assert.equal(["Edit", "Write", "MultiEdit"].some((tool) => settings.permissions.deny.includes(tool)), !edits, `${where}: edits files only where the role may`);
+      for (const tool of ["Edit", "Write", "MultiEdit", "NotebookEdit"]) assert.equal(settings.permissions.deny.includes(tool), !edits, `${where}: ${tool} only where the role edits files`);
       assert.equal(settings.permissions.deny.includes("Bash(sleep *)"), !waits, `${where}: sleeps only where the role may`);
       assert.equal(settings.permissions.deny.includes("WebSearch"), !searches, `${where}: searches the web only where the role may`);
       if (bare) for (const tool of BUILT_INS.claude!) assert.ok(settings.permissions.deny.includes(tool), `${where}: has no ${tool}`);

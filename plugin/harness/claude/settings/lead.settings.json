@@ -5,6 +5,7 @@
       "Edit",
       "Write",
       "MultiEdit",
+      "NotebookEdit",
       "Bash(git commit *)",
       "Bash(git -C * commit *)",
       "Bash(sleep *)"
