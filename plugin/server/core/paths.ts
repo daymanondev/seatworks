@@ -19,7 +19,10 @@ export function paseoConfigPath(homeDir = home()): string {
   return join(homeDir, ".paseo", "config.json");
 }
 
-export const DESK_OWNED = new Set(["ledger.json", "incidents.json", "project.json", "meta.json", "settings.json", "status.md", "events.log", "attention.log", "handbacks", "gates", "archive"]);
+/** The logs the desk appends to in a project's state; each rolls into `<name>.<n>.log` copies as it grows. */
+export const RECORDS = ["events", "attention", "assessments"] as const;
+
+export const DESK_OWNED = new Set(["ledger.json", "incidents.json", "project.json", "meta.json", "settings.json", "status.md", ...RECORDS.map((name) => `${name}.log`), "handbacks", "gates", "archive"]);
 
 export function stateRoot(homeDir = home()): string {
   return join(homeDir, ".local", "share", "seatworks-v3");

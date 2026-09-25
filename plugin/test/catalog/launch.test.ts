@@ -72,6 +72,10 @@ test("a seat's shell may write under state only what its role declares, and a ro
   for (const owned of DESK_OWNED) {
     const rule = owned.includes(".") ? `Edit(${stateRoot("~")}/projects/*/${owned})` : `Edit(${stateRoot("~")}/projects/*/${owned}/**)`;
     assert.ok(deny.includes(rule), `nothing keeps a Claude seat's file tools off ${owned}`);
+    if (owned.endsWith(".log")) assert.ok(deny.includes(`Edit(${stateRoot("~")}/projects/*/${owned.replace(/\.log$/, ".*.log*")})`), `nothing keeps a Claude seat's file tools off ${owned} once it rolls`);
+  }
+  for (const settings of [`${stateRoot("~")}/settings.json`, `${stateRoot("~")}/projects/*/settings.json`]) {
+    assert.ok(deny.includes(`Read(${settings})`), `a Claude seat may read ${settings}, where a sensor's key is kept`);
   }
 
   const peer = applyRole(kit, team, { provider: "sw2-peer-omp", cwd: "/repo" } as AgentConfig, render, "/state/repo");

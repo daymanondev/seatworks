@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
+import type { RECORDS } from "../core/paths.ts";
 import { appendRolling } from "../core/rolling.ts";
 import type { Ledger } from "./ledger.ts";
 
@@ -11,7 +12,7 @@ export const GATE_LOGS_PER_OWNER = 5;
  * The newest roll stays text, because the retrospective greps a period that may straddle it. A write that fails is
  * reported, never thrown: nothing waits on a record.
  */
-export function appendRecord(state: string, name: "events" | "attention" | "assessments", line: string): void {
+export function appendRecord(state: string, name: (typeof RECORDS)[number], line: string): void {
   const roll = { dir: state, current: `${name}.log`, prefix: `${name}.`, ext: ".log", rotateAt: RECORD_ROTATE_BYTES, keepBytes: RECORD_KEEP_BYTES, plain: 1 };
   try {
     appendRolling(roll, line).catch((error: unknown) => console.error(`seatworks-v2: packing a rolled ${name}.log failed:`, error));
