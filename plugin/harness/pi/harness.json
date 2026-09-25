@@ -37,6 +37,11 @@
       "optional": true
     },
     {
+      "link": "models.json",
+      "target": "HOME/.pi/agent/models.json",
+      "optional": true
+    },
+    {
       "link": "npm",
       "target": "HOME/.pi/agent/npm",
       "optional": true
