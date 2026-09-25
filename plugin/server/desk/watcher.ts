@@ -109,12 +109,12 @@ export class Watcher {
     return undefined;
   }
 
-  /** Each round: a case sent too long ago, or whose Watcher is gone, is given up; a Watcher no case can come to is let go. */
-  async tend(project: Project, open: Map<string, SeatView>, now = Date.now()): Promise<void> {
+  /** Each round, `open` listed after `now`: a case sent too long ago, or whose Watcher is gone, is given up; a Watcher no case can come to is let go. */
+  async tend(project: Project, open: Map<string, SeatView>, now: number): Promise<void> {
     for (const [id, entry] of this.waiting) {
       if (entry.project !== project.slug || !entry.sent) continue;
-      // An empty listing is a daemon that answered nothing, not a Watcher gone.
-      const gone = open.size > 0 && !open.has(entry.sent.seat);
+      // Only a listing read after the case was sent can say its Watcher is gone, and an empty one says nothing.
+      const gone = open.size > 0 && entry.sent.at < now && !open.has(entry.sent.seat);
       if (!gone && now - entry.sent.at < ANSWER_WITHIN_MINUTES * 60_000) continue;
       this.waiting.delete(id);
       entry.failed(new Error(gone ? "the Watcher it was sent to is gone" : `no answer within ${ANSWER_WITHIN_MINUTES} minutes`));

@@ -146,6 +146,30 @@ test("a case is given up only once it is sent: not while its Watcher is still be
   assert.deepEqual(kept(h.project.state).map((line) => line.verdicts), [{ summary_admits_gap: "no" }]);
 });
 
+test("a case sent while a round runs is not given up by that round, whose listing was read before its Watcher was seated", async (t) => {
+  const { h, handBack, watchers, caseOf } = await watched();
+  const desk = h.runtime.desk;
+  const retell = desk.retell.bind(desk);
+  let reached = () => {};
+  let release = () => {};
+  const inRound = new Promise<void>((resolve) => (reached = resolve));
+  const held = new Promise<void>((resolve) => (release = resolve));
+  t.mock.method(desk, "retell", async (...args: Parameters<typeof retell>) => {
+    reached();
+    await held;
+    return retell(...args);
+  });
+  const round = h.tick();
+  await inRound;
+  await handBack("Rounded.");
+  release();
+  await round;
+
+  const watcher = watchers()[0]!;
+  const answered = await h.call(watcher.id, "watcher", "judge", { case: caseOf(watcher.prompt!), answers: [{ question: "summary_admits_gap", says: "no", why: "Nothing is left." }] });
+  assert.equal(answered.ok, true, answered.text);
+});
+
 test("the Watcher is let go once the watch is judged by something else, and not while a case waits on it", async () => {
   const { h, handBack, watchers } = await watched();
   await handBack("Rounded.");
