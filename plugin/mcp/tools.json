@@ -2,7 +2,7 @@
   "supervisor": [
     {
       "name": "open_lane",
-      "description": "Open a lane for one outcome: by default it takes over the project's own working copy, creates the lane branch there and starts a Lead with this directive, so nothing is created and nothing is left to clean up. Any number of lanes may be open at once; while another lane is in the project's copy, pass isolate or after, since one checkout holds one branch. A writeSet is yours to declare or leave out: when this lane declares one, it is checked against the open lanes' writeSets and contracts and against the paths the project keeps to one writer; a lane that declares none is not checked. Refused, with the choices, when the Human's own copy has uncommitted work or is on a branch other than the base and neither this call nor the project's laneHome says where the lane works: ask the Human.",
+      "description": "Open a lane: one outcome, run by a new Lead whose whole directive is these fields. It works in the project's own copy, in a copy of its own (isolate), or waits for lanes (after); the reply says which. Refused, with the choices, when the Human must first say where it works, or its writeSet meets an open lane's.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -43,7 +43,7 @@
           },
           "isolate": {
             "type": "boolean",
-            "description": "Give this lane a working copy of its own instead of the project's: to start now while another lane is in the project's copy, when the Human wants their checkout back, or to keep this lane out of it. The Human sees its work in their checkout only once it lands. The copy is torn down when the lane closes. false: in the project's own copy, on a lane branch off the base, when the Human chose that."
+            "description": "A copy of its own instead of the project's: to start while another lane holds that one, or to keep the Human's checkout untouched."
           },
           "base": {
             "type": "string",
@@ -51,18 +51,18 @@
           },
           "onBranch": {
             "type": "boolean",
-            "description": "Carry on the branch the project's own copy is on, here, instead of starting a lane branch, once the Human has chosen that. Nothing is switched and uncommitted work stays where it is, for the lane to build on. The lane is never merged anywhere: landing it runs the gate and closes it, and the branch stays checked out. It takes no base and no isolate, and is refused while another lane works in the project's copy."
+            "description": "Carry on the branch the project's copy is on: nothing is switched, and landing runs the gate and closes the lane without merging."
           },
           "newBranch": {
             "type": "string",
-            "description": "With onBranch: first start this branch where the copy is, taking its uncommitted work along, and carry that on instead; for when the Human chose a new branch that keeps their work in progress and agreed its name. It must not exist yet."
+            "description": "With onBranch: start this new branch where the copy is, taking its uncommitted work along, and carry that on; its name agreed with the Human."
           },
           "writeSet": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "Paths or globs this lane will write. Not required, and worth declaring: a lane that names the same paths as an open lane is refused, which is how you find out the two are really one lane. A lane that declares none is taken, while it is open, to reach every path this project keeps to one writer, so a later lane whose declared set touches one of those paths waits for it."
+            "description": "Globs this lane writes. Naming paths an open lane names is refused: the two are one lane. Left out, the lane holds every one-writer path."
           },
           "contracts": {
             "type": "array",
@@ -76,15 +76,15 @@
             "items": {
               "type": "string"
             },
-            "description": "Lanes this one waits for. Nothing starts until every one has landed; it then opens by itself, and you get a letter if it cannot. Takes no newBranch."
+            "description": "Lanes this one waits for: it opens by itself once all have landed, and a letter says if it cannot. Takes no newBranch."
           },
           "detourOf": {
             "type": "string",
-            "description": "The lane this one clears the way for, when a Lead found a missing prerequisite mid-lane. The detour gets its own Lead in a copy of its own and hands back; the lane it unblocks waits rather than widening."
+            "description": "The lane this one clears a missing prerequisite for: the detour gets a Lead and copy of its own; that lane waits rather than widening."
           },
           "role": {
             "type": "string",
-            "description": "Optional role to lead it, when the kit has more than one that can lead. Left out, the kit's first. A detour's lane is where a different lead usually belongs."
+            "description": "The role to lead it, when the kit has more than one that can; left out, the kit's first."
           }
         },
         "required": [
@@ -97,7 +97,7 @@
     },
     {
       "name": "message",
-      "description": "Send one decision or one question to a Lead (by lane id) or, only when its Lead cannot carry it, a Peer (by task id; its Lead is told). It arrives when the seat can take it: inside a running turn on agents that take that, else when its turn ends. Refused if it names or quotes an open incident about the seat it goes to: say what you read in the record in your own words.",
+      "description": "Send one decision or one question to a Lead (lane id) or, only when its Lead cannot carry it, a Peer (task id; its Lead is told). It arrives inside a running turn on agents that take that, else when the turn ends. Refused if it quotes an open incident about that seat.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -136,7 +136,7 @@
     },
     {
       "name": "land_lane",
-      "description": "Land a lane its Lead reported ready as it now stands; one not reported ready, or amended since, is refused. The desk first merges the base branch into the lane in the lane's own copy when the base has moved, runs the project's gate there, then lands it on the base as the project lands lanes (landAs in set_project) and archives the lane's agents. If any of that cannot happen the lane stays open and the reason comes back; a conflict with the base is its Lead's to settle in the lane. A landed lane branch is deleted once its copy is put away. A lane opened with onBranch is not merged or switched away from: landing it runs the gate and closes it, and its branch stays as it is. A red gate stops the landing unless you land over it with overGate true and say why in reason: the verdict is evidence, and landing over it is your call. The reply carries what the desk read of the lane as evidence. A landing that changes a path in the project's askFirst waits for the Human's approval on the panel instead: the lane stays open, and LANDED or SENT BACK comes as mail.",
+      "description": "Land a lane its Lead reported ready: the base is merged in, the gate runs, and it lands the project's way (landAs). Refused with the reason: a red gate lands only with overGate and your reason; a base conflict goes to its Lead. A landing touching askFirst waits for the Human; LANDED or SENT BACK comes as mail.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -232,7 +232,7 @@
     },
     {
       "name": "hold_lane",
-      "description": "Stop a lane where it stands when going on could do harm that cannot be undone, or the Human asks you to: its Lead and every Peer and reviewer in it are told to stop at once, cutting a running turn short where their agent allows it, else when it ends. Until resume_lane nothing reaches them, their permission requests are refused, no task starts, nothing is accepted and nothing lands. A landing it was waiting on is called off. Tell the Human why.",
+      "description": "Stop a lane when going on could do harm that cannot be undone, or the Human asks: its seats stop, cutting a running turn short where their agent allows. Until resume_lane nothing reaches them, their permission requests are refused, no task starts, nothing is accepted or lands, and a landing it awaited is called off. Tell the Human why.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -271,7 +271,7 @@
     },
     {
       "name": "ask_human",
-      "description": "Put a decision only the Human can make on their question queue, rather than stopping your turn to ask it: a behavior the concept leaves open, a risk only they may take, a change to what they want. Give the choices as what the user would see, your recommendation and why, and what happens while they are silent, by class: reversible goes on with that at once; costly goes on with it until the lane reports ready, where it stops if still unanswered; irreversible stops the lane now. Refused past the Human's daily number of questions: decide it yourself if it is yours to, or fold it into one still open.",
+      "description": "Queue a decision only the Human can make instead of stopping your turn to ask: a behavior the concept leaves open, a risk only they may take. Give the choices as a user would see them, your recommendation and why, and what goes ahead while they are silent (class). Refused past their daily number: decide it if it is yours.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -330,7 +330,7 @@
               "costly",
               "irreversible"
             ],
-            "description": "reversible: the default runs now and they can overturn it. costly: the default runs until the lane reports ready. irreversible: nothing it decides goes ahead until they answer. A question about a lane that writes where the Human asked to be asked first (askFirst) is costly at least."
+            "description": "reversible: the default runs now; costly: it runs until the lane reports ready; irreversible: nothing goes ahead until they answer. Touching askFirst: costly or irreversible."
           }
         },
         "required": [
@@ -415,7 +415,7 @@
               "lane",
               "task"
             ],
-            "description": "lane (default): run the gate when a lane is reported ready and before landing. task: also run it on every task when its Peer hands it back, and give the verdict to the Lead with the hand-back."
+            "description": "lane (default): the gate runs when a lane is reported ready and before it lands; task: also on each hand-back, for its Lead."
           },
           "serialOnly": {
             "type": "array",
@@ -431,7 +431,7 @@
               "merge",
               "ff"
             ],
-            "description": "How a landed lane goes onto its base, as the Human's repository does it. squash (default): one commit per lane. merge: a merge commit keeping the lane's commits. ff: every commit of the lane, fast-forwarded."
+            "description": "How a lane goes onto its base, as the Human's repository does it: squash (default) one commit, merge a merge commit, ff every commit fast-forwarded."
           },
           "laneHome": {
             "type": "string",
@@ -440,14 +440,14 @@
               "newBranch",
               "isolate"
             ],
-            "description": "Where lanes work unless a call says otherwise, as the Human chose once for every lane: onBranch carries on the branch their copy is on; newBranch starts a lane branch off the base in their copy; isolate gives each lane a copy of its own and leaves theirs alone."
+            "description": "Where lanes work, as the Human chose, unless a call overrides: onBranch their branch, newBranch a lane branch in their copy, isolate a separate copy."
           },
           "askFirst": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "Paths the Human asked to be asked about before anything touching them lands, as they kept them at the read-back: a path covers what is under it, a glob is itself. A landing that changes one waits for their approval on the panel; nothing else makes a landing wait. Pass the whole list; an empty one lets every landing go ahead."
+            "description": "Paths the Human sees before anything touching them lands; a path covers what is under it. Pass the whole list; empty lets all land."
           },
           "riskRules": {
             "type": "array",
@@ -485,7 +485,7 @@
                 "reviewQuestion"
               ]
             },
-            "description": "The project's own risk rules, replacing the kit's (which cover migrations, schemas and SQL): pass the whole list, or an empty one for none. A rule never makes a landing wait; for that, put its paths in askFirst."
+            "description": "Risk rules replacing the kit's (migrations, schemas, SQL): the whole list, or empty for none. A rule questions reviews and never holds a landing."
           }
         }
       }
@@ -513,7 +513,7 @@
     },
     {
       "name": "mark_incident",
-      "description": "Close an incident once you have looked at the agent's record: useful if what it names happened and its brief neither asked for it nor needs it, noise if not, unknown only if the record can neither show it nor rule it out. Noise also silences the same words on that seat and kind from now on, and the desk's readings are measured against useful and noise. What the code measured happened unless the record contradicts it; what a reader of the work raised or confirmed needs the record to show it. Decide from the record alone: whether you acted, knew already, what the agent said when asked, or how it turned out never decides one.",
+      "description": "Close an incident once you have read the agent's record, deciding from the record alone; the verdict says how. Noise also silences those words on that seat and kind. What the code measured happened unless the record contradicts it; what a reader raised needs the record to show it. Whether you acted or how it turned out never decides it.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -528,11 +528,11 @@
               "noise",
               "unknown"
             ],
-            "description": "useful, if what the incident names happened and its brief neither asked for it nor needs it; noise, if not; unknown, only if the record can neither show it nor rule it out."
+            "description": "useful: it happened, unasked for and unneeded by its brief; noise: otherwise; unknown: only when the record can neither show nor rule it out."
           },
           "note": {
             "type": "string",
-            "description": "Why: for noise, start with wrong (it did not happen) or expected (it was asked for or needed), then the command or path that settles it; for unknown, what the record lacks. Never a secret."
+            "description": "Why, never a secret: for noise, wrong (did not happen) or expected (asked for or needed) and what settles; for unknown, what the record lacks."
           }
         },
         "required": [
@@ -567,7 +567,7 @@
   "lead": [
     {
       "name": "add_tasks",
-      "description": "Add tasks to your lane, as many as the work has, in one call: each with what it owns, what it waits for, and whether it runs in parallel. Each starts by itself once what it waits for is accepted, and whatever can start now does. Tasks in the lane's copy run one after another, in the order after allows and listed order otherwise. The desk refuses the whole call, saying what to change, when two tasks that may run at once own one path, a parallel task owns a path only one writer at a time may write, a task owns a path outside the lane's write set, or a task takes a path a running task is still writing without waiting for it.",
+      "description": "Lay tasks out in your lane: each with what it owns, what it waits for (after), and whether it runs in parallel. Each starts by itself once what it waits for is accepted; tasks sharing the lane's copy run one at a time. Refused as a whole, saying what to change, when owned paths collide or leave the write set.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -675,7 +675,7 @@
           },
           "role": {
             "type": "string",
-            "description": "Optional role to read it, when the kit has more than one that can review. Left out, the kit's first. This is how two lenses are two different readers rather than one read twice; a name that cannot review is refused with the list of those that can."
+            "description": "Which reviewing role reads it, when the kit has several; left out, the first. Two lenses want two roles, not one read twice."
           }
         },
         "required": [
@@ -723,7 +723,7 @@
     },
     {
       "name": "accept",
-      "description": "Accept a finished task. A task in the lane's working copy is already on the lane branch; a parallel task merges into it. Whether a task has to be green on its own depends on the project: the gate runs on the whole lane when you report it ready unless the owner set it to run per task, and the directive you were opened with says which.",
+      "description": "Accept a handed-back task. One in the lane's copy is already on the lane branch; a parallel task merges into it, and MERGED or MERGE FAILED comes as mail. Whether a task must be green alone is the project's choice: the gate runs on the whole lane when you report it ready unless your directive says per task.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -861,7 +861,7 @@
           },
           "ready": {
             "type": "boolean",
-            "description": "True when the lane branch holds the whole outcome. The desk runs the gate on the lane branch first and puts what it did in the report, red or green; it does not hold the report back."
+            "description": "True when the lane branch holds the whole outcome; the gate runs first, and its verdict, red or green, goes with the report."
           },
           "carried": {
             "type": "array",
@@ -900,7 +900,7 @@
     },
     {
       "name": "mark_incident",
-      "description": "Close an incident once you have looked at the agent's record: useful if what it names happened and its brief neither asked for it nor needs it, noise if not, unknown only if the record can neither show it nor rule it out. Noise also silences the same words on that seat and kind from now on, and the desk's readings are measured against useful and noise. What the code measured happened unless the record contradicts it; what a reader of the work raised or confirmed needs the record to show it. Decide from the record alone: whether you acted, knew already, what the agent said when asked, or how it turned out never decides one.",
+      "description": "Close an incident once you have read the agent's record, deciding from the record alone; the verdict says how. Noise also silences those words on that seat and kind. What the code measured happened unless the record contradicts it; what a reader raised needs the record to show it. Whether you acted or how it turned out never decides it.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -915,11 +915,11 @@
               "noise",
               "unknown"
             ],
-            "description": "useful, if what the incident names happened and its brief neither asked for it nor needs it; noise, if not; unknown, only if the record can neither show it nor rule it out."
+            "description": "useful: it happened, unasked for and unneeded by its brief; noise: otherwise; unknown: only when the record can neither show nor rule it out."
           },
           "note": {
             "type": "string",
-            "description": "Why: for noise, start with wrong (it did not happen) or expected (it was asked for or needed), then the command or path that settles it; for unknown, what the record lacks. Never a secret."
+            "description": "Why, never a secret: for noise, wrong (did not happen) or expected (asked for or needed) and what settles; for unknown, what the record lacks."
           }
         },
         "required": [
@@ -1064,7 +1064,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Your answer to each question your brief lists from the project, in its order: what you ran or read that settles it. A verdict that leaves one unanswered is refused."
+            "description": "Your answer to each question your brief lists, in its order, with what you ran or read that settles it. Leaving one out is refused."
           },
           "findings": {
             "type": "array",
