@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { loadKit } from "../../server/catalog/kit.ts";
 import type { Seen } from "../../server/core/ports.ts";
 import type { StreamMessage } from "../../server/core/stream.ts";
-import { FACTS, type Fact, type Rules, callsTo, factTitle, onDetail, stuck } from "../../server/runtime/watch/facts.ts";
+import { FACTS, type Fact, type Rules, callsTo, factTitle, stuck } from "../../server/runtime/watch/facts.ts";
 import { TEAM_SERVER, watchPatterns } from "../../server/catalog/kit.ts";
 import { SeatWatch } from "../../server/runtime/watch/watches.ts";
 
@@ -271,7 +271,7 @@ test("a message steered into a long turn does not make it long again", () => {
   assert.deepEqual(watch.longTurn(t0 + 45 * 60_000, 30), []);
 });
 
-test("a commit message written to the temp directory is not a write the gate has to see", () => {
+test("a commit message written to the temp directory, or a doc, is not a write the gate has to see", () => {
   const edit = editCall();
   const wrote = again(edit, "w", 2, (detail) => Object.assign(detail, { filePath: "/work/src/a.ts" }));
   const gate = again(piRow(11), "g", 3, (detail) => Object.assign(detail, { command: "npm test" }));
@@ -279,6 +279,9 @@ test("a commit message written to the temp directory is not a write the gate has
   const start: StreamMessage = { event: { type: "turn_started", turnId: "t" } };
   const end: StreamMessage = { event: { type: "turn_completed", turnId: "t" } };
   assert.deepEqual(kinds(play([start, fixture("pi")[1]!, wrote, gate, message, end], rules({ gates: ["npm test"], cwd: "/work" }), "complete")).filter((kind) => kind === "unverified"), []);
+  // A hand-back that only wrote docs after the gate was told it had not run the tests.
+  const doc = again(edit, "d", 4, (detail) => Object.assign(detail, { filePath: "/work/docs/cart.md" }));
+  assert.deepEqual(kinds(play([start, fixture("pi")[1]!, wrote, gate, doc, end], rules({ gates: ["npm test"], cwd: "/work" }), "complete")).filter((kind) => kind === "unverified"), []);
 });
 
 test("irreversible commands are caught where a command starts, in any flag order, and not in quoted text", () => {
@@ -368,15 +371,6 @@ test("every fact that can open an incident has a title a person can read", () =>
   }
 });
 
-test("an irreversible command is quoted where it is irreversible, however long what comes before it", () => {
-  // A page once quoted the first 200 characters, cut right where the `rm -rf` target began.
-  const command = `cat ${"/long/path/segment".repeat(12)}/wrap.js > ${"/long/path/segment".repeat(6)}/wrap.js && rm -rf /Users/me/stray-copy`;
-  const [fact] = onDetail({ id: "c", name: "Bash", status: "completed", ended: true, detail: { type: "shell", command } } as never, rules());
-  assert.equal(fact?.kind, "destructive");
-  assert.match(fact!.quote, /rm -rf \/Users\/me\/stray-copy$/);
-  assert.equal(fact!.quote.length <= 201, true, fact!.quote);
-});
-
 test("calls the record cannot tell apart are not read as one call repeated", () => {
   // Paseo records a Claude seat's MCP calls with an empty input, so four different start_task calls compared equal.
   const call = (id: string, detail: Record<string, unknown>) => ({ kind: "call" as const, call: { id, name: "mcp__team__start_task", status: "completed", ended: true, error: null, detail: { type: "unknown", ...detail } } as never });
@@ -384,17 +378,6 @@ test("calls the record cannot tell apart are not read as one call repeated", () 
   assert.equal(stuck(bare, { repeatsAt: 3 }), undefined);
   const same = ["1", "2", "3", "4"].map((id) => call(id, { input: { title: "x" }, output: "started" }));
   assert.match(stuck(same, { repeatsAt: 3 }) ?? "", /the same action with the same result/, "the same call with the same arguments still is");
-});
-
-test("removing only scratch files is not an irreversible command, and anything else in the same line still is", () => {
-  // A Lead writing a commit message to $TMPDIR and removing it afterwards was paged as destructive.
-  const shell = (command: string) => onDetail({ id: "c", name: "Bash", status: "completed", ended: true, detail: { type: "shell", command } } as never, rules({ temp: "/var/folders/xy/T" }));
-  assert.deepEqual(shell(`cat > "$TMPDIR/msg" <<'EOF'\nfix: merge\nEOF\ngit commit -F "$TMPDIR/msg" && rm -f "$TMPDIR/msg"`), []);
-  assert.deepEqual(shell("rm -rf /tmp/sw2-probe ${TMPDIR}/x /var/folders/xy/T/y"), []);
-  const [kept] = shell(`rm -f "$TMPDIR/msg" && rm -rf src`);
-  assert.equal(kept?.kind, "destructive");
-  assert.match(kept!.quote, /rm -rf src/);
-  assert.equal(shell("rm -rf /tmp/a src").length, 1, "one real target among scratch ones is enough");
 });
 
 test("a refusal the desk gave a seat is not a failed call, on every harness that says which server answered: the desk already said why and what instead", () => {

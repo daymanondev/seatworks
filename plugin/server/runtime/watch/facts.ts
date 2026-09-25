@@ -1,9 +1,9 @@
 import { isAbsolute, relative } from "node:path";
 import { weakened } from "../../catalog/kit.ts";
 import { globToRegex, normalize } from "../../core/scope.ts";
-import { oneLine, within } from "../../core/text.ts";
+import { oneLine } from "../../core/text.ts";
 import type { Level } from "../../domain/incident.ts";
-import type { Call, Change, Unit, Window } from "./window.ts";
+import type { Call, Unit, Window } from "./window.ts";
 
 
 /** Every fact the code raises and its level; one that can open an incident has the title a person reads it by. */
@@ -133,35 +133,7 @@ function outside(path: string, rules: Rules): boolean {
   return !rules.owned.some((glob) => globToRegex(glob).test(rel));
 }
 
-const SCRATCH = /^(?:\$\{?TMPDIR\}?|\/tmp|\/private\/tmp)(?:\/|$)/;
-
-/** An `rm` whose every target is scratch space: $TMPDIR, /tmp, or the machine's temporary directory. */
-function scratchOnly(part: string, temp?: string): boolean {
-  const words = part.trim().split(/\s+/);
-  if (words[0] !== "rm") return false;
-  const targets = words.slice(1).filter((word) => !word.startsWith("-")).map((word) => word.replace(/^["']|["']$/g, ""));
-  return targets.length > 0 && targets.every((target) => SCRATCH.test(target) || Boolean(temp && isAbsolute(target) && !relative(temp, target).startsWith("..")));
-}
-
-export function onDetail(call: Call, rules: Rules): Fact[] {
-  if (call.detail.type !== "shell") return [];
-  // A command at a time: removing a commit message's temp file once paged a Lead.
-  const risky = str(call.detail.command)
-    .split(/&&|\|\||;|\n/)
-    .find((part) => rules.destructive.test(part) && !scratchOnly(part, rules.temp));
-  return risky ? [fact("destructive", around(oneLine(risky, Infinity), rules.destructive, 200))] : [];
-}
-
 const PROSE = /\.(md|mdx|markdown|txt|rst|adoc)$/i;
-
-/** Cuts around the match, not from the front: what makes a long command irreversible is often at its end. */
-function around(text: string, pattern: RegExp | undefined, limit: number): string {
-  if (text.length <= limit) return text;
-  const found = pattern ? new RegExp(pattern.source, pattern.flags.replace("g", "")).exec(text) : null;
-  const start = found && found.index + found[0].length > limit ? Math.max(0, Math.min(found.index - Math.floor(limit / 4), text.length - limit)) : 0;
-  const body = within(text.slice(start).replace(/^[\uDC00-\uDFFF]/, ""), limit);
-  return `${start > 0 ? "…" : ""}${body}${start + body.length < text.length ? "…" : ""}`;
-}
 
 const TRUNCATED = /^\.\.\.\[truncated \d+ chars\]$/;
 
@@ -199,7 +171,7 @@ function hits(text: string, pattern: RegExp): string[] {
   return text.match(new RegExp(pattern.source, "gi")) ?? [];
 }
 
-function onSettle(call: Call, rules: Rules, known?: (path: string) => string | undefined): Fact[] {
+export function onSettle(call: Call, rules: Rules, known?: (path: string) => string | undefined): Fact[] {
   const facts: Fact[] = [];
   const detail = call.detail;
   const bad = failed(call);
@@ -264,7 +236,8 @@ export class Recovery {
 /** The instruction's calls, with where the last edit inside the working copy and the last run of the gate fell. */
 function lastWriteAndGate(window: Window, rules: Rules) {
   const calls = window.sinceInstruction().flatMap((unit) => (unit.kind === "call" ? [unit.call] : []));
-  const inside = (call: Call) => (call.detail.type === "edit" || call.detail.type === "write") && !escapes(str(call.detail.filePath), rules);
+  // Prose needs no gate: a hand-back that only wrote docs was told it had not run the tests.
+  const inside = (call: Call) => (call.detail.type === "edit" || call.detail.type === "write") && !escapes(str(call.detail.filePath), rules) && !PROSE.test(str(call.detail.filePath));
   let lastWrite = -1;
   let lastGate = -1;
   calls.forEach((call, index) => {
@@ -290,10 +263,4 @@ export function contradicted(window: Window, rules: Rules, outcome: string | und
   const check = calls[lastGate];
   if (!check || lastGate < lastWrite || !failed(check)) return [];
   return [fact("claim-contradicted", `handed back as complete, but \`${oneLine(str(check.detail.command), 100)}\` failed the last time it ran, after the last edit`)];
-}
-
-export function afterChange(change: Change, rules: Rules, known?: (path: string) => string | undefined): Fact[] {
-  const call = change.call;
-  if (!call || call.pseudo) return [];
-  return [...(change.detailed ? onDetail(call, rules) : []), ...(change.settled ? onSettle(call, rules, known) : [])];
 }

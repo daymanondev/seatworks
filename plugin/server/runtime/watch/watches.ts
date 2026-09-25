@@ -1,7 +1,8 @@
 import { type Kit, can, seatOf } from "../../catalog/kit.ts";
 import type { Seen, SeatView, Seats, Stream } from "../../core/ports.ts";
 import { sentBy } from "../../core/sent-by.ts";
-import { type Fact, Recovery, type Rules, afterChange, contradicted, fact, stuck, unverified } from "./facts.ts";
+import { onDetail } from "./commands.ts";
+import { type Fact, Recovery, type Rules, contradicted, fact, onSettle, stuck, unverified } from "./facts.ts";
 import type { Quirks } from "../../catalog/timeline.ts";
 import { Window } from "./window.ts";
 
@@ -60,7 +61,8 @@ export class SeatWatch {
     }
     const rules = this.rules();
     if (!rules) return [];
-    const facts = afterChange(change, rules, (path) => this.lastRead(path, change.call?.id));
+    const call = change.call;
+    const facts = !call || call.pseudo ? [] : [...(change.detailed ? onDetail(call, rules) : []), ...(change.settled ? onSettle(call, rules, (path) => this.lastRead(path, call.id)) : [])];
     if (change.settled && change.call && !change.call.pseudo) {
       facts.push(...this.recovery.step(change.call, rules));
       const pattern = stuck(this.window.sinceInstruction(), rules);

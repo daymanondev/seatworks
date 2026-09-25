@@ -40,7 +40,7 @@ const LONG_FILES: Record<string, number> = {
   "server/desk/slots.ts": 362,
   "server/runtime/control.ts": 453,
   "server/runtime/runtime.ts": 389,
-  "test/runtime/facts.test.ts": 418,
+  "test/runtime/facts.test.ts": 401,
   "test/runtime/intake.test.ts": 559,
   "test/runtime/workflow.test.ts": 1655,
 };

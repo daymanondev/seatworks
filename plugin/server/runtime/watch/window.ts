@@ -33,7 +33,7 @@ export type Unit =
   | { kind: "compaction" }
   | { kind: "error"; text: string };
 
-export type Change = { call?: Call; detailed: boolean; settled: boolean };
+type Change = { call?: Call; detailed: boolean; settled: boolean };
 
 const TERMINAL = new Set(["completed", "failed", "canceled"]);
 
