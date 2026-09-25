@@ -143,10 +143,11 @@ export class Patrol {
     }
   }
 
+  /** A Lead waiting on nobody: not on hold, not reported ready, and no landing of its lane waiting for the Human. */
   private async idleLanes(project: Project, ledger: Ledger, seats: SeatMap, now: number): Promise<void> {
     const { desk, turns } = this.deps;
     const { leadIdleMinutes } = this.deps.source.teamFor(project).attention;
-    for (const lane of Object.values(ledger.lanes).filter((entry) => entry.status === "open" && entry.lead)) {
+    for (const lane of Object.values(ledger.lanes).filter((entry) => entry.status === "open" && entry.lead && !entry.onHold && !entry.ready && !entry.landApproval)) {
       const lead = seats.get(lane.lead!);
       if (!lead || lead.status !== "idle") continue;
       const idle = now - Date.parse(lead.updatedAt);
