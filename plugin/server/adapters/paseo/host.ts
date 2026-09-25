@@ -3,7 +3,7 @@ import type { Host, HostHooks, Models } from "../../core/ports.ts";
 import { type PaseoApi, seatsOn, workspacesOn } from "./agents.ts";
 
 type Answer = (input: any) => unknown;
-type Handle = (contract: { name: string }, handler: (input: unknown, context: { paseo?: PaseoApi }) => unknown) => void;
+type Handle = (contract: { name: string }, handler: (input: unknown, context: { paseo: PaseoApi }) => unknown) => void;
 
 /** Paseo hands the plugin its API only with a hook or a panel call, so each one binds it before the plugin acts. */
 export class PaseoHost implements Host {
@@ -50,7 +50,7 @@ export class PaseoHost implements Host {
     const handle = server.handle.bind(server) as unknown as Handle;
     return (contract, answer) =>
       handle(contract, (input, context) => {
-        if (context?.paseo) this.api = context.paseo;
+        this.api = context.paseo;
         return answer(input);
       });
   }
