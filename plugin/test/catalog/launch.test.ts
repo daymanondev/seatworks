@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync, writeFileSync } from "node:fs";
-import { delimiter, dirname, join } from "node:path";
+import { delimiter, dirname, join, matchesGlob } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadKit, providerId } from "../../server/catalog/kit.ts";
 import { applyRole, seatEnv } from "../../server/catalog/launch.ts";
 import type { AgentConfig, SessionOpen } from "../../server/core/ports.ts";
 import { resolveTeam } from "../../server/catalog/team.ts";
 import { DESK_OWNED, stateRoot } from "../../server/core/paths.ts";
+import { BACKUP } from "../../server/upkeep/migrate.ts";
 import { makeKit } from "../kit.ts";
 import { tempDir } from "../tempdir.ts";
 
@@ -74,8 +75,12 @@ test("a seat's shell may write under state only what its role declares, and a ro
     assert.ok(deny.includes(rule), `nothing keeps a Claude seat's file tools off ${owned}`);
     if (owned.endsWith(".log")) assert.ok(deny.includes(`Edit(${stateRoot("~")}/projects/*/${owned.replace(/\.log$/, ".*.log*")})`), `nothing keeps a Claude seat's file tools off ${owned} once it rolls`);
   }
-  for (const settings of [`${stateRoot("~")}/settings.json`, `${stateRoot("~")}/projects/*/settings.json`]) {
-    assert.ok(deny.includes(`Read(${settings})`), `a Claude seat may read ${settings}, where a sensor's key is kept`);
+  const readDenied = (path: string) => deny.some((rule) => rule.startsWith("Read(") && matchesGlob(path, rule.slice(5, -1)));
+  const backup = "settings.json.bak-20260925-120000";
+  assert.ok(BACKUP.test(backup), "named as Migrate names a backup");
+  // A save stages its copy as settings.json.<pid>.tmp; it and Migrate's backups hold a sensor's key as the file does.
+  for (const dir of [stateRoot("~"), `${stateRoot("~")}/projects/shop-1a2b`]) {
+    for (const name of ["settings.json", backup, "settings.json.4242.tmp"]) assert.ok(readDenied(`${dir}/${name}`), `a Claude seat may read ${dir}/${name}, which can hold a sensor's key`);
   }
 
   const peer = applyRole(kit, team, { provider: "sw2-peer-omp", cwd: "/repo" } as AgentConfig, render, "/state/repo");

@@ -327,7 +327,8 @@ There are two layers: `~/.local/share/seatworks-v3/settings.json` for the machin
 | A sensor's key, `sensor.<id>.key`, which the panel never reads back and a Claude seat is denied reading | panel (Machine defaults › Watcher); a project's by hand |
 
 `tickSeconds` is read from the machine layer only. A seat runs as you: a Claude seat is denied reading either
-settings file, but a seat on another harness can read them, a sensor's key included.
+settings file and the copies beside it (Migrate's backups, a save's staging copy), but a seat on another harness can
+read them all, a sensor's key included.
 
 <!-- drawn from the code: attention -->
 | Attention value | Default |
