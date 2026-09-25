@@ -38,12 +38,19 @@ async function watched() {
   return { h, sup, lane, handBack, watchers, caseOf };
 }
 
-test("a case seats one Watcher under the project's Supervisor, the case its first word, and what it answers is kept beside the case", async () => {
+test("a case seats one Watcher under the project's Supervisor, the case its first word, and what it answers is kept beside the case", async (t) => {
   const { h, sup, handBack, watchers, caseOf } = await watched();
+  const role = h.runtime.kit.roles.find((entry) => entry.role === "watcher")!;
+  const label = role.label;
+  role.label = "Case reader";
+  t.after(() => {
+    role.label = label;
+  });
   await handBack("Rounds half up; the refund path is stubbed for now.");
 
   const [watcher] = watchers();
   assert.ok(watcher, "a Watcher is seated for the case");
+  assert.equal(watcher!.title, "Case reader", "titled as its role is named");
   assert.equal(watcher!.labels["paseo.parent-agent-id"], sup, "under the Supervisor, so Paseo never pushes its reply to the Human's phone");
   assert.equal(watcher!.cwd, h.project.root);
   assert.match(watcher!.prompt!, /^CASE C\w+ about L1-T1: questions on the fields below\.\n\nsummary:\nRounds half up; the refund path is stubbed for now\.\n\nout_of_scope:\n- the CSV export\n\nQuestions:\nsummary_admits_gap: Does `summary` say that something the task asked for was not done\?\n {3}yes: [^\n]+\n {3}no: [^\n]+\n\nNext: judge C\w+: /);
@@ -106,6 +113,37 @@ test("a case left unanswered is given up after a while, and the Watcher is let g
   assert.equal((await h.call(sup, "supervisor", "drop_lane", { lane: "L1", reason: "not wanted after all" })).ok, true);
   await h.tick();
   assert.ok(watcher.archivedAt, "with no lane open, no case can come, and the idle Watcher is let go");
+});
+
+test("a case is given up only once it is sent: not while its Watcher is still being seated, nor on a listing with no seat in it", async (t) => {
+  const { h, handBack, watchers, caseOf } = await watched();
+  type Create = (options: { config: { provider: string } }) => Promise<unknown>;
+  const workspaces = (h.paseo as { workspaces: { ref(id: string): { agents: { create: Create } } } }).workspaces;
+  const ref = workspaces.ref;
+  let seat = () => {};
+  const seated = new Promise<void>((resolve) => (seat = resolve));
+  t.mock.method(workspaces, "ref", (id: string) => {
+    const real = ref(id);
+    const create: Create = async (options) => {
+      if (options.config.provider.startsWith("sw2-watcher-")) await seated;
+      return real.agents.create(options);
+    };
+    return { ...real, agents: { create } };
+  });
+  await handBack("Rounded.");
+  await h.tick(Date.now() + 16 * 60_000);
+  seat();
+  await settle();
+  const watcher = watchers()[0]!;
+  const listed = new Map(h.agents);
+  h.agents.clear();
+  await h.tick();
+  for (const [id, agent] of listed) h.agents.set(id, agent);
+
+  const answered = await h.call(watcher.id, "watcher", "judge", { case: caseOf(watcher.prompt!), answers: [{ question: "summary_admits_gap", says: "no", why: "Nothing is left." }] });
+  assert.equal(answered.ok, true, answered.text);
+  await settle();
+  assert.deepEqual(kept(h.project.state).map((line) => line.verdicts), [{ summary_admits_gap: "no" }]);
 });
 
 test("the Watcher is let go once the watch is judged by something else, and not while a case waits on it", async () => {

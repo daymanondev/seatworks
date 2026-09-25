@@ -303,8 +303,9 @@ nothing else.
 Judged by the Watcher, the desk seats one per project when a case first needs it, in the project's own workspace and
 always under its Supervisor (a seat with no parent would have its first reply pushed to the Human's phone), and mails
 it each case as a CASE letter: the fields the desk read, and the questions with what each answer means. It answers
-with `judge`, and `record` lets it read the seat a case is about; it has no other tool, and no MCP server unless one
-names it. A case unanswered for 15 minutes, or whose Watcher is gone, is kept as unasked; the patrol lets an idle
+with `judge`, and `record` lets it read the seat a case is about. On Claude and Pi it has no other tool; on Codex,
+Oh My Pi and OpenCode it keeps the harness's read-only tools. It has no MCP server unless one names it. A case
+unanswered 15 minutes after it was sent, or whose Watcher is gone, is kept as unasked; the patrol lets an idle
 Watcher go once no lane is open or the watch is judged by something else. With no Supervisor seated, no Watcher is.
 
 ## Settings

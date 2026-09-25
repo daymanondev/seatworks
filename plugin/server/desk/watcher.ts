@@ -1,4 +1,4 @@
-import { can, seatOf } from "../catalog/kit.ts";
+import { can, roleNamed, seatOf } from "../catalog/kit.ts";
 import { midTurn } from "../core/paseo.ts";
 import type { Answer, Judge, Judgement, Question, SeatView } from "../core/ports.ts";
 import type { Agents } from "./agents.ts";
@@ -9,10 +9,9 @@ import type { Letter } from "./letters.ts";
 import { type Project, projectOf } from "./project.ts";
 import type { Roster } from "./roster.ts";
 
-/** Long enough for a Watcher on a long turn to come to a case, and no longer: an answer nobody waits for is not kept. */
 const ANSWER_WITHIN_MINUTES = 15;
 
-type Waiting = { project: string; seat: string; model: string; questions: Record<string, Question>; sentAt: number; answered(judged: Judgement): void; failed(error: Error): void };
+type Waiting = { project: string; model: string; questions: Record<string, Question>; sent?: { seat: string; at: number }; answered(judged: Judgement): void; failed(error: Error): void };
 
 type Said = { question: string; says: string; why: string };
 
@@ -37,7 +36,6 @@ export class Watcher {
   private readonly agents: Agents;
   private readonly waiting = new Map<string, Waiting>();
   private readonly lines = new Map<string, Promise<unknown>>();
-  // Stamped per start, so a case sent before the desk started again is never taken for one sent after it.
   private readonly stamp = Date.now().toString(36).slice(-4);
   private count = 0;
 
@@ -54,12 +52,12 @@ export class Watcher {
 
   private async ask(project: Project, role: string, subject: string, state: Record<string, unknown>, questions: Record<string, Question>): Promise<Judgement> {
     const id = `C${this.stamp}${++this.count}`;
-    const answer = new Promise<Judgement>((answered, failed) => this.waiting.set(id, { project: project.slug, seat: "", model: role, questions, sentAt: Date.now(), answered, failed }));
+    const answer = new Promise<Judgement>((answered, failed) => this.waiting.set(id, { project: project.slug, model: role, questions, answered, failed }));
     try {
       const seat = await this.deliver(project, role, caseLetters.case(id, subject, state, questions));
       const provider = (await this.roster.look(seat)).provider;
       const entry = this.waiting.get(id);
-      if (entry) Object.assign(entry, { seat, model: provider ?? role });
+      if (entry) Object.assign(entry, { model: provider ?? role, sent: { seat, at: Date.now() } });
     } catch (error) {
       this.waiting.delete(id);
       throw error;
@@ -85,7 +83,7 @@ export class Watcher {
   private async start(project: Project, role: string, prompt: string): Promise<string> {
     const parent = await this.roster.supervisorFor(project);
     if (!parent) throw new Error("no Supervisor is seated, and a Watcher is seated under one");
-    const seat = await this.agents.startResident(project, role, { parent, title: "Watcher", prompt, labels: {} });
+    const seat = await this.agents.startResident(project, role, { parent, title: roleNamed(this.ctx.kit, role)!.label, prompt, labels: {} });
     this.ctx.event(project, { kind: "watcher.seated", agent: seat, parent });
     return seat;
   }
@@ -94,7 +92,7 @@ export class Watcher {
   answer(caller: string, id: string, said: Said[]): string | undefined {
     const entry = this.waiting.get(id);
     if (!entry) return `${id} is not waiting for an answer: it was answered, it waited past ${ANSWER_WITHIN_MINUTES} minutes, or the desk started again since it was sent.`;
-    if (entry.seat && entry.seat !== caller) return `${id} was sent to another Watcher.`;
+    if (entry.sent && entry.sent.seat !== caller) return `${id} was sent to another Watcher.`;
     const asked = (name: string) => (Object.hasOwn(entry.questions, name) ? entry.questions[name] : undefined);
     const words = said.map((one) => ({ question: one.question.trim(), says: one.says.trim().toLowerCase(), why: one.why.trim() }));
     const problems = [
@@ -111,18 +109,20 @@ export class Watcher {
     return undefined;
   }
 
-  /** Each round: a case left too long, or whose Watcher is gone, is given up; a Watcher no case can come to is let go. */
+  /** Each round: a case sent too long ago, or whose Watcher is gone, is given up; a Watcher no case can come to is let go. */
   async tend(project: Project, open: Map<string, SeatView>, now = Date.now()): Promise<void> {
     for (const [id, entry] of this.waiting) {
-      const gone = entry.seat !== "" && !open.has(entry.seat);
-      if (entry.project !== project.slug || (!gone && now - entry.sentAt < ANSWER_WITHIN_MINUTES * 60_000)) continue;
+      if (entry.project !== project.slug || !entry.sent) continue;
+      // An empty listing is a daemon that answered nothing, not a Watcher gone.
+      const gone = open.size > 0 && !open.has(entry.sent.seat);
+      if (!gone && now - entry.sent.at < ANSWER_WITHIN_MINUTES * 60_000) continue;
       this.waiting.delete(id);
       entry.failed(new Error(gone ? "the Watcher it was sent to is gone" : `no answer within ${ANSWER_WITHIN_MINUTES} minutes`));
     }
     const judged = "role" in (this.ctx.team(project).judge ?? {});
     if (judged && Object.values(loadLedger(project.state).lanes).some((lane) => lane.status === "open")) return;
     for (const seat of open.values()) {
-      const idle = !midTurn(seat.status) && ![...this.waiting.values()].some((entry) => entry.seat === seat.id);
+      const idle = !midTurn(seat.status) && ![...this.waiting.values()].some((entry) => entry.sent?.seat === seat.id);
       if (idle && can(seatOf(this.ctx.kit, seat.provider)?.role, "judge") && projectOf(seat.cwd).slug === project.slug) await this.roster.archive(seat.id);
     }
   }
