@@ -94,8 +94,10 @@ function fakePaseo() {
     id,
     projectId: workspaceProjects.get(id) ?? null,
     agents: {
-      async create(options: { config: { provider: string }; title: string; prompt: string; clientMessageId?: string; labels?: Record<string, string> }) {
-        const made = add(options.config.provider, workspaces.get(id)!, options.title, "running", options.prompt, options.labels);
+      async create(options: { config: { provider: string }; parent?: string; title: string; prompt: string; clientMessageId?: string; labels?: Record<string, string> }) {
+        // Paseo keeps an agent's parent as this label, and never pushes an agent that has one.
+        const labels = { ...options.labels, ...(options.parent ? { "paseo.parent-agent-id": options.parent } : {}) };
+        const made = add(options.config.provider, workspaces.get(id)!, options.title, "running", options.prompt, labels);
         agents.get(made)!.promptId = options.clientMessageId;
         return ref(made);
       },

@@ -214,6 +214,8 @@ The full list is in [the reference](REFERENCE.md#facts).
 - An `attend` incident about a Peer goes to the Lead of its lane.
 - One about a Lead, a `page`, or one whose Lead is gone goes to the Supervisor.
 - It never goes to the watched seat.
+- A `page` also reaches the Human's phone, through a Pager started for it: an agent with no tools and
+  no parent, whose first and only reply is two lines the desk writes, which Paseo pushes.
 
 Until it is sent, it may be held: in **shadow** (mailing is off, the default; a page is sent
 anyway), over the day's **budget**, or with **nobody** to tell.

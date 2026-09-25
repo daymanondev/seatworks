@@ -60,6 +60,8 @@ export type DeskEvent =
   | { kind: "watch.unbriefed"; agent: string; error: string }
   | { kind: "watch.offline"; error: string }
   | { kind: "incident.open"; id: string; agent: string; finding: string; level: Finding["level"]; held: Held | null }
+  | { kind: "page.sent"; agent: string }
+  | { kind: "page.failed"; error: string }
   | { kind: "incident.held"; id: string; held: Held }
   | { kind: "incident.told"; ids: string[]; to: string }
   | { kind: "incident.read"; agent: string; waiting: number }

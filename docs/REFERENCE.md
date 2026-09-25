@@ -265,7 +265,9 @@ An incident is sent once. Until then it may be held:
 | budget | `incidentsPerDay` attend-level incidents went out in the last 24 h |
 | nobody | Nobody to tell, or the only candidate is the watched seat. The patrol retries |
 
-A page never waits. A sighting whose exact words were already marked `noise` for that seat and kind
+A page never waits, and it also reaches the Human's phone: the desk starts a Pager, a role with no tools, whose
+one reply is two lines the desk writes, and Paseo pushes an agent's first finished turn. Paseo pushes an agent
+once until someone opens it, so each page has a Pager of its own. A sighting whose exact words were already marked `noise` for that seat and kind
 opens nothing. Archiving a seat closes its incidents, and they still wait to be marked.
 
 ## Settings
