@@ -144,8 +144,14 @@ const Gate = z.strictObject({
   lockfiles: z.record(z.string(), text).optional(),
 });
 
+/** `reviewQuestion` goes to every review of a change under `paths`, and `rehearse`, a project command, runs with the lane gate. It never holds a landing. */
+export const RiskRule = z.strictObject({ paths: z.array(text).min(1), invariant: text, reviewQuestion: text, rehearse: text.optional() });
+
+export type RiskRule = z.infer<typeof RiskRule>;
+
 export const EcosystemFile = z.strictObject({
   serialOnly: texts,
+  riskRules: z.array(RiskRule),
   gates: z.array(Gate),
   scriptRunners: texts,
   unsetScript: text,

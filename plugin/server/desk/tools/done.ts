@@ -26,7 +26,9 @@ function handbackBody(task: Task, args: Args, { commit, uncommitted, outside }: 
   if (task.kind === "review") {
     const outcome = str(args.verdict);
     const findings = ((args.findings ?? []) as Finding[]).map((found) => `- ${found.severity} ${found.where}: ${found.failure} Fix: ${found.fix}${found.confirmedBy ? ` Confirmed by: ${found.confirmedBy}` : ""}`);
-    const lines = [`Verdict: ${outcome}`, "", str(args.answer), "", "Findings:", ...(findings.length > 0 ? findings : ["none"]), "", `Read: ${strs(args.read).join("; ") || "not given"}`, `Ran: ${strs(args.ran).join("; ") || "nothing"}`];
+    const answers = strs(args.answers);
+    const asked = (task.asked ?? []).flatMap((question, index) => [`${index + 1}. ${question}`, `   ${answers[index]}`]);
+    const lines = [`Verdict: ${outcome}`, "", str(args.answer), "", "Findings:", ...(findings.length > 0 ? findings : ["none"]), ...(asked.length > 0 ? ["", "Asked by the project's risk rules:", ...asked] : []), "", `Read: ${strs(args.read).join("; ") || "not given"}`, `Ran: ${strs(args.ran).join("; ") || "nothing"}`];
     return { outcome, body: lines.join("\n") };
   }
   const outcome = str(args.outcome);
@@ -49,7 +51,7 @@ const HandBack = z.strictObject({ outcome: z.enum(["complete", "partial", "block
 const Finding = z.strictObject({ severity: z.enum(["P0", "P1", "P2", "P3"]), where: z.string(), failure: z.string(), fix: z.string(), confirmedBy: z.string().optional() });
 type Finding = z.infer<typeof Finding>;
 
-const Verdict = z.strictObject({ verdict: z.enum(["accept", "changes", "reopen"]), answer: z.string(), findings: z.array(Finding).optional(), read: z.array(z.string()).optional(), ran: z.array(z.string()).optional() });
+const Verdict = z.strictObject({ verdict: z.enum(["accept", "changes", "reopen"]), answer: z.string(), answers: z.array(z.string()).optional(), findings: z.array(Finding).optional(), read: z.array(z.string()).optional(), ran: z.array(z.string()).optional() });
 
 /** What the Peer must fix before its turn ends: work left uncommitted, or a copy off the branch, where a commit belongs to no branch and goes with the copy. */
 async function reminderOf(task: Task, laneBranch: string | undefined, uncommitted: boolean): Promise<string> {
@@ -68,6 +70,10 @@ async function handBack({ ctx, roster }: DeskServices, caller: Caller, args: Par
   if (SETTLED.includes(task.status)) return no(`This task is already ${task.status === "merged" ? "accepted" : "cut"}; there is nothing to hand back.`);
   const review = task.kind === "review";
   if (review && args.verdict !== "accept" && (args.findings ?? []).length === 0) return no(`A verdict of ${args.verdict} names what must change: give each finding.`);
+  const asked = task.asked ?? [];
+  if (review && asked.some((_, index) => !args.answers?.[index]?.trim())) {
+    return no(`The project's risk rules ask this review ${asked.length === 1 ? "a question" : `${asked.length} questions`}; give answers, one per question, in this order:\n${asked.map((question, index) => `${index + 1}. ${question}`).join("\n")}`);
+  }
   const work = await workOf(task, ledger.lanes[task.lane]);
   const { commit } = work;
   const handed = handbackBody(task, args, work);

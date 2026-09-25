@@ -5,6 +5,8 @@ import { LAND_AS, type LandAs, gitCommonDir } from "../core/git.ts";
 import { stateRoot } from "../core/paths.ts";
 import { readJson, writeJson } from "../core/store.ts";
 import type { Ecosystem, Kit } from "../catalog/kit.ts";
+import { RiskRule } from "../catalog/schema.ts";
+import { coverOf } from "../core/scope.ts";
 
 export type Project = { root: string; slug: string; state: string };
 
@@ -15,10 +17,10 @@ export const LANE_HOMES = ["onBranch", "newBranch", "isolate"] as const;
 export type LaneHome = (typeof LANE_HOMES)[number];
 
 /**
- * `serialOnly` is the project's own list when it set one; without one the kit's holds, so a change to the kit reaches it.
+ * `serialOnly` and `riskRules` are the project's own when it set them; without, the kit's hold, so a change to the kit reaches it.
  * `askFirst` is the Human's standing order: a landing that touches one of these paths waits for them.
  */
-export type ProjectConfig = { base?: string; gate?: string; gateTimeoutMinutes: number; gateOn: GateOn; serialOnly?: string[]; landAs: LandAs; laneHome?: LaneHome; askFirst: string[] };
+export type ProjectConfig = { base?: string; gate?: string; gateTimeoutMinutes: number; gateOn: GateOn; serialOnly?: string[]; landAs: LandAs; laneHome?: LaneHome; askFirst: string[]; riskRules?: RiskRule[] };
 
 const cache = new Map<string, Project>();
 
@@ -111,6 +113,8 @@ export function loadConfig(state: string): ProjectConfig {
     landAs: LAND_AS.find((as) => as === stored.landAs) ?? "squash",
     laneHome: LANE_HOMES.find((home) => home === stored.laneHome),
     askFirst: Array.isArray(stored.askFirst) ? stored.askFirst.map(String) : [],
+    // A list that does not read as rules falls to the kit's, which ask more rather than less.
+    riskRules: RiskRule.array().safeParse(stored.riskRules).data,
   };
 }
 
@@ -131,6 +135,15 @@ export function laneHomeFor(asked: LaneHome | undefined, config: ProjectConfig, 
 /** The paths only one writer at a time may write in this project. */
 export function serialOnlyOf(project: Project, kit: Kit): string[] {
   return loadConfig(project.state).serialOnly ?? kit.ecosystem.serialOnly;
+}
+
+export function riskRulesOf(project: Project, kit: Kit): RiskRule[] {
+  return loadConfig(project.state).riskRules ?? kit.ecosystem.riskRules;
+}
+
+/** The rules whose paths cover any of `files`: what a review of them must answer, and what rehearses them. */
+export function rulesFor(rules: RiskRule[], files: string[]): RiskRule[] {
+  return rules.filter((rule) => rule.paths.map(coverOf).some((cover) => files.some((file) => cover.test(file))));
 }
 
 export function saveConfig(state: string, config: ProjectConfig): void {

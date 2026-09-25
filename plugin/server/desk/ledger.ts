@@ -61,6 +61,8 @@ export type Task = {
   kind: "code" | "review";
   mode: "lane" | "parallel";
   of?: string;
+  /** A review's questions from the risk rules its change reaches: its verdict answers each, in order. */
+  asked?: string[];
   title: string;
   goal: string;
   acceptance: string[];

@@ -282,3 +282,23 @@ test("a lane asked to carry on the Human's branch works on it where it is, keeps
   assert.equal(h.git(h.root, "branch", "--show-current").trim(), "fix/login", "and the Human's copy was not switched away");
   assert.equal(readFileSync(join(h.root, "b.txt"), "utf-8"), "bee, done\n");
 });
+
+test("a lane that reaches a risk rule is rehearsed with its gate, and a red rehearsal is a red gate the Supervisor may land over", async () => {
+  const { h, sup, lane, land, onMain } = await laneWith({ "src/db/001.sql": "create table t (id int);\n" });
+  const rule = (paths: string[]) => ({ paths, invariant: "running it twice changes nothing", reviewQuestion: "What does a second run do?", rehearse: "false" });
+  const ready = async () => {
+    await h.call(lane.lead!, "lead", "report", { summary: `ready ${Date.now()}`, ready: true });
+    await h.idle(sup);
+    return h.heard(sup).filter((text) => text.startsWith("REPORT")).at(-1)!;
+  };
+  await h.call(sup, "supervisor", "set_project", { riskRules: [rule(["migrations"])] });
+  assert.doesNotMatch(await ready(), /rehearsing/, "a rule the lane's change does not reach is not rehearsed");
+  await h.call(sup, "supervisor", "set_project", { riskRules: [rule(["src/db"])] });
+  assert.match(await ready(), /Gate: true passed on the lane branch in \d+s\n\nfalse, rehearsing that running it twice changes nothing, failed with exit 1 on the lane branch\./);
+  const refused = await land();
+  assert.equal(refused.ok, false);
+  assert.match(refused.text, /false, rehearsing that running it twice changes nothing, failed with exit 1[^]*land_lane it over the gate with overGate true and your reason/);
+  const over = await h.call(sup, "supervisor", "land_lane", { lane: "L1", overGate: true, reason: "the rehearsal is known broken" });
+  assert.equal(over.ok, true, over.text);
+  assert.ok(onMain("src/db/001.sql"));
+});

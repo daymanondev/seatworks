@@ -448,6 +448,44 @@
               "type": "string"
             },
             "description": "Paths the Human asked to be asked about before anything touching them lands, as they kept them at the read-back: a path covers what is under it, a glob is itself. A landing that changes one waits for their approval on the panel; nothing else makes a landing wait. Pass the whole list; an empty one lets every landing go ahead."
+          },
+          "riskRules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "paths": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "minItems": 1,
+                  "description": "Paths the rule covers: a path covers what is under it, a glob is itself."
+                },
+                "invariant": {
+                  "type": "string",
+                  "description": "What must stay true of a change there, in one clause: running it a second time changes nothing.",
+                  "minLength": 1
+                },
+                "reviewQuestion": {
+                  "type": "string",
+                  "description": "The question every review of a change there must answer; a verdict without an answer to it is refused.",
+                  "minLength": 1
+                },
+                "rehearse": {
+                  "type": "string",
+                  "description": "A command of the project's that rehearses the invariant, run with the gate when a lane touching those paths reports ready and lands; red is a red gate.",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "paths",
+                "invariant",
+                "reviewQuestion"
+              ]
+            },
+            "description": "The project's own risk rules, replacing the kit's (which cover migrations, schemas and SQL): pass the whole list, or an empty one for none. A rule never makes a landing wait; for that, put its paths in askFirst."
           }
         }
       }
@@ -1020,6 +1058,13 @@
           "answer": {
             "type": "string",
             "description": "Your direct answer to the focus you were given; \"no material findings\" when that is the answer."
+          },
+          "answers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Your answer to each question your brief lists from the project, in its order: what you ran or read that settles it. A verdict that leaves one unanswered is refused."
           },
           "findings": {
             "type": "array",

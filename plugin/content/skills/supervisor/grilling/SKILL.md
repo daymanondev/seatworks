@@ -60,7 +60,9 @@ lanes work when their copy makes that a question (`set_project` `laneHome`), and
 touches before the Human looks (`set_project` `askFirst`). Offer the ones this work reaches among
 access (auth, login, session, passwords, secrets, credentials, tokens), money (payments, billing) and
 what ships (CI workflows, Docker, `.env`, infra, deploy, terraform, k8s, helm); they keep or drop each,
-and nothing waits for them unless they keep one. A correction is a settled answer like any other; what
+and nothing waits for them unless they keep one. Name the risk rules this work reaches (the kit's put a
+question to every review of migrations, schemas and SQL; `set_project` `riskRules` replaces them), and
+ask for a command that rehearses one, such as a migration run twice on a copy, where they have one. A correction is a settled answer like any other; what
 they want to be woken for, in their words, goes in `$SEATWORKS_STATE/notebook.md`.
 
 ## Ends in

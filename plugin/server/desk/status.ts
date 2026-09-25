@@ -69,6 +69,14 @@ function laneAim(lane: Lane): string[] {
 /** To the minute, like every age on the page: a status asked again within it reads the same when nothing moved. */
 const stamp = (now: number): string => `${new Date(now).toISOString().slice(0, 16)}Z`;
 
+/** How the project is set up, the Human's standing orders included. */
+function heading(project: Project, config: ProjectConfig, now: number): string[] {
+  const gate = config.gate || (config.gate === "" ? "none, by this project's own choice" : "none");
+  const asked = config.askFirst.length > 0 ? `A landing that touches ${config.askFirst.join(", ")} waits for the Human (askFirst).` : "No landing waits for the Human (askFirst is empty).";
+  const rules = config.riskRules ? `Risk rules of its own: ${config.riskRules.length}.` : "The kit's risk rules.";
+  return [`# Status: ${project.root}`, "", `Updated ${stamp(now)}. Base ${config.base ?? "unset"}. Gate ${gate}. Lanes land as ${config.landAs}. ${asked} ${rules}`, ""];
+}
+
 export function statusText(
   project: Project,
   ledger: Ledger,
@@ -77,9 +85,7 @@ export function statusText(
   now: number,
   { laneId, waiting = [], held = [], copy }: { laneId?: string; waiting?: SeatView[]; held?: { to: string; text: string; at: number }[]; copy?: OwnCopy } = {},
 ): string {
-  const gate = config.gate || (config.gate === "" ? "none, by this project's own choice" : "none");
-  const asked = config.askFirst.length > 0 ? `A landing that touches ${config.askFirst.join(", ")} waits for the Human (askFirst).` : "No landing waits for the Human (askFirst is empty).";
-  const lines = [`# Status: ${project.root}`, "", `Updated ${stamp(now)}. Base ${config.base ?? "unset"}. Gate ${gate}. Lanes land as ${config.landAs}. ${asked}`, ""];
+  const lines = heading(project, config, now);
   if (copy) lines.push(...ownCopyLines(project, ledger, config, copy));
   // One outbox holds every project's mail: a seated recipient belongs to its copy's project, a gone one to this project's record.
   const mine = held.filter((letter) => {

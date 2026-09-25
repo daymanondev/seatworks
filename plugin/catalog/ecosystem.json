@@ -19,6 +19,20 @@
     "**/*.csproj",
     "**/*.sln"
   ],
+  "riskRules": [
+    {
+      "paths": [
+        "**/migration/**",
+        "**/migrations/**",
+        "**/migrate/**",
+        "**/schema/**",
+        "**/schema.*",
+        "**/*.sql"
+      ],
+      "invariant": "running it a second time changes nothing, and the data from before can be got back",
+      "reviewQuestion": "What does running this a second time do to data it already changed, and how is the data from before got back if it goes wrong?"
+    }
+  ],
   "gates": [
     {
       "files": [

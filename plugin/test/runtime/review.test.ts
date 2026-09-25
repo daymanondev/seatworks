@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { test } from "node:test";
 import { harness } from "./harness.ts";
 
@@ -70,4 +72,31 @@ test("a lane reported ready carries what its reviews leave standing, and each fa
   const third = await ready("third");
   assert.doesNotMatch(third, /latest review/);
   assert.match(third, /It also carries what the record has of the lane's reviews: L1-T1 was accepted over L1-R1, a review of it that ended in changes\. Stay quiet/, "the Lead's own acceptance stands on the record, for whoever lands it to weigh");
+});
+
+test("a review of a change a risk rule covers is asked the rule's question, and its verdict is refused until it answers", async () => {
+  const h = harness();
+  const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
+  await h.call(sup, "supervisor", "open_lane", { title: "Invoices", outcome: "invoices move", acceptance: ["a"], outOfScope: ["anything else"] });
+  const lane = h.ledger().lanes.L1!;
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "m", title: "Move", goal: "g", acceptance: ["a"], owned: ["db/migrations"], outOfScope: ["the rest"] }] });
+  mkdirSync(join(lane.worktree!, "db", "migrations"), { recursive: true });
+  h.commit(lane.worktree!, "db/migrations/001.sql", "update invoices set total = total * 100;\n");
+  await h.call(h.ledger().tasks["L1-T1"]!.peer!, "peer", "done", { outcome: "complete", summary: "moved" });
+
+  await h.call(lane.lead!, "lead", "start_review", { task: "L1-T1", focus: "Is the move safe?" });
+  const review = Object.values(h.ledger().tasks).find((task) => task.kind === "review")!;
+  assert.match(h.agents.get(review.peer!)!.prompt ?? "", /The project asks every review of a change like this, answered in order in answers:\n1\. What does running this a second time do to data it already changed, and how is the data from before got back if it goes wrong\?/);
+  const bare = await h.call(review.peer!, "reviewer", "done", { verdict: "accept", answer: "Safe." });
+  assert.match(bare.text, /The project's risk rules ask this review a question; give answers, one per question, in this order:\n1\. What does running this a second time/);
+  const answered = await h.call(review.peer!, "reviewer", "done", { verdict: "changes", answer: "Not safe twice.", answers: ["A second run multiplies totals by 100 again; there is no backup."], findings: [{ severity: "P0", where: "db/migrations/001.sql:1", failure: "totals grow on every run", fix: "guard it with a version table" }] });
+  assert.equal(answered.ok, true, answered.text);
+  await h.idle(lane.lead!);
+  assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /Asked by the project's risk rules:\n1\. What does running this a second time[^\n]*\n {3}A second run multiplies totals by 100 again; there is no backup\./);
+
+  assert.match((await h.call(sup, "supervisor", "set_project", { riskRules: [{ paths: ["db"], invariant: "", reviewQuestion: "q" }] })).text, /invariant must not be empty in each of riskRules/);
+  assert.match((await h.call(sup, "supervisor", "set_project", { riskRules: [] })).text, /0 risk rules of its own/);
+  await h.call(lane.lead!, "lead", "start_review", { focus: "And the lane?" });
+  const second = Object.values(h.ledger().tasks).filter((task) => task.kind === "review").at(-1)!;
+  assert.equal(second.asked, undefined, "a project's own list, even an empty one, replaces the kit's");
 });

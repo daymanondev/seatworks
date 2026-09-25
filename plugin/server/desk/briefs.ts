@@ -41,6 +41,8 @@ export function reviewBrief(review: Task, target: Task | undefined, focus: strin
         list(target.acceptance),
       ]
     : [`REVIEW ${review.id}: ${review.title}`, "", `Your working copy is on ${laneBranch}. Read whatever the question needs.`];
-  lines.push("", "Open question:", focus, "", "Read only: don't edit files or commit. When finished, call done with your verdict and findings.");
+  lines.push("", "Open question:", focus);
+  if (review.asked) lines.push("", "The project asks every review of a change like this, answered in order in answers:", ...review.asked.map((question, index) => `${index + 1}. ${question}`));
+  lines.push("", "Read only: don't edit files or commit. When finished, call done with your verdict and findings.");
   return lines.join("\n");
 }

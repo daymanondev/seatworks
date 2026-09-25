@@ -62,7 +62,7 @@ const LONG_FUNCTIONS: Record<string, number> = {
   "server/adapters/paseo/agents.ts workspacesOn": 57,
   "server/catalog/team.ts resolveRole": 60,
   "server/desk/flow.ts flowView": 93,
-  "server/desk/status.ts statusText": 96,
+  "server/desk/status.ts statusText": 94,
   "server/runtime/doctor.ts doctor": 77,
   "server/runtime/watch/history.ts deskFacts": 54,
 };

@@ -72,11 +72,11 @@ const NOT_READY = "Its Lead has not reported it ready as it now stands: never, o
  * A landing waits for the Human only where they asked to be asked first; all else the desk reads of it goes with it as
  * evidence. An approval stands for what it was given: a path they are newly asked about holds it again.
  */
-async function checkLanding(desk: DeskServices, project: Project, lane: Lane, gateOk: boolean, overGate: boolean, approved?: Held): Promise<{ held?: string; note: string }> {
+async function checkLanding(desk: DeskServices, project: Project, lane: Lane, gate: { ok: boolean; ran: boolean }, overGate: boolean, approved?: Held): Promise<{ held?: string; note: string }> {
   const { ctx } = desk;
   const change = await changeOf(project, lane);
   const asks = askFirstHits(project, change);
-  const evidence = [...(lane.ready ? [] : [NOT_READY]), ...(await landFacts(ctx.kit, project, loadLedger(project.state), lane, change, { set: Boolean(loadConfig(project.state).gate), ok: gateOk }))];
+  const evidence = [...(lane.ready ? [] : [NOT_READY]), ...(await landFacts(ctx.kit, project, loadLedger(project.state), lane, change, { set: gate.ran, ok: gate.ok }))];
   const fresh = approved ? asks.filter((ask) => !approved.signals.includes(ask)) : asks;
   if (fresh.length === 0) return { note: `\n\n${approved ? "The Human approved it.\n" : ""}Evidence: ${evidence.join(" ")}` };
   const head = (await headSha(project.root, lane.branch)) ?? "";
@@ -165,7 +165,7 @@ async function land(desk: DeskServices, project: Project, ledger: Ledger, lane: 
   if (!gate.ok && !overGate) {
     return { ...no(`Lane ${lane.id} was not closed: ${gate.text}\nMessage its Lead, drop_lane it, or land_lane it over the gate with overGate true and your reason: that is your call.`), blocked: gate.text.split("\n")[0]!.replace(/\.$/, "") };
   }
-  const check = await checkLanding(desk, project, lane, gate.ok, overGate, approved);
+  const check = await checkLanding(desk, project, lane, gate, overGate, approved);
   if (check.held) return ok(check.held);
   const how = { as: loadConfig(project.state).landAs, message: landMessage(ledger, lane), keep: landedRef(lane.id) };
   const result = lane.onBranch ? { landed: true, how: `the work stays on ${lane.branch}, the branch it carried on; nothing was merged anywhere` } : await landLane(project.root, lane.base, lane.branch, how);

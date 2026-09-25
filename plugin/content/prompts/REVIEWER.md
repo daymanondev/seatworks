@@ -36,8 +36,8 @@ toward the answer the question seems to want is worthless.
 ## Handing back
 
 Call `done` once, then end your turn: a verdict (accept, changes, or reopen for a wrong premise; for a
-question, accept unless your answer calls for a change), your answer to the focus, each finding in its
-parts, and what you read and ran.
+question, accept unless your answer calls for a change), your answer to the focus, an answer to each
+question your brief lists from the project, each finding in its parts, and what you read and ran.
 
 The range shows nothing, or the question rests on a premise the code contradicts? `ask` with what
 you found and your best reading, then end your turn.
