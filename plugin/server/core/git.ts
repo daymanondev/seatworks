@@ -176,6 +176,34 @@ export async function changedFiles(cwd: string, range: string): Promise<string[]
   return run.code === 0 ? run.stdout.split("\0").filter(Boolean) : undefined;
 }
 
+/** Every path the commits on a copy's first-parent line touched from `from` to `to`, a rename's both ends apart; merges left out. */
+async function ownPaths(cwd: string, from: string, to: string): Promise<Set<string> | undefined> {
+  const run = await git(cwd, ["log", "-z", "--first-parent", "--no-merges", "--no-renames", "--name-only", "--format=", `${from}..${to}`]);
+  return run.code === 0 ? new Set(run.stdout.split("\0").filter(Boolean)) : undefined;
+}
+
+/**
+ * The files a copy's own writer changed from `from` to `to`, as git diff reads them, leaving out what merges brought in: the desk
+ * merges with --no-ff and no seat may merge, so the copy's first-parent line is its writer's own work. Undefined when git cannot say.
+ */
+export async function ownChangedFiles(cwd: string, from: string, to = "HEAD"): Promise<string[] | undefined> {
+  const [net, own] = await Promise.all([changedFiles(cwd, `${from}..${to}`), ownPaths(cwd, from, to)]);
+  return net && own && net.filter((path) => own.has(path));
+}
+
+/** What `diffCounts` says of a copy's own writer's work since `from`: the lines and files merges brought in are left out. */
+export async function ownCounts(cwd: string, from: string, kinds: FileKinds): Promise<Counts | undefined> {
+  const own = await ownPaths(cwd, from, "HEAD");
+  const counts = own && (await diffCounts(cwd, from, "HEAD", kinds, (path) => !own.has(path)));
+  return counts && { ...counts, files: counts.files.filter((path) => own!.has(path)) };
+}
+
+/** Whether the desk merged anything into the copy's line between `from` and `to`: a diff across them then shows others' work too. */
+export async function mergesIn(cwd: string, from: string, to: string): Promise<boolean> {
+  const run = await git(cwd, ["rev-list", "--first-parent", "--merges", "--count", `${from}..${to}`]);
+  return run.code === 0 && Number(run.stdout.trim()) > 0;
+}
+
 export function outsideOwned(files: string[], owned: string[]): string[] {
   if (owned.length === 0) return [];
   const rules = owned.map(coverOf);

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { fileKinds } from "../../catalog/kit.ts";
-import { currentBranch, diffCounts, git, outsideOwned, pristineState } from "../../core/git.ts";
+import { currentBranch, git, outsideOwned, ownCounts, pristineState } from "../../core/git.ts";
 import { IN_QUEUE, TASK } from "../../domain/task.ts";
 import { no, ok, str } from "../context.ts";
 import { gateNote } from "../gates.ts";
@@ -57,7 +57,7 @@ export const accept = defineTool({
           : `The lane's working copy has uncommitted changes: ${await uncommittedIn(lane.worktree)}. Send rework asking the Peer on ${task.id} for those, then accept again.`,
       );
     }
-    const counts = await diffCounts(lane.worktree, task.startSha ?? lane.base, "HEAD", fileKinds(ctx.kit));
+    const counts = await ownCounts(lane.worktree, task.startSha ?? lane.base, fileKinds(ctx.kit));
     // Not rerun: a per-task gate already gave the Lead its verdict with the hand-back.
     const gate = gateNote(project, task);
     const updated = ctx.moveTask(project, task.id, "accept", (entry) => (entry.acceptedAt = Date.now()));

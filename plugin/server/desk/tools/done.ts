@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { changedFiles, currentBranch, headSha, outsideOwned, pristineState } from "../../core/git.ts";
+import { changedFiles, currentBranch, headSha, outsideOwned, ownChangedFiles, pristineState } from "../../core/git.ts";
 import { IN_QUEUE, SETTLED, TASK } from "../../domain/task.ts";
 import { type Args, type Caller, type ToolReply, no, ok, str, strs } from "../context.ts";
 import { handbackCase } from "../checks.ts";
@@ -17,8 +17,8 @@ type Work = { commit?: string; uncommitted: boolean; outside: string[] };
 /** What a code task's copy holds as it hands back, as git says: its commit, work left uncommitted, and files changed outside its owned paths. */
 async function workOf(task: Task, lane: Lane | undefined): Promise<Work> {
   if (task.kind === "review" || !task.worktree) return { uncommitted: false, outside: [] };
-  const range = task.mode === "parallel" ? lane && `${lane.branch}...HEAD` : task.startSha && `${task.startSha}..HEAD`;
-  const changed = range ? await changedFiles(task.worktree, range) : undefined;
+  // A task in the lane's copy counts its own commits only: a task beside it may have been merged into that copy meanwhile.
+  const changed = task.mode === "parallel" ? (lane ? await changedFiles(task.worktree, `${lane.branch}...HEAD`) : undefined) : task.startSha ? await ownChangedFiles(task.worktree, task.startSha) : undefined;
   // Only what git actually said: a copy it could not read is not a copy with work left in it.
   return { commit: await headSha(task.worktree), uncommitted: (await pristineState(task.worktree)) === "dirty", outside: outsideOwned(changed ?? [], task.owned) };
 }

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { namedOrNot, roleThatCan } from "../../catalog/kit.ts";
-import { branchExists, changedFiles } from "../../core/git.ts";
+import { branchExists, changedFiles, mergesIn, ownChangedFiles } from "../../core/git.ts";
 import { type DeskContext, no, ok, str } from "../context.ts";
 import { errorText } from "../../core/errors.ts";
 import { type Lane, type Task, findTask, laneOfLead, loadLedger, nextTaskId } from "../ledger.ts";
@@ -11,9 +11,18 @@ import { seatingKey } from "../opening.ts";
 import { type Project, riskRulesOf, rulesFor } from "../project.ts";
 import { type DeskServices, defineTool } from "../services.ts";
 
-/** A landed parallel task's copy and branch are gone, so its change is read from the merge, not `laneBranch...HEAD`. */
-async function rangeOf(project: Project, target: Task, lane: Lane, inOwnCopy: boolean): Promise<{ where: string; spec: string } | undefined> {
-  if (target.mode !== "parallel") return { where: "Your working copy holds the change", spec: `${target.startSha ?? lane.branch}..HEAD` };
+type Change = { where: string; spec: string; own?: { from: string; to: string } };
+
+/**
+ * Where the change to review is read from. A landed parallel task's copy and branch are gone, so it is read from the merge; a task in
+ * the lane's copy from its own commits up to its last hand-back, since tasks beside it may be merged into that copy and others follow.
+ */
+async function rangeOf(project: Project, target: Task, lane: Lane, inOwnCopy: boolean): Promise<Change | undefined> {
+  if (target.mode !== "parallel") {
+    const from = target.startSha ?? lane.branch;
+    const to = target.status === "running" || target.status === "rework" ? "HEAD" : (target.handback?.commit ?? "HEAD");
+    return { where: "Your working copy holds the change", spec: `${from}..${to}`, own: { from, to } };
+  }
   if (inOwnCopy) return { where: "Your working copy holds the change", spec: `${lane.branch}...HEAD` };
   if (target.mergeSha) return { where: `The change is in ${lane.branch}, as the merge ${target.mergeSha.slice(0, 7)}`, spec: `${target.mergeSha}^1..${target.mergeSha}` };
   if (target.branch && (await branchExists(project.root, target.branch))) return { where: `The change is on ${target.branch}, not in your working copy`, spec: `${lane.branch}...${target.branch}` };
@@ -21,9 +30,9 @@ async function rangeOf(project: Project, target: Task, lane: Lane, inOwnCopy: bo
 }
 
 /** The questions of every risk rule the reviewed change reaches; a change git cannot read is asked them all. */
-async function askedOf(desk: DeskServices, project: Project, lane: Lane, copy: string, spec: string | undefined): Promise<string[]> {
+async function askedOf(desk: DeskServices, project: Project, lane: Lane, copy: string, change: Change | undefined): Promise<string[]> {
   const rules = riskRulesOf(project, desk.ctx.kit);
-  const files = spec ? await changedFiles(copy, spec) : (await changeOf(project, lane)).files;
+  const files = change ? await (change.own ? ownChangedFiles(copy, change.own.from, change.own.to) : changedFiles(copy, change.spec)) : (await changeOf(project, lane)).files;
   return [...new Set((files ? rulesFor(rules, files) : rules).map((rule) => rule.reviewQuestion))];
 }
 
@@ -83,13 +92,15 @@ export const startReview = defineTool({
     const lens = str(args.role);
     const reviewRole = roleThatCan(ctx.kit, "review", lens || undefined);
     if (!reviewRole) return no(namedOrNot(ctx.kit, "review", lens, "review, so there is nobody to ask a read-only question of"));
-    const asked = await askedOf(desk, project, lane, slot.path, change?.spec);
+    const asked = await askedOf(desk, project, lane, slot.path, change);
+    // git diff cannot leave a merge out, so a range the desk merged a task beside into is read commit by commit.
+    const read = change?.own && (await mergesIn(slot.path, change.own.from, change.own.to)) ? `git log -p --first-parent --no-merges ${change.spec}` : `git diff ${change?.spec}`;
     const review = recordReview(ctx, project, lane, target, str(args.title), focus, slot, asked);
     try {
       const reviewer = await agents.start(project, slot, reviewRole.role, {
         parent: caller.id,
         title: `${review.id} ${target?.title ?? review.title}`,
-        prompt: reviewBrief(review, target, focus, lane.branch, change && { where: change.where, range: `git diff ${change.spec}` }),
+        prompt: reviewBrief(review, target, focus, lane.branch, change && { where: change.where, range: read }),
         labels: { "seatworks.lane": lane.id, "seatworks.task": review.id, "seatworks.role": reviewRole.role },
       });
       ctx.setTask(project, review.id, (entry) => {
