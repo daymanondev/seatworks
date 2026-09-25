@@ -27,8 +27,11 @@ export function renderText(role: RoleSpec, source: string, paths: PromptPaths): 
   return text;
 }
 
-export function renderPrompt(kit: Kit, role: RoleSpec, paths: PromptPaths): string {
-  return renderText(role, readFileSync(contentPath(kit, role.prompt), "utf-8"), paths);
+/** The role's prompt, then what the harness it sits on needs said against that agent's own instructions, when it ships any. */
+export function renderPrompt(kit: Kit, role: RoleSpec, harness: string, paths: PromptPaths): string {
+  const prompt = renderText(role, readFileSync(contentPath(kit, role.prompt), "utf-8"), paths);
+  const delta = join(kit.dir, "harness", harness, "delta", `${role.role}.md`);
+  return existsSync(delta) ? `${prompt.trimEnd()}\n\n${renderText(role, readFileSync(delta, "utf-8"), paths)}` : prompt;
 }
 
 function markdownIn(dir: string): string[] {

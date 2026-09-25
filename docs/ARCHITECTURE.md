@@ -83,7 +83,7 @@ These are mostly absences, so the code won't show them to you.
 | `mcp/` | `team.mjs`, `code.mjs`, and `tools.json` (the tool sets and their schemas) |
 | `bin/` | `seat-room`, the launcher that refuses a seat the plugin did not configure |
 | `roles.json` | The SLP preset: roles, capabilities, tool sets, prompts, skills, defaults, attention values |
-| `harness/<agent>/` | How each agent is set up: `harness.json`, plus base and per-role settings |
+| `harness/<agent>/` | How each agent is set up: `harness.json`, base and per-role settings, and per-role deltas: what a role's prompt needs said against that agent's own instructions |
 | `catalog/` | Optional MCP servers; `ecosystem.json`: gates, one-writer paths, test and docs names, the watch's patterns; `paseo.json`: the tools Paseo gives every agent |
 | `content/` | Runtime content that seats read: prompts, skills, guides, the team block. Not documentation |
 

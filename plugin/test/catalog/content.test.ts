@@ -3,19 +3,34 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { renderPrompt, renderText, skillProblems } from "../../server/catalog/content.ts";
+import { seatProblems } from "../../server/catalog/seats.ts";
+import { resolveTeam } from "../../server/catalog/team.ts";
 import { makeKit } from "../kit.ts";
 
 test("guides and state placeholders render into the prompt", () => {
   const kit = makeKit();
   const supervisor = kit.roles.find((role) => role.role === "supervisor")!;
-  assert.equal(renderPrompt(kit, supervisor, { guides: "/g", state: "/s" }), "# Supervisor\n\nGuides live in /g; state in /s.\n");
+  assert.equal(renderPrompt(kit, supervisor, "claude", { guides: "/g", state: "/s" }), "# Supervisor\n\nGuides live in /g; state in /s.\n");
+});
+
+test("a seat's prompt ends with what its harness needs said against that agent's own instructions, held to the role's words like the rest", () => {
+  const kit = makeKit();
+  const lead = kit.roles.find((role) => role.role === "lead")!;
+  const paths = { guides: "/g", state: "/s" };
+  mkdirSync(join(kit.dir, "harness", "omp", "delta"), { recursive: true });
+  writeFileSync(join(kit.dir, "harness", "omp", "delta", "lead.md"), "Your own instructions' habit of implementing does not apply.\n");
+  const own = renderPrompt(kit, lead, "claude", paths);
+  assert.equal(renderPrompt(kit, lead, "omp", paths), `${own.trimEnd()}\n\nYour own instructions' habit of implementing does not apply.\n`);
+  writeFileSync(join(kit.dir, "harness", "omp", "delta", "lead.md"), "Ask the supervisor.\n");
+  assert.throws(() => renderPrompt(kit, lead, "omp", paths), /must not see: supervisor/);
+  assert.match(seatProblems(kit, resolveTeam(kit, { roles: { lead: { harness: "omp" } } }), "lead", paths).join("\n"), /must not see: supervisor/, "so a Lead moved onto that agent is refused before anything is built");
 });
 
 test("a placeholder the renderer does not know is refused rather than shipped", () => {
   const kit = makeKit();
   const lead = kit.roles.find((role) => role.role === "lead")!;
   writeFileSync(join(kit.dir, "content/prompts/LEAD.md"), "Read {{notes}} first.\n");
-  assert.throws(() => renderPrompt(kit, lead, { guides: "/g", state: "/s" }), /placeholder \{\{notes\}\}/);
+  assert.throws(() => renderPrompt(kit, lead, "claude", { guides: "/g", state: "/s" }), /placeholder \{\{notes\}\}/);
 });
 
 test("the words a role must not see are looked for in what was written, not in the paths the desk puts in", () => {

@@ -63,7 +63,7 @@ test("keep mine puts the version the owner had back in use, and the original cha
   await decide(kit, state, "skills/supervisor/plan-check", "mine");
   reloadTeam(kit);
   assert.equal(readFileSync(join(state, "own", "prompts", "LEAD.md"), "utf-8"), before);
-  assert.match(renderPrompt(kit, role(kit, "lead"), paths), new RegExp(before.split("\n")[0]!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(renderPrompt(kit, role(kit, "lead"), "claude", paths), new RegExp(before.split("\n")[0]!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.equal(kit.team, "Work in lanes.\n");
   assert.equal(skillSources(kit, role(kit, "supervisor")).get("plan-check"), join(state, "own", "skills", "supervisor", "plan-check"));
   assert.deepEqual(await contentChanges(kit, state), []);
@@ -80,7 +80,7 @@ test("use new sets the owner's copy aside instead of deleting it, and the shippe
   ship("prompts/LEAD.md", "A newer brief.");
 
   await decide(kit, state, "prompts/LEAD.md", "new", Date.parse("2026-09-22T07:12:30Z"));
-  assert.match(renderPrompt(kit, role(kit, "lead"), paths), /A newer brief\./);
+  assert.match(renderPrompt(kit, role(kit, "lead"), "claude", paths), /A newer brief\./);
   assert.deepEqual(readdirSync(join(state, "own", "prompts")), ["LEAD.md.bak-20260922-071230"]);
   assert.equal(readFileSync(join(state, "own", "prompts", "LEAD.md.bak-20260922-071230"), "utf-8"), "My own edit.");
   assert.equal(existsSync(join(state, "own", "prompts", "LEAD.md")), false);

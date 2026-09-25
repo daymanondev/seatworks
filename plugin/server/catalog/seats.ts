@@ -338,7 +338,7 @@ export function seatProblems(kit: Kit, team: Team, roleName: string, paths: Prom
   const say = (error: unknown) => problems.push(errorText(error));
   try {
     renderText(seat.role, rulesFor(team, roleName), paths);
-    renderPrompt(kit, seat.role, paths);
+    renderPrompt(kit, seat.role, seat.harness.id, paths);
   } catch (error) {
     say(error);
   }

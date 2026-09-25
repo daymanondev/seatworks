@@ -121,7 +121,9 @@ runs in a HOME of its own, and a `console.error` the test did not ask for fails 
   only where a rule is subtle.
 - `roles.json` `hidesWords` is a lint that throws: a Peer's prompt may not say "seat", and the team
   block may not say any role's hidden word.
-- `plugin/harness/<agent>/settings/<role>.*` holds each role's sandbox and approval policy.
+- `plugin/harness/<agent>/settings/<role>.*` holds each role's sandbox and approval policy, and
+  `plugin/harness/<agent>/delta/<role>.md` is runtime text added after that role's prompt on that
+  agent: only what the agent's own instructions would lead the role wrong on.
 - `plugin/mcp/code.mjs` is the shape to copy: no role names or workflow words, configured by data.
 - `~/.paseo/daemon.log` is the live daemon log; the dated files beside it are dead.
 - `NOTICE.md` is a license obligation. Never delete it.

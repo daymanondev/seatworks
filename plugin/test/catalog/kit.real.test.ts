@@ -30,6 +30,8 @@ test("the shipped kit resolves to a complete team, and every role's seat builds 
   assert.deepEqual(Object.keys(kit.mcp).sort(), ["code-search", "context7", "intellij-index"]);
   const every = kit.roles.flatMap((role) => ["claude", "codex", "omp", "opencode", "pi"].map((harness) => `${role.role}-${harness}`)).sort();
   assert.deepEqual(seatPairs(kit).map((pair) => `${pair.role.role}-${pair.harness.id}`).sort(), every, "every role can sit on every agent the kit ships");
+  const deltas = Object.keys(kit.harnesses).flatMap((id) => (existsSync(join(pluginRoot, "harness", id, "delta")) ? readdirSync(join(pluginRoot, "harness", id, "delta")).map((file) => `${id}/${file}`) : []));
+  assert.deepEqual(deltas.filter((entry) => !kit.roles.some((role) => entry.endsWith(`/${role.role}.md`))), [], "every harness delta speaks to a role the kit has");
   const home = tempDir("sw2-real-home-");
   const project = { slug: "demo-000000", state: "/state/demo" };
   for (const [name, seat] of Object.entries(team.roles)) {
@@ -38,7 +40,7 @@ test("the shipped kit resolves to a complete team, and every role's seat builds 
     materialize(kit, team, name, home, where, serversFor(kit, team, name, { node: "/bin/node", spool: "/spool" }));
     const dir = seatDir(kit, role, harness, home, where);
     assert.ok(existsSync(join(dir, harness.skillsDir)), `${name} skills dir`);
-    assert.doesNotMatch(renderPrompt(kit, role, { guides: "/guides", state: "/state" }), /\{\{/, `${name} prompt has no placeholder left`);
+    for (const on of Object.keys(kit.harnesses)) assert.doesNotMatch(renderPrompt(kit, role, on, { guides: "/guides", state: "/state" }), /\{\{/, `${name} prompt on ${on} has no placeholder left`);
     // A seat with no rules to carry is given no context file at all.
     const contextFile = join(dir, harness.contextFile!);
     const context = existsSync(contextFile) ? readFileSync(contextFile, "utf-8") : "";

@@ -198,6 +198,11 @@ can answer.
 Required: `id`, `label`, `baseProvider`, `configDirEnv`, `profileRoot`, `skillsDir`, `settings`,
 `mcp` and `provider`.
 
+Beside it, `delta/<role>.md` holds what a role's prompt needs said against that agent's own
+instructions, such as who "the user" is, or a habit of implementing that a Lead must not follow. It is
+added after the role's prompt, in the same place, and held to the same checks; a role with none gets
+nothing added.
+
 ## Seat directories
 
 One per role, agent and project: `<profileRoot>/sw2-<role>-<agent>-<slug>`. It is rebuilt when the

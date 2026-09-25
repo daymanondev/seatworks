@@ -154,7 +154,7 @@ test("a roles file of one's own replaces the kit's preset, and may name its file
 
   const kit = loadKit(dir, mine);
   assert.deepEqual(kit.roles.map((role) => role.role), ["driver"], "and that arrangement is the one that runs");
-  assert.match(renderPrompt(kit, kit.roles[0]!, { guides: "/g", state: "/s" }), /You drive\./, "its prompt is read from where it says, not from inside the package");
+  assert.match(renderPrompt(kit, kit.roles[0]!, "claude", { guides: "/g", state: "/s" }), /You drive\./, "its prompt is read from where it says, not from inside the package");
 });
 
 test("a capability several roles hold can name which of them, and a stored name is asked what it can do", () => {

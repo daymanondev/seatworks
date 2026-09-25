@@ -206,7 +206,7 @@ export class Runtime implements HostHooks {
     const project = projectOf(config.cwd);
     this.remember(project);
     const team = this.seating.ensure(seat.role.role, seat.harness, project);
-    const render = (role: Parameters<typeof renderPrompt>[1]) => renderPrompt(this.kit, role, { guides: guidesDir(), state: project.state });
+    const render = (role: Parameters<typeof renderPrompt>[1]) => renderPrompt(this.kit, role, seat.harness.id, { guides: guidesDir(), state: project.state });
     return applyRole(this.kit, team, config, render, project.state, this.seating.servers(team, seat.role.role));
   }
 
