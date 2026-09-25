@@ -110,11 +110,14 @@ export type Models = {
 /** Paseo as the plugin reaches it; `connected` is false until a hook or a panel call has handed over its API. */
 export type Host = { connected(): boolean; seats: Seats; workspaces: Workspaces; models: Models };
 
-/** One condition for a judge, as the watch's catalog words it, with the fields the code filled in. */
-export type Question = { type: "noul"; instructions: string | Record<string, string>; criteria: { true: string; false: string } };
+/** A question as the watch's catalog words it, the fields the code fills filled: a noul is one condition, a choice picks one of its criteria. */
+export type Question = { type: "noul" | "choice"; instructions: string | Record<string, string>; criteria: Record<string, string> };
 
-/** How likely each question's condition holds, from 0 to 1; the model that answered, and the input it read where it says. */
-export type Judgement = { answers: Record<string, number>; model: string; tokens?: number };
+/** A noul's answer is how likely its condition holds, from 0 to 1; a choice's, the pick and how sure of it. */
+export type Answer = { noul: number } | { choice: string; confidence: number };
+
+/** Each question's answer; the model that answered, and the input it read where it says. */
+export type Judgement = { answers: Record<string, Answer>; model: string; tokens?: number };
 
 /** Whatever answers the watch's questions about one moment of the record. */
 export type Judge = { ask(state: Record<string, unknown>, questions: Record<string, Question>): Promise<Judgement> };

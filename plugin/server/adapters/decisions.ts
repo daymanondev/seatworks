@@ -1,6 +1,6 @@
 import { errorText } from "../core/errors.ts";
 import { mask } from "../core/mask.ts";
-import type { Judge, Judgement, Question } from "../core/ports.ts";
+import type { Answer, Judge, Judgement, Question } from "../core/ports.ts";
 
 /** Where and how a sensor is asked, as its catalog file says; `body` holds what goes with every request, such as data rules. */
 type Decisions = { url: string; model: string; body?: Record<string, unknown>; timeoutSeconds: number; retries: number };
@@ -35,16 +35,27 @@ function bounded<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
   });
 }
 
-/** Every question answered as a probability, or none: an answer with a question missing is not what was asked. */
+const unit = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
+
+/** A noul's probability, or a choice among the question's own criteria; a choice with no confidence is not sure of itself. */
+function answerOf(name: string, question: Question, answer: { noul?: unknown; choice?: unknown; confidence?: unknown }): Answer {
+  if (question.type === "noul") {
+    if (!unit(answer.noul)) throw new Error(`the answer to ${name} is not a probability`);
+    return { noul: answer.noul };
+  }
+  if (typeof answer.choice !== "string" || !Object.hasOwn(question.criteria, answer.choice)) throw new Error(`the answer to ${name} is not one of its choices`);
+  if (answer.confidence !== undefined && !unit(answer.confidence)) throw new Error(`the answer to ${name} has a confidence outside 0 to 1`);
+  return { choice: answer.choice, confidence: answer.confidence ?? 0 };
+}
+
+/** Every question answered as it was asked, or none: an answer with a question missing is not what was asked. */
 function readJudgement(body: unknown, questions: Record<string, Question>): Judgement {
-  const held = (body ?? {}) as { answers?: Record<string, { noul?: unknown }>; model?: unknown; usage?: { input_tokens?: unknown } };
-  const answers: Record<string, number> = {};
-  for (const name of Object.keys(questions)) {
+  const held = (body ?? {}) as { answers?: Record<string, { noul?: unknown; choice?: unknown; confidence?: unknown }>; model?: unknown; usage?: { input_tokens?: unknown } };
+  const answers: Record<string, Answer> = {};
+  for (const [name, question] of Object.entries(questions)) {
     const answer = held.answers?.[name];
     if (!answer) throw new Error(`the answer to ${name} is missing`);
-    const { noul } = answer;
-    if (typeof noul !== "number" || !Number.isFinite(noul) || noul < 0 || noul > 1) throw new Error(`the answer to ${name} is not a probability`);
-    answers[name] = noul;
+    answers[name] = answerOf(name, question, answer);
   }
   if (typeof held.model !== "string") throw new Error("the response names no model");
   const tokens = held.usage?.input_tokens;

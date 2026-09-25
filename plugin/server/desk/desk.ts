@@ -6,6 +6,7 @@ import { intentsPath } from "../core/paths.ts";
 import { midTurn } from "../core/paseo.ts";
 import type { Judge, SeatView, Seats, Workspaces } from "../core/ports.ts";
 import { Agents } from "./agents.ts";
+import type { Moment } from "./checks.ts";
 import { argsProblems, shapeOf, withoutNulls } from "./args.ts";
 import { sortKeys } from "../core/store.ts";
 import { type Args, type Caller, type CodeIndex, DeskContext, type Mailer, type Posted, type Sync, type ToolReply, type ToolRequest, no, ok } from "./context.ts";
@@ -88,8 +89,8 @@ export class Desk {
     this.services.ctx.event(project, data);
   }
 
-  notice(project: Project, seat: Noticed, findings: Finding[]): ReturnType<typeof notice> {
-    return notice(this.services, project, seat, findings);
+  notice(project: Project, seat: Noticed, findings: Finding[], moment?: Moment): ReturnType<typeof notice> {
+    return notice(this.services, project, seat, findings, moment);
   }
 
   retell(project: Project): Promise<string[]> {

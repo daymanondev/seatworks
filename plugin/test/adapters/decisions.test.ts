@@ -31,7 +31,7 @@ const recorded = JSON.parse(readFileSync(new URL("../fixtures/decisions-response
 test("a sensor is asked over HTTPS with its key in the header only, its data rules with every request, and what it asks unchanged", async () => {
   const { calls, fetcher } = endpoint([{ status: 200, body: recorded }]);
   const judged = await decisionsJudge(spec, "secret-key-for-tests", fetcher).ask({ summary: "Done." }, { is_bug: gap });
-  assert.deepEqual(judged, { answers: { is_bug: 0.96 }, model: "typesafe/jev-1.13-20260917", tokens: 476 });
+  assert.deepEqual(judged, { answers: { is_bug: { noul: 0.96 } }, model: "typesafe/jev-1.13-20260917", tokens: 476 });
   assert.equal(calls.length, 1);
   const [call] = calls;
   assert.equal(call!.url, "https://decide.example/api");
@@ -49,12 +49,22 @@ test("an answer that is not every question's probability is not an answer", asyn
   await assert.rejects(ask(answered({ type: "noul", noul: 1.2 })), /the answer to b is not a probability/);
   await assert.rejects(ask(answered({ type: "choice", choice: "x", confidence: 1 })), /the answer to b is not a probability/);
   await assert.rejects(ask({ answers: { a: { type: "noul", noul: 0.4 }, b: { type: "noul", noul: 1 } } }), /the response names no model/);
-  assert.deepEqual((await ask(answered({ type: "noul", noul: 1 }))).answers, { a: 0.4, b: 1 });
+  assert.deepEqual((await ask(answered({ type: "noul", noul: 1 }))).answers, { a: { noul: 0.4 }, b: { noul: 1 } });
+});
+
+test("a choice is one of the question's own criteria, with how sure the sensor is of it", async () => {
+  const team: Question = { type: "choice", instructions: "Which team owns it?", criteria: { account: "Accounts", frontend: "The web app", payments: "Payments" } };
+  assert.deepEqual((await decisionsJudge(spec, "k", endpoint([{ status: 200, body: recorded }]).fetcher).ask({}, { team })).answers, { team: { choice: "payments", confidence: 0.75 } });
+  const ask = (answer: unknown) => decisionsJudge(spec, "k", endpoint([{ status: 200, body: { answers: { team: answer }, model: "m" } }]).fetcher).ask({}, { team });
+  await assert.rejects(ask({ type: "choice", choice: "legal", confidence: 0.9 }), /the answer to team is not one of its choices/);
+  await assert.rejects(ask({ type: "choice", choice: "toString", confidence: 0.9 }), /the answer to team is not one of its choices/);
+  await assert.rejects(ask({ type: "choice", choice: "payments", confidence: 2 }), /the answer to team has a confidence outside 0 to 1/);
+  assert.deepEqual((await ask({ type: "choice", choice: "payments" })).answers, { team: { choice: "payments", confidence: 0 } }, "a choice that gives no confidence is not sure of itself");
 });
 
 test("a busy or failing endpoint is asked again as often as the sensor allows, and a refusal retrying cannot fix is not", async () => {
   const busy = endpoint([{ status: 429, retryAfter: "0.01" }, { status: 200, body: recorded }]);
-  assert.equal((await decisionsJudge(spec, "k", busy.fetcher).ask({}, { is_bug: gap })).answers.is_bug, 0.96);
+  assert.deepEqual((await decisionsJudge(spec, "k", busy.fetcher).ask({}, { is_bug: gap })).answers.is_bug, { noul: 0.96 });
   assert.equal(busy.calls.length, 2);
 
   const down = endpoint([{ status: 503, retryAfter: "0.01" }, { status: 502, retryAfter: "0.01" }, { status: 200, body: recorded }]);

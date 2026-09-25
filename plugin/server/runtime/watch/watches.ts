@@ -2,7 +2,7 @@ import { type Kit, can, seatOf } from "../../catalog/kit.ts";
 import type { Seen, SeatView, Seats, Stream } from "../../core/ports.ts";
 import { sentBy } from "../../core/sent-by.ts";
 import { onDetail } from "./commands.ts";
-import { type Fact, Recovery, type Rules, contradicted, fact, onSettle, stuck, unverified } from "./facts.ts";
+import { type Fact, Recovery, type Rules, contradicted, editBeforeLook, fact, onSettle, stuck, unverified } from "./facts.ts";
 import type { Quirks } from "../../catalog/timeline.ts";
 import { Window } from "./window.ts";
 
@@ -110,7 +110,7 @@ export class SeatWatch {
     const context = this.placed();
     if (phase !== "completed" || !context) return [];
     const handed = since ? context.handedBack(since) : undefined;
-    const facts = [...unverified(this.window, context.rules, handed !== undefined), ...contradicted(this.window, context.rules, handed)];
+    const facts = [...unverified(this.window, context.rules, handed !== undefined), ...contradicted(this.window, context.rules, handed), ...editBeforeLook(this.window, context.rules)];
     const pattern = stuck(this.window.sinceInstruction(), context.rules);
     if (pattern) facts.push(fact("stuck", pattern));
     return this.fresh(facts);

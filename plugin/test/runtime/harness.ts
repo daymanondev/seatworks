@@ -269,8 +269,8 @@ export function harness(options: { sensor?: (spec: SensorSpec, key: string) => J
   };
 }
 
-export async function laneWithPeer(settings?: Record<string, unknown>) {
-  const h = harness();
+export async function laneWithPeer(settings?: Record<string, unknown>, options?: Parameters<typeof harness>[0]) {
+  const h = harness(options);
   if (settings) {
     mkdirSync(h.project.state, { recursive: true });
     writeFileSync(join(h.project.state, "settings.json"), JSON.stringify(settings));

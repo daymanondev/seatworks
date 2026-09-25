@@ -280,11 +280,20 @@ one reply is two lines the desk writes, and Paseo pushes an agent's first finish
 once until someone opens it, so each page has a Pager of its own. A sighting whose exact words were already marked `noise` for that seat and kind
 opens nothing. Archiving a seat closes its incidents, and they still wait to be marked.
 
-The watch also asks what a code fact cannot read, at the moment it matters: of a task handed back complete, whether
-its summary says something asked for was not done; of a review that accepts a change a risk rule reaches, whether its
-report says the rule's invariant was checked by running code. `attention.judge` names who answers, `off` or a sensor
-in `catalog/sensor/`, and each question in `catalog/checks.json` has its wording, thresholds and mode. Every question
-ships `shadow`: the answer is kept in the project's `assessments.log`, and no seat reads it.
+The watch also asks what a code fact cannot read, one condition at a time, at the moment it matters:
+
+| Question | Asked when | Of |
+|---|---|---|
+| `asked_for` | a command cannot be undone, a test is weakened or a check silenced | the seat's latest instruction, and its task's goal and acceptance: did they ask for that act? |
+| `instruction_kind` | the first thing a turn did was change a file, before any read or run | the instruction, when a sender the catalog names sent it: a new requirement, a claimed bug, a question, an approval? |
+| `summary_admits_gap` | a task is handed back complete | its summary: does it say something asked for was not done? |
+| `claims_checks_pass` | a hand-back the desk did not gate is `unverified` or `claim-contradicted` | the hand-back: does it say the checks pass? |
+| `review_ran_invariant` | a review accepts a change a risk rule reaches | its report, once per invariant: was it checked by running code? |
+
+`attention.judge` names who answers, `off` or a sensor in `catalog/sensor/`, and each question in `catalog/checks.json`
+has its wording, thresholds and mode. Every question ships `shadow`: the answer is kept in the project's
+`assessments.log`, and no seat reads it. A first change before any look is a fact of its own, `edit-before-look`, a
+note that opens `instruction_kind` and nothing else.
 
 ## Settings
 

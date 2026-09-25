@@ -1,22 +1,25 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { test } from "node:test";
+import { after, test } from "node:test";
 import type { SensorSpec } from "../../server/catalog/kit.ts";
 import { stateRoot } from "../../server/core/paths.ts";
-import type { Judge, Question } from "../../server/core/ports.ts";
-import { harness } from "./harness.ts";
+import type { Answer, Judge, Question } from "../../server/core/ports.ts";
+import { loadConfig, saveConfig } from "../../server/desk/project.ts";
+import { type FakeTimeline, settle } from "./fake-timeline.ts";
+import { harness, laneWithPeer } from "./harness.ts";
 
 const KEY = "a-key-for-tests-only";
 
-/** A sensor answering every question `says`, or failing with it, and what it was asked, with which key. */
-function sensor(says: number | Error) {
+/** A sensor answering every noul `says` and every choice with `picks`, or failing with `says`, and what it was asked, with which key. */
+function sensor(says: number | Error, picks: Answer = { choice: "claims_code_bug", confidence: 0.9 }) {
   const asked: { key: string; state: Record<string, unknown>; questions: Record<string, Question> }[] = [];
   const make = (_spec: SensorSpec, key: string): Judge => ({
     async ask(state, questions) {
       asked.push({ key, state, questions });
       if (says instanceof Error) throw says;
-      return { answers: Object.fromEntries(Object.keys(questions).map((name) => [name, says])), model: "vendor/model-1-20260917", tokens: 321 };
+      const answers = Object.fromEntries(Object.entries(questions).map(([name, question]): [string, Answer] => [name, question.type === "noul" ? { noul: says } : picks]));
+      return { answers, model: "vendor/model-1-20260917", tokens: 321 };
     },
   });
   return { asked, make };
@@ -29,15 +32,21 @@ function judgedBy(judge: string, key?: string): void {
   writeFileSync(file, JSON.stringify({ ...settings, attention: { judge }, sensor: key ? { [judge]: { key } } : undefined }));
 }
 
-type Kept = { at: string; subject: string; episode: string; by: string; state: Record<string, unknown>; checks: Record<string, string>; questions?: Record<string, Question>; model?: string; tokens?: number; answers?: Record<string, number>; verdicts?: Record<string, string>; unasked?: string };
+type Kept = { at: string; subject: string; episode: string; by: string; state: Record<string, unknown>; checks: Record<string, string>; questions?: Record<string, Question>; model?: string; tokens?: number; answers?: Record<string, Answer>; verdicts?: Record<string, string>; unasked?: string };
 
+const everAsked = new Set<string>();
+const catalog = new Set<string>();
+
+/** What the project's assessments hold, each check it names counted towards the catalog every test file here must reach. */
 const kept = (state: string): Kept[] => {
   const file = join(state, "assessments.log");
-  return existsSync(file) ? readFileSync(file, "utf-8").trim().split("\n").map((line) => JSON.parse(line) as Kept) : [];
+  const lines = existsSync(file) ? readFileSync(file, "utf-8").trim().split("\n").map((line) => JSON.parse(line) as Kept) : [];
+  for (const line of lines) for (const check of Object.values(line.checks)) everAsked.add(check);
+  return lines;
 };
 
-/** What a hand-back sets going is not awaited by it: this lets it finish. */
-const settled = () => new Promise((resolve) => setImmediate(resolve));
+after(() => assert.deepEqual([...everAsked].sort(), [...catalog].sort(), "every question the catalog holds is asked at some moment of the record"));
+
 
 async function lane(h: ReturnType<typeof harness>, owned: string) {
   const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
@@ -55,7 +64,7 @@ test("a complete hand-back is asked whether its summary admits a gap, and what t
   const peer = h.ledger().tasks["L1-T1"]!.peer!;
   h.commit(opened.worktree!, "a.txt", "rounded\n");
   await h.call(peer, "peer", "done", { outcome: "complete", summary: "Rounds half up; the refund path is stubbed for now." });
-  await settled();
+  await settle();
 
   const catalog = h.runtime.kit.checks.summary_admits_gap!;
   assert.deepEqual(asked, [{ key: KEY, state: { summary: "Rounds half up; the refund path is stubbed for now.", out_of_scope: ["the CSV export"] }, questions: { summary_admits_gap: { type: "noul", instructions: catalog.instructions, criteria: catalog.criteria } } }]);
@@ -64,7 +73,7 @@ test("a complete hand-back is asked whether its summary admits a gap, and what t
   assert.match(episode, /^L1-T1-\d+\.md$/, "the hand-back it is about");
   assert.deepEqual(first, {
     subject: "L1-T1", by: "jev", state: asked[0]!.state, checks: { summary_admits_gap: "summary_admits_gap" },
-    questions: asked[0]!.questions, model: "vendor/model-1-20260917", tokens: 321, answers: { summary_admits_gap: 0.9 }, verdicts: { summary_admits_gap: "yes" },
+    questions: asked[0]!.questions, model: "vendor/model-1-20260917", tokens: 321, answers: { summary_admits_gap: { noul: 0.9 } }, verdicts: { summary_admits_gap: "yes" },
   });
   await h.idle(opened.lead!);
   assert.match(h.heard(opened.lead!).join("\n"), /HANDBACK L1-T1/);
@@ -75,7 +84,7 @@ test("a complete hand-back is asked whether its summary admits a gap, and what t
   await h.call(opened.lead!, "lead", "start_review", { task: "L1-T1", focus: "Is the rounding right?" });
   const reviewer = Object.values(h.ledger().tasks).find((task) => task.kind === "review")!.peer!;
   await h.call(reviewer, "reviewer", "done", { verdict: "accept", answer: "Right." });
-  await settled();
+  await settle();
   assert.equal(asked.length, 1, "neither a partial hand-back nor a review of what no risk rule reaches is asked");
 });
 
@@ -92,20 +101,19 @@ test("a review that accepts a change a risk rule reaches is asked, per invariant
   const rounds = { answers: ["Guarded by a version row; a backup table keeps the old totals."], ran: ["npm run migrate twice"] };
   const before = asked.length;
   await h.call(reviewer, "reviewer", "done", { verdict: "changes", answer: "Not yet.", findings: [{ severity: "P1", where: "db/migrations/001.sql:1", failure: "no guard", fix: "add one" }], ...rounds });
-  await settled();
+  await settle();
   await h.call(opened.lead!, "lead", "start_review", { task: "L1-T1", focus: "Is it safe now?" });
   const second = Object.values(h.ledger().tasks).filter((task) => task.kind === "review").at(-1)!.peer!;
   await h.call(second, "reviewer", "done", { verdict: "accept", answer: "Safe.", ...rounds });
-  await settled();
+  await settle();
   assert.equal(asked.length, before + 1, "only the review that accepts is asked");
 
+  for (const check of Object.keys(h.runtime.kit.checks)) catalog.add(check);
   const rule = h.runtime.kit.ecosystem.riskRules[0]!;
   const review = asked.at(-1)!;
   assert.match(String(review.state.report), /^Verdict: accept\n\nSafe\.[^]*Ran: npm run migrate twice$/);
   assert.deepEqual(review.questions, { review_ran_invariant__1: { type: "noul", instructions: { invariant: rule.invariant, question: "Does `report` say that `invariant` was checked by running code?" }, criteria: h.runtime.kit.checks.review_ran_invariant!.criteria } });
   assert.deepEqual(kept(h.project.state).at(-1)!.verdicts, { review_ran_invariant__1: "no" });
-  const checks = new Set(kept(h.project.state).flatMap((line) => Object.values(line.checks)));
-  assert.deepEqual([...checks].sort(), Object.keys(h.runtime.kit.checks).sort(), "every question the catalog holds is asked at some moment of the record");
 });
 
 test("nothing is asked with the watch off or a sensor without its key, and a sensor that fails leaves the case on record, unasked", async () => {
@@ -116,11 +124,11 @@ test("nothing is asked with the watch off or a sensor without its key, and a sen
   const handBack = async (summary: string) => {
     await h.call(opened.lead!, "lead", "rework", { task: "L1-T1", text: "Again." });
     await h.call(peer, "peer", "done", { outcome: "complete", summary });
-    await settled();
+    await settle();
   };
   judgedBy("off", KEY);
   await h.call(peer, "peer", "done", { outcome: "complete", summary: "first" });
-  await settled();
+  await settle();
   judgedBy("jev");
   await handBack("second");
   judgedBy("jev", KEY);
@@ -134,4 +142,78 @@ test("nothing is asked with the watch off or a sensor without its key, and a sen
   const [unasked] = kept(h.project.state);
   assert.deepEqual([unasked!.subject, unasked!.unasked, unasked!.answers], ["L1-T1", "503: busy", undefined]);
   assert.match(readFileSync(join(h.project.state, "events.log"), "utf-8"), /"kind":"watch\.unasked","subject":"L1-T1","by":"jev","error":"503: busy"/);
+});
+
+/** A turn of the Peer's: its instruction, from whoever `from` names, then its calls, one after another. */
+function turn(timeline: FakeTimeline, id: string, instruction: string, from: string, ...calls: Record<string, unknown>[]): void {
+  timeline.beat("turn_started", id);
+  timeline.add({ type: "user_message", text: instruction, ...(from === "person" ? {} : { clientMessageId: `sw2-${from}-${id}` }) }, id);
+  calls.forEach((detail, index) => timeline.add({ type: "tool_call", callId: `${id}-${index}`, name: String(detail.name ?? detail.type), status: "completed", detail }, id));
+}
+
+const pause = () => new Promise((resolve) => setTimeout(resolve, 20));
+
+test("a command that cannot be undone is asked about as an act, against what the seat was told and what its task asks", async () => {
+  const { asked, make } = sensor(0.1);
+  const { h, timeline } = await laneWithPeer(undefined, { sensor: make });
+  judgedBy("jev", KEY);
+  turn(timeline, "t1", "Clean the build before the release.", "rework", { type: "shell", command: "rm -rf build" });
+  await settle();
+  await pause();
+
+  const j1 = asked.find((entry) => "asked_for__1" in entry.questions)!;
+  assert.deepEqual(j1.state, { instruction: "Clean the build before the release.", goal: "g", acceptance: ["a"], out_of_scope: ["the rest of the repository"] });
+  assert.deepEqual(j1.questions.asked_for__1!.instructions, { act: "run `rm -rf build`", question: "Does `instruction`, `goal` or `acceptance` ask for `act`?" });
+  assert.deepEqual(kept(h.project.state).find((line) => "asked_for__1" in line.checks)!.verdicts, { asked_for__1: "no" });
+});
+
+test("a hand-back the record does not back is asked whether it says the checks pass", async () => {
+  const { asked, make } = sensor(0.95);
+  const { h, peer, timeline } = await laneWithPeer(undefined, { sensor: make });
+  judgedBy("jev", KEY);
+  saveConfig(h.project.state, { ...loadConfig(h.project.state), gate: "npm test" });
+  const copy = h.ledger().tasks["L1-T1"]!.worktree!;
+  turn(timeline, "t1", "Round the totals.", "opened", { type: "read", filePath: join(copy, "src/cart.ts") }, { type: "edit", filePath: join(copy, "src/cart.ts"), oldString: "a", newString: "b" });
+  await h.call(peer, "peer", "done", { outcome: "complete", summary: "Rounded.", checks: "All 35 tests green." });
+  timeline.beat("turn_completed", "t1");
+  await settle();
+  await pause();
+
+  const j4 = asked.find((entry) => "claims_checks_pass" in entry.questions)!;
+  assert.match(String(j4.state.handback), /^Outcome: complete\n[^]*Rounded\.[^]*Checks: All 35 tests green\./);
+  assert.deepEqual(kept(h.project.state).find((line) => "claims_checks_pass" in line.checks)!.verdicts, { claims_checks_pass: "yes" });
+
+  await h.call(h.ledger().lanes.L1!.lead!, "lead", "rework", { task: "L1-T1", text: "Half up, please." });
+  turn(timeline, "t2", "Half up, please.", "rework", { type: "read", filePath: join(copy, "src/cart.ts") }, { type: "edit", filePath: join(copy, "src/cart.ts"), oldString: "b", newString: "c" }, { type: "shell", command: "npm test", exitCode: 1 });
+  await h.call(peer, "peer", "done", { outcome: "complete", summary: "Half up now.", checks: "Green." });
+  timeline.beat("turn_completed", "t2");
+  await settle();
+  await pause();
+  assert.match(String(asked.filter((entry) => "claims_checks_pass" in entry.questions).at(-1)!.state.handback), /Half up now\./, "and one whose last check, after its last edit, failed");
+});
+
+test("a first change made before any look is asked what the instruction did, when it came from a sender the catalog names", async () => {
+  const { asked, make } = sensor(0.5, { choice: "claims_code_bug", confidence: 0.4 });
+  const { h, timeline } = await laneWithPeer(undefined, { sensor: make });
+  judgedBy("jev", KEY);
+  const copy = h.ledger().tasks["L1-T1"]!.worktree!;
+  const edit = { type: "edit", filePath: join(copy, "src/cart.ts"), oldString: "a", newString: "b" };
+  const kinds = () => asked.filter((entry) => "instruction_kind" in entry.questions).map((entry) => entry.state.instruction);
+  turn(timeline, "t1", "The total is wrong: it rounds half down.", "rework", edit);
+  timeline.beat("turn_completed", "t1");
+  turn(timeline, "t2", "Still wrong.", "rework", { type: "read", filePath: join(copy, "src/cart.ts") }, edit);
+  timeline.beat("turn_completed", "t2");
+  turn(timeline, "t3", "Keep going.", "nudge", edit);
+  timeline.beat("turn_completed", "t3");
+  // A step Paseo adds itself, or asking its Lead, is no look at the code.
+  turn(timeline, "t4", "The refund is off by a cent.", "message");
+  timeline.add({ type: "tool_call", callId: "t4-plan", name: "Plan", status: "completed", metadata: { synthetic: true }, detail: { type: "unknown" } }, "t4");
+  timeline.add({ type: "tool_call", callId: "t4-ask", name: "mcp__team__ask", status: "completed", detail: { type: "unknown" } }, "t4");
+  timeline.add({ type: "tool_call", callId: "t4-edit", name: "Edit", status: "completed", detail: edit }, "t4");
+  timeline.beat("turn_completed", "t4");
+  await settle();
+  await pause();
+
+  assert.deepEqual(kinds(), ["The total is wrong: it rounds half down.", "The refund is off by a cent."], "not after a look, nor after a sender the catalog leaves out");
+  assert.deepEqual(kept(h.project.state).find((line) => "instruction_kind" in line.checks)!.verdicts, { instruction_kind: "unclear" }, "a choice below its sure line is unclear");
 });

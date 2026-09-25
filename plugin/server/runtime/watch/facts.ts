@@ -25,6 +25,7 @@ export const FACTS = {
   "call-failed": { level: "note" },
   "gate-failed": { level: "note" },
   "outside-scope": { level: "note" },
+  "edit-before-look": { level: "note" },
 } as const satisfies Record<string, { level: Level; title?: string }>;
 
 export type FactKind = keyof typeof FACTS;
@@ -263,4 +264,11 @@ export function contradicted(window: Window, rules: Rules, outcome: string | und
   const check = calls[lastGate];
   if (!check || lastGate < lastWrite || !failed(check)) return [];
   return [fact("claim-contradicted", `handed back as complete, but \`${oneLine(str(check.detail.command), 100)}\` failed the last time it ran, after the last edit`)];
+}
+
+/** A turn whose first change came before it read, searched or ran anything since its instruction: what it was told, taken on trust. */
+export function editBeforeLook(window: Window, rules: Rules): Fact[] {
+  const first = window.sinceInstruction().find((unit) => unit.kind === "call" && !unit.call.pseudo && !rules.desk?.(unit.call));
+  if (first?.kind !== "call" || (first.call.detail.type !== "edit" && first.call.detail.type !== "write")) return [];
+  return [fact("edit-before-look", `changed ${oneLine(str(first.call.detail.filePath))} before reading or running anything`)];
 }

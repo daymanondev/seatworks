@@ -1,5 +1,6 @@
 import { type Quirks, exitOf, pseudo } from "../../catalog/timeline.ts";
 import type { StreamRow } from "../../core/ports.ts";
+import { sentBy } from "../../core/sent-by.ts";
 
 type Detail = {
   type?: string;
@@ -26,7 +27,7 @@ export type Call = {
 };
 
 export type Unit =
-  | { kind: "user"; text: string }
+  | { kind: "user"; text: string; from: string[] }
   | { kind: "call"; call: Call }
   | { kind: "said"; text: string; messageId?: string }
   | { kind: "thought"; text: string }
@@ -60,7 +61,7 @@ export class Window {
     this.seq = Math.max(this.seq, row.seq);
     if (type === "tool_call") return this.called(row);
     if (type === "user_message") {
-      this.push({ kind: "user", text: text(item.text) });
+      this.push({ kind: "user", text: text(item.text), from: sentBy(item) });
       this.instructionAt = this.pushed - 1;
     }
     else if (type === "assistant_message") this.join("said", text(item.text), restated, text(item.messageId) || undefined);
@@ -88,6 +89,12 @@ export class Window {
 
   sinceInstruction(): Unit[] {
     return this.units.slice(Math.max(0, this.instructionAt + 1 - (this.pushed - this.units.length)));
+  }
+
+  /** The seat's latest instruction, while the window still holds it: its words, and the letters or person they came from. */
+  instruction(): { text: string; from: string[] } | undefined {
+    const unit = this.units[this.instructionAt - (this.pushed - this.units.length)];
+    return unit?.kind === "user" ? { text: unit.text, from: unit.from } : undefined;
   }
 
   private called(row: StreamRow): Change {

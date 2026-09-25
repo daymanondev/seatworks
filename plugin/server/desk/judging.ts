@@ -1,6 +1,6 @@
 import type { CheckSpec } from "../catalog/kit.ts";
 import { errorText } from "../core/errors.ts";
-import type { Judge, Question } from "../core/ports.ts";
+import type { Answer, Judge, Question } from "../core/ports.ts";
 import type { Project } from "./project.ts";
 import { appendRecord } from "./records.ts";
 import type { DeskServices } from "./services.ts";
@@ -21,14 +21,19 @@ function judgeFor({ ctx }: DeskServices, project: Project): { id: string; judge:
 /** The check's wording with the fields the code fills; one left unfilled is the code's mistake, and nothing is asked. */
 function questionOf(check: CheckSpec, fill: Record<string, string> = {}): Question {
   const { instructions } = check;
-  if (typeof instructions === "string") return { type: "noul", instructions, criteria: check.criteria };
+  if (typeof instructions === "string") return { type: check.type, instructions, criteria: check.criteria };
   const filled = Object.fromEntries(Object.entries(instructions).map(([field, value]) => [field, value ?? fill[field]]));
   const missing = Object.keys(filled).filter((field) => filled[field] === undefined);
   if (missing.length > 0) throw new Error(`nothing filled ${missing.join(", ")} in ${JSON.stringify(instructions)}`);
-  return { type: "noul", instructions: filled as Record<string, string>, criteria: check.criteria };
+  return { type: check.type, instructions: filled as Record<string, string>, criteria: check.criteria };
 }
 
-const verdictOf = (check: CheckSpec, yes: number) => (yes >= check.yes ? "yes" : yes <= check.no ? "no" : "unclear");
+/** Where an answer falls: a noul on its check's thresholds, a choice as picked where it is sure enough. */
+function verdictOf(check: CheckSpec, answer: Answer): string {
+  if (check.type === "choice") return "choice" in answer && answer.confidence >= check.sure ? answer.choice : "unclear";
+  const yes = "noul" in answer ? answer.noul : undefined;
+  return yes === undefined ? "unclear" : yes >= check.yes ? "yes" : yes <= check.no ? "no" : "unclear";
+}
 
 /**
  * Asks whoever answers for the project about one case, and keeps what came back in its assessments, a failure included:

@@ -1,7 +1,9 @@
 import type { Attention } from "../../shared/views.ts";
 import { seatOf } from "../catalog/kit.ts";
 import { type Finding, type Held, deliveryOf, hold, tell, unheard } from "../domain/incident.ts";
+import { type Moment, momentCases } from "./checks.ts";
 import { type Incident, type Incidents, closeSeat, forget, settledAsNoise, sight, spentToday } from "./incidents.ts";
+import { judge } from "./judging.ts";
 import { type Lane, type Task, laneOfLead, loadLedger, taskOfPeer } from "./ledger.ts";
 import { errorText } from "../core/errors.ts";
 import { letters } from "./letters.ts";
@@ -31,9 +33,11 @@ function placeOf(project: Project, seat: Noticed): Placed {
   return { where: seat.title ? `${seat.title} (${seat.id})` : seat.id };
 }
 
-export async function notice(services: DeskServices, project: Project, seat: Noticed, findings: Finding[], now = Date.now()): Promise<{ opened: Incident[]; sent: string[]; place: Placed }> {
+/** What the watch saw of a seat: the findings that open incidents, and the moment they came from, which the watch's questions read. */
+export async function notice(services: DeskServices, project: Project, seat: Noticed, findings: Finding[], moment?: Moment, now = Date.now()): Promise<{ opened: Incident[]; sent: string[]; place: Placed }> {
   const { ctx } = services;
   const place = placeOf(project, seat);
+  for (const found of moment ? momentCases(ctx.kit, place, moment) : []) void judge(services, project, found);
   if (findings.length === 0) return { opened: [], sent: [], place };
   const attention = ctx.team(project).attention;
   for (const finding of findings) {

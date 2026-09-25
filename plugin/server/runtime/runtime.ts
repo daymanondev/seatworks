@@ -149,9 +149,9 @@ export class Runtime implements HostHooks {
   }
 
   private noticed(watch: SeatWatch, facts: Fact[]): void {
-    const findings = decide(facts);
-    if (findings.length === 0 || this.watches.get(watch.seat.id) !== watch) return;
-    this.desk.notice(projectOf(watch.seat.cwd), watch.seat, findings).catch((error) => console.error("seatworks-v2: what the watch noticed could not be recorded:", error));
+    if (this.watches.get(watch.seat.id) !== watch) return;
+    const moment = { facts, instruction: watch.window.instruction(), turn: watch.turnId };
+    this.desk.notice(projectOf(watch.seat.cwd), watch.seat, decide(facts), moment).catch((error) => console.error("seatworks-v2: what the watch noticed could not be recorded:", error));
   }
 
   /** Trouble nobody is mailed about, kept where a screen can show it rather than only in the log. */

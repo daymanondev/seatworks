@@ -107,6 +107,10 @@ test("a sensor or a question the watch could not ask by is refused as the kit lo
   assert.throws(() => loadKit(dir), /checks\.json is not as the kit reads it:[^]*no must sit below yes/);
   writeFileSync(checks, JSON.stringify({ ...shipped, review_ran_invariant: { ...question, instructions: { invariant: null } } }));
   assert.throws(() => loadKit(dir), /checks\.json is not as the kit reads it:[^]*names no question/);
+  writeFileSync(checks, JSON.stringify({ ...shipped, instruction_kind: { ...shipped.instruction_kind, criteria: { other: "Anything." } } }));
+  assert.throws(() => loadKit(dir), /checks\.json is not as the kit reads it:[^]*a choice needs two criteria or more/);
+  writeFileSync(checks, JSON.stringify({ ...shipped, asked_for: { ...shipped.asked_for, acts: { destructive: "run a command" } } }));
+  assert.throws(() => loadKit(dir), /checks\.json is not as the kit reads it:[^]*\{quote\}/);
 });
 
 test("the shipped harnesses satisfy their own contract", () => {
