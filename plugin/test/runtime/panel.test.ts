@@ -53,3 +53,23 @@ test("a desk call the harness refused for bad JSON is recorded, though it never 
   assert.ok("watch" in view);
   assert.deepEqual(view.watch.trouble.map((entry) => entry.kind), ["call.malformed"]);
 });
+
+test("a lane's budget for the day holds back what is only worth attention, however many arrive at once, lane by lane, and never what is irreversible", async () => {
+  const { h, sup, peer } = await laneWithPeer({ attention: { watch: true, incidentsPerLane: 1 } });
+  const seat = (id: string) => ({ id, provider: "sw2-peer-claude/claude-opus-5", title: id });
+  const attend = (kind: string, quote: string) => [{ kind, level: "attend" as const, quote, facts: [kind] }];
+  await Promise.all([
+    h.runtime.desk.notice(h.project, seat(peer), attend("test-weakened", "one")),
+    h.runtime.desk.notice(h.project, seat(peer), attend("suppressed", "two")),
+    h.runtime.desk.notice(h.project, seat("p-c"), attend("test-weakened", "three")),
+    h.runtime.desk.notice(h.project, seat("p-d"), [{ kind: "destructive", level: "page", quote: "rm -rf /", facts: ["destructive"] }]),
+  ]);
+  const items = Object.values(JSON.parse(readFileSync(join(h.project.state, "incidents.json"), "utf-8")).items) as { kind: string; held?: string; told?: number; level: string; lane?: string }[];
+  const told = items.filter((item) => item.level === "attend" && item.told !== undefined).map((item) => item.lane ?? "none").sort();
+  assert.deepEqual(told, ["L1", "none"], "one a day for the lane, and one for what is about no lane");
+  assert.equal(items.filter((item) => item.held === "budget").length, 1);
+  assert.ok(items.find((item) => item.kind === "destructive")!.told, "an irreversible act is never held for budget");
+  await h.idle(sup);
+  await h.idle(h.ledger().lanes.L1!.lead!);
+  assert.equal((h.agents.get(sup)!.sent.join("\n").match(/INCIDENT/g) ?? []).length, 2);
+});

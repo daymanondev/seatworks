@@ -2,7 +2,7 @@ import type { Attention } from "../../shared/views.ts";
 import { seatOf } from "../catalog/kit.ts";
 import { type Finding, type Held, deliveryOf, hold, tell, unheard } from "../domain/incident.ts";
 import { type Moment, momentCases } from "./checks.ts";
-import { type Incident, type Incidents, closeSeat, forget, settledAsNoise, sight, spentToday } from "./incidents.ts";
+import { type Incident, type Incidents, closeSeat, forget, onProbation, settledAsNoise, sight, spentToday } from "./incidents.ts";
 import { judge } from "./judging.ts";
 import { type Lane, type Task, laneOfLead, loadLedger, taskOfPeer } from "./ledger.ts";
 import { errorText } from "../core/errors.ts";
@@ -15,10 +15,12 @@ export type Noticed = { id: string; provider: string; title?: string | null };
 
 type Placed = { where: string; lane?: Lane; task?: Task };
 
-/** A page is irreversible and often done already, so it reaches whoever supervises whatever the switch says; the switch holds the rest. */
+/** A page is irreversible and often done already, so it reaches whoever supervises whatever the switch, the marks or the budget say. */
 function holdFor(incident: Incident, incidents: Incidents, attention: Attention, now: number): Held | undefined {
-  if (!attention.watch && incident.level !== "page") return "shadow";
-  if (incident.level === "attend" && spentToday(incidents, now) >= attention.incidentsPerDay) return "budget";
+  if (incident.level === "page") return undefined;
+  if (!attention.watch) return "shadow";
+  if (onProbation(incidents, incident.kind)) return "probation";
+  if (spentToday(incidents, incident.lane, now) >= attention.incidentsPerLane) return "budget";
   return undefined;
 }
 

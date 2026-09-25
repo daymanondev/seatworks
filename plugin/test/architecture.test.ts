@@ -34,7 +34,7 @@ const NAMED = [
 const LIMITS = { file: 300, testFile: 400, function: 50 };
 
 const LONG_FILES: Record<string, number> = {
-  "client/data.ts": 438,
+  "client/data.ts": 437,
   "mcp/code.mjs": 308,
   "server/catalog/seats.ts": 370,
   "server/desk/slots.ts": 362,
@@ -42,7 +42,7 @@ const LONG_FILES: Record<string, number> = {
   "server/runtime/runtime.ts": 389,
   "test/runtime/facts.test.ts": 401,
   "test/runtime/intake.test.ts": 559,
-  "test/runtime/workflow.test.ts": 1655,
+  "test/runtime/workflow.test.ts": 1637,
 };
 
 const LONG_FUNCTIONS: Record<string, number> = {

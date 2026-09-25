@@ -74,10 +74,10 @@ test("one seat can be told something the others are not", () => {
 });
 
 test("a project tunes what is worth its owner's attention, over the machine's default", () => {
-  const team = resolveTeam(kit, { attention: { longTurnMinutes: 45, incidentsPerDay: 8 } }, { attention: { incidentsPerDay: 2, watch: true } });
+  const team = resolveTeam(kit, { attention: { longTurnMinutes: 45, incidentsPerLane: 8 } }, { attention: { incidentsPerLane: 2, watch: true } });
   assert.deepEqual(team.errors, []);
   assert.equal(team.attention.longTurnMinutes, 45, "what the project says nothing about it takes from the machine");
-  assert.equal(team.attention.incidentsPerDay, 2, "and what it does say wins");
+  assert.equal(team.attention.incidentsPerLane, 2, "and what it does say wins");
   assert.equal(team.attention.watch, true, "a project can decide incidents are worth sending");
   assert.equal(resolveTeam(kit).attention.watch, false, "left alone, the kit records incidents and sends none until its thresholds are tuned");
 });

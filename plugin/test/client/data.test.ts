@@ -159,7 +159,8 @@ test("an incident says where it has got to, in words", () => {
   assert.equal(incidentState(incident({ told: "supervisor" })), "told the Supervisor");
   assert.equal(incidentState(incident({ told: "lead" })), "told Lead L1");
   assert.equal(incidentState(incident({ told: "lead", lane: null })), "told its Lead");
-  assert.equal(incidentState(incident({ held: "budget" })), "held · today's limit is reached");
+  assert.equal(incidentState(incident({ held: "budget" })), "held · the lane's limit for today is reached");
+  assert.equal(incidentState(incident({ held: "probation" })), "held · most of this kind's last ten were marked noise");
   assert.equal(incidentState(incident({ held: "nobody" })), "held · nobody is seated to tell");
   assert.equal(incidentState(incident({ held: "shadow" })), "recorded · mail is off");
   assert.equal(incidentState(incident()), "recorded");

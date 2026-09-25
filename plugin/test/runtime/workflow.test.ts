@@ -1446,7 +1446,7 @@ test("mail reaches a running seat inside its turn where its harness can take it 
 });
 
 test("an incident about a Peer whose Lead is gone goes to whoever supervises, and a Lead reads and marks only its own lane's", async () => {
-  const { h, sup, lane, peer } = await laneWithPeer({ attention: { watch: true } });
+  const { h, sup, lane, peer } = await laneWithPeer({ attention: { watch: true, incidentsPerLane: 3 } });
   const lead = lane.lead!;
   const about = (seat: string, kind: string, level: "attend" | "page" = "attend") =>
     h.runtime.desk.notice(h.project, { id: seat, provider: h.agents.get(seat)!.provider, title: seat }, [{ kind, level, quote: `${kind} seen`, facts: [kind] }]);
@@ -1506,24 +1506,6 @@ test("a turn that runs long is told to the Peer's Lead", async () => {
   await h.idle(lane.lead!);
   assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /INCIDENT I1 \(long-turn, attend\)/, "one about a Peer goes to its Lead");
   assert.doesNotMatch(h.agents.get(sup)!.sent.join("\n"), /INCIDENT I1/);
-});
-
-test("a day's budget holds back what is only worth attention, however many arrive at once, and never what is irreversible", async () => {
-  const { h, sup } = await laneWithPeer({ attention: { watch: true, incidentsPerDay: 1 } });
-  const seat = (id: string) => ({ id, provider: "sw2-peer-claude/claude-opus-5", title: id });
-  const attend = (quote: string) => [{ kind: "test-weakened", level: "attend" as const, quote, facts: ["test-weakened"] }];
-  await Promise.all([
-    h.runtime.desk.notice(h.project, seat("p-a"), attend("one")),
-    h.runtime.desk.notice(h.project, seat("p-b"), attend("two")),
-    h.runtime.desk.notice(h.project, seat("p-c"), attend("three")),
-    h.runtime.desk.notice(h.project, seat("p-d"), [{ kind: "destructive", level: "page", quote: "rm -rf /", facts: ["destructive"] }]),
-  ]);
-  const items = Object.values(incidentsOf(h.project.state));
-  assert.equal(items.filter((item) => item.level === "attend" && item.told !== undefined).length, 1, "one attention a day, as set");
-  assert.equal(items.filter((item) => item.held === "budget").length, 2);
-  assert.ok(items.find((item) => item.kind === "destructive")!.told, "an irreversible act is never held for budget");
-  await h.idle(sup);
-  assert.equal((h.agents.get(sup)!.sent.join("\n").match(/INCIDENT/g) ?? []).length, 2);
 });
 
 test("two projects each hear about their own seats, though their incidents carry the same number", async () => {

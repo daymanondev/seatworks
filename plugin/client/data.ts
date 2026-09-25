@@ -403,14 +403,13 @@ export function setAttention(values: Layer, choice: AttentionChoice): Layer {
   return { ...values, attention: { ...values.attention, ...choice } };
 }
 
+const HELD: Record<string, string> = { budget: "held · the lane's limit for today is reached", probation: "held · most of this kind's last ten were marked noise", nobody: "held · nobody is seated to tell", shadow: "recorded · mail is off" };
+
 /** Where an incident has got to, as the card shows it. */
 export function incidentState(item: WatchIncident): string {
   if (item.told === "lead") return item.lane ? `told Lead ${item.lane}` : "told its Lead";
   if (item.told === "supervisor") return "told the Supervisor";
-  if (item.held === "budget") return "held · today's limit is reached";
-  if (item.held === "nobody") return "held · nobody is seated to tell";
-  if (item.held === "shadow") return "recorded · mail is off";
-  return "recorded";
+  return (item.held ? HELD[item.held] : undefined) ?? "recorded";
 }
 
 export function setFlow(values: Layer, choice: { live?: boolean; everySeconds?: number }): Layer {

@@ -55,7 +55,7 @@ const Attention = z.object({
   reviewsAt: z.number(),
   suppressed: z.string(),
   longTurnMinutes: z.number(),
-  incidentsPerDay: z.number(),
+  incidentsPerLane: z.number(),
   questionsPerDay: z.number(),
   judge: z.string(),
 });

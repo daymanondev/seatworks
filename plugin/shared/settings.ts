@@ -58,7 +58,7 @@ export const AttentionChoice = z.strictObject({
   reviewsAt: z.number().int().min(2).optional(),
   suppressed: Pattern.optional(),
   longTurnMinutes: z.number().int().min(1).optional(),
-  incidentsPerDay: z.number().int().min(0).optional(),
+  incidentsPerLane: z.number().int().min(0).optional(),
   questionsPerDay: z.number().int().min(0).optional(),
   judge: z.string().min(1).optional(),
 });

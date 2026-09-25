@@ -187,3 +187,27 @@ test("the list carries what each seat was asked", async () => {
   const listed = (await incidents.handle(services, supervisor, {})).text;
   assert.match(listed, /What they were asked:\n- L1-T1 Empty cart message: goal show the empty cart message; acceptance empty cart renders it; owned src\/cart\/\*\*; out of scope checkout/);
 });
+
+test("a kind most of whose last ten marks were noise is held on probation, a page never is, and marks that turn it round let it go again", async () => {
+  const { project, services, seated } = desk(true);
+  seated.supervisor = "sup";
+  const seat = (n: number) => ({ id: `peer-${n}`, title: "Peer", provider: "sw2-peer-claude/claude-opus-5" });
+  const marks = (useful: number, count = 10, unknown = 0) => {
+    mkdirSync(project.state, { recursive: true });
+    const marked = (kind: string, level: string, n: number) => ({ id: `I${kind}${n}`, seat: `old-${n}`, where: "old", kind, level, quote: `q${n}`, facts: [kind], opened: n, last: n, count: 1, open: false, told: n, label: n >= count ? "unknown" : n < useful ? "useful" : "noise", closed: 1000 + n });
+    const items = Array.from({ length: count + unknown }, (_, n) => [marked("stuck", "attend", n), marked("destructive", "page", n)]).flat();
+    writeFileSync(join(project.state, "incidents.json"), JSON.stringify({ next: 100, items: Object.fromEntries(items.map((item) => [item.id, item])) }));
+  };
+  marks(4);
+  await notice(services, project, seat(1), [stuck]);
+  await notice(services, project, seat(2), [{ kind: "destructive", level: "page", quote: "rm -rf /", facts: ["destructive"] }]);
+  const held = Object.values(loadIncidents(project.state).items).filter((item) => item.open);
+  assert.deepEqual(held.map((item) => [item.kind, item.held ?? null, item.told !== undefined]), [["stuck", "probation", false], ["destructive", null, true]]);
+
+  marks(5, 10, 3);
+  await notice(services, project, seat(3), [stuck]);
+  assert.ok(Object.values(loadIncidents(project.state).items).find((item) => item.seat === "peer-3")!.told, "half of the last ten useful is not probation, and a mark of unknown says nothing either way");
+  marks(0, 9);
+  await notice(services, project, seat(4), [stuck]);
+  assert.ok(Object.values(loadIncidents(project.state).items).find((item) => item.seat === "peer-4")!.told, "nine marks judge nothing");
+});

@@ -274,7 +274,8 @@ An incident is sent once. Until then it may be held:
 | Held | Meaning |
 |---|---|
 | shadow | `attention.watch` is off, the default. Attention-level incidents are not sent; a page is |
-| budget | `incidentsPerDay` attend-level incidents went out in the last 24 h |
+| probation | The last ten of this kind that were marked, useful or noise, were mostly noise. It is recorded and not sent until marks say otherwise; a page never is |
+| budget | `incidentsPerLane` attend-level incidents about this lane went out in the last 24 h; those about no lane share one budget |
 | nobody | Nobody to tell, or the only candidate is the watched seat. The patrol retries |
 
 A page never waits, and it also reaches the Human's phone: the desk starts a Pager, a role with no tools, whose
@@ -336,7 +337,7 @@ There are two layers: `~/.local/share/seatworks-v3/settings.json` for the machin
 | `reworksAt` | 3 |
 | `reviewsAt` | 3 |
 | `longTurnMinutes` | 30 |
-| `incidentsPerDay` | 5 |
+| `incidentsPerLane` | 2 |
 | `questionsPerDay` | 3 |
 | `judge` | `jev` |
 | `destructive` | a pattern in `catalog/ecosystem.json` |

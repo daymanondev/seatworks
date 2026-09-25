@@ -102,8 +102,20 @@ export function sight(incidents: Incidents, sighting: Sighting, now: number): { 
   return { incident, opened: true };
 }
 
-export function spentToday(incidents: Incidents, now: number): number {
-  return Object.values(incidents.items).filter((item) => item.level === "attend" && item.told !== undefined && now - item.told < DAY_MS).length;
+/** Attention-level incidents about `lane` told in the last day: each lane has a budget of its own, and those about no lane share one. */
+export function spentToday(incidents: Incidents, lane: string | undefined, now: number): number {
+  return Object.values(incidents.items).filter((item) => item.level === "attend" && item.lane === lane && item.told !== undefined && now - item.told < DAY_MS).length;
+}
+
+const JUDGED = 10;
+
+/** A kind whose last ten marks, noise and useful, were mostly noise; fewer than ten marks judge nothing. */
+export function onProbation(incidents: Incidents, kind: string): boolean {
+  const marked = Object.values(incidents.items)
+    .filter((item) => item.kind === kind && (item.label === "useful" || item.label === "noise"))
+    .sort((a, b) => (b.closed ?? b.last) - (a.closed ?? a.last))
+    .slice(0, JUDGED);
+  return marked.length === JUDGED && marked.filter((item) => item.label === "useful").length / JUDGED < 0.5;
 }
 
 export function closeSeat(incidents: Incidents, seat: string, now: number): string[] {

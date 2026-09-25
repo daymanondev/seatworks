@@ -1,6 +1,6 @@
 import { Lifecycle } from "./lifecycle.ts";
 
-export type Held = "shadow" | "budget" | "nobody";
+export type Held = "shadow" | "budget" | "probation" | "nobody";
 
 /** How much a fact asks of whoever watches: a page now, attention soon, or only a note on the record. */
 export type Level = "page" | "attend" | "note";
