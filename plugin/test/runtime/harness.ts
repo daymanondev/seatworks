@@ -44,6 +44,7 @@ type Fake = {
   prompt?: string;
   promptId?: string;
   labels: Record<string, string>;
+  workspaceId?: string;
 };
 
 function fakePaseo() {
@@ -105,7 +106,7 @@ function fakePaseo() {
         // Paseo keeps an agent's parent as this label, and never pushes an agent that has one.
         const labels = { ...options.labels, ...(options.parent ? { "paseo.parent-agent-id": options.parent } : {}) };
         const made = add(options.config.provider, workspaces.get(id)!, options.title, "running", options.prompt, labels);
-        agents.get(made)!.promptId = options.clientMessageId;
+        Object.assign(agents.get(made)!, { promptId: options.clientMessageId, workspaceId: id });
         return ref(made);
       },
     },
@@ -140,8 +141,11 @@ function fakePaseo() {
           pageInfo: { nextCursor: null, prevCursor: null, hasMore: false },
         };
       },
+      // The daemon archives every agent a workspace owns with it (workspace-archive-service.js, archiveWorkspaceContents).
       async archive(id: string) {
-        archivedWorkspaces.add(typeof id === "string" ? id : (id as { id: string }).id);
+        const workspaceId = typeof id === "string" ? id : (id as { id: string }).id;
+        archivedWorkspaces.add(workspaceId);
+        for (const agent of agents.values()) if (agent.workspaceId === workspaceId) archiveWithChildren(agent.id);
         return { archivedAt: new Date().toISOString() };
       },
       ref: workspace,
