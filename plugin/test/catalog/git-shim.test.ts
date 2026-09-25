@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { accessSync, constants } from "node:fs";
+import { accessSync, constants, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { delimiter, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { loadKit } from "../../server/catalog/kit.ts";
-import { gitShim } from "../../server/catalog/launch.ts";
+import { seatBin } from "../../server/catalog/launch.ts";
 import { tempDir } from "../tempdir.ts";
 
 const plugin = fileURLToPath(new URL("../..", import.meta.url));
@@ -52,12 +52,24 @@ test("a seat's git refuses what only the desk does to branches and copies, howev
   assert.match(run(shim, "-C", root, "log", "--oneline").stdout, /work\n[^\n]*seed/, "and what it runs is the real git's doing");
 });
 
-test("every seat's PATH starts at a launcher named git that runs the shim with the real git", () => {
+test("every seat's PATH starts at a launcher named git that runs the shim with the real git, and at one for each command the kit refuses", () => {
   const { root, run } = repo();
-  const dir = gitShim(loadKit(plugin), tempDir("sw2-shim-state-"))!;
+  const state = tempDir("sw2-shim-state-");
+  mkdirSync(join(state, "bin"));
+  writeFileSync(join(state, "bin", "hub"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+  const kit = loadKit(plugin);
+  const dir = seatBin(kit, state)!;
   assert.ok(dir);
   assert.equal(run([join(dir, "git")], "-C", root, "push").status, 1);
   assert.equal(run([join(dir, "git")], "-C", root, "status").status, 0);
-  const onPath = spawnSync("/bin/sh", ["-c", `git -C '${root}' push`], { encoding: "utf-8", env: { ...process.env, PATH: `${dir}${delimiter}${process.env.PATH}` } });
-  assert.match(onPath.stderr, /^git: refused: git push/, "found by name, as a seat's shell finds it");
+  const shell = (line: string) => spawnSync("/bin/sh", ["-c", line], { encoding: "utf-8", env: { ...process.env, PATH: `${dir}${delimiter}${process.env.PATH}` } });
+  assert.match(shell(`git -C '${root}' push`).stderr, /^git: refused: git push/, "found by name, as a seat's shell finds it");
+  assert.ok(Object.keys(kit.refused).length > 0);
+  for (const [name, why] of Object.entries(kit.refused)) {
+    // `env` looks a command up on PATH as the shell does, past any rule that reads only the command line's first word.
+    const ran = shell(`env ${name} --version`);
+    assert.equal(ran.status, 1, name);
+    assert.equal(ran.stderr, `${name}: refused: ${why}. Say what you need to whoever gave you the work.\n`);
+  }
+  assert.deepEqual(readdirSync(dir).sort(), ["git", ...Object.keys(kit.refused)].sort(), "nothing the kit no longer refuses is left refusing");
 });

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { renderPrompt } from "../catalog/content.ts";
 import { type Kit, type SensorSpec, TEAM_SERVER, seatOf, watchPatterns } from "../catalog/kit.ts";
 import { type ModelCache, applyModels, fetchModels, listingProviders } from "../catalog/models.ts";
-import { applyRole, gitShim, seatEnv } from "../catalog/launch.ts";
+import { applyRole, seatBin, seatEnv } from "../catalog/launch.ts";
 import { applyReconcile, reloadDaemon } from "../catalog/providers.ts";
 import { placeGuides, seatDir, seedRecords, sweepSnapshots } from "../catalog/seats.ts";
 import { stampKit } from "../upkeep/migrate.ts";
@@ -260,7 +260,7 @@ export class Runtime implements HostHooks {
       console.error("seatworks-v2: could not seed project records:", error);
     }
     this.seating.ensure(seat.role.role, seat.harness, project);
-    return seatEnv(this.kit, request, seatDir(this.kit, seat.role, seat.harness, home(), project), project, gitShim(this.kit));
+    return seatEnv(this.kit, request, seatDir(this.kit, seat.role, seat.harness, home(), project), project, seatBin(this.kit));
   }
 
   async turnStarted(agent: HookAgent): Promise<void> {

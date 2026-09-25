@@ -7,11 +7,11 @@ import { renderPrompt } from "../../server/catalog/content.ts";
 import { HarnessFile } from "../../server/catalog/schema.ts";
 import { tempDir } from "../tempdir.ts";
 
-/** A kit of the test's own, holding the shipped ecosystem, Paseo's tools and the watch's questions, which are no fixture's to make up. */
+/** A kit of the test's own, holding the shipped ecosystem, Paseo's tools, the watch's questions and what a seat's PATH refuses: no fixture's to make up. */
 function kitDir(prefix: string): string {
   const dir = tempDir(prefix);
   mkdirSync(join(dir, "catalog"), { recursive: true });
-  for (const name of ["ecosystem.json", "paseo.json", "checks.json"]) copyFileSync(new URL(`../../catalog/${name}`, import.meta.url), join(dir, "catalog", name));
+  for (const name of ["ecosystem.json", "paseo.json", "checks.json", "refused.json"]) copyFileSync(new URL(`../../catalog/${name}`, import.meta.url), join(dir, "catalog", name));
   return dir;
 }
 
@@ -85,6 +85,23 @@ test("loading a kit refuses a harness that breaks the contract, naming the field
 
   write(good());
   assert.deepEqual(Object.keys(loadKit(dir).harnesses), ["acme"]);
+});
+
+test("a command refused on a seat's PATH is never the agent a seat starts with or its git, and an owner's own list replaces the kit's", () => {
+  const dir = kitDir("sw2-refused-");
+  writeFileSync(join(dir, "roles.json"), JSON.stringify({ roles: [] }));
+  mkdirSync(join(dir, "harness", "acme"), { recursive: true });
+  writeFileSync(join(dir, "harness", "acme", "harness.json"), JSON.stringify({ ...good(), provider: { env: { SEATWORKS_AGENT_BIN: "acme" } } }));
+  const mine = tempDir("sw2-refused-mine-");
+  const refuse = (list: object) => writeFileSync(join(mine, "refused.json"), JSON.stringify(list));
+  refuse({ acme: "agents start through the desk" });
+  assert.throws(() => loadKit(dir, mine), /refused\.json refuses acme, which every acme seat is started with/);
+  refuse({ git: "the desk's" });
+  assert.throws(() => loadKit(dir, mine), /refused\.json refuses git, which the kit's git shim runs/);
+  refuse({ "hub cli": "the forge's" });
+  assert.throws(() => loadKit(dir, mine), /refused\.json is not as the kit reads it:[^]*names what is not a command's name/);
+  refuse({ hub: "the forge's" });
+  assert.deepEqual(loadKit(dir, mine).refused, { hub: "the forge's" });
 });
 
 test("a sensor or a question the watch could not ask by is refused as the kit loads, naming its file", () => {

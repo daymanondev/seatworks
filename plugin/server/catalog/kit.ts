@@ -5,7 +5,7 @@ import type { Attention } from "../../shared/views.ts";
 import { ATTENTION } from "./attention.ts";
 import type { FileKinds } from "../core/git.ts";
 import { DESK_OWNED } from "../core/paths.ts";
-import { ChecksFile, EcosystemFile, HarnessFile, McpFile, PaseoFile, RolesFile, SensorFile } from "./schema.ts";
+import { ChecksFile, EcosystemFile, HarnessFile, McpFile, PaseoFile, RefusedFile, RolesFile, SensorFile } from "./schema.ts";
 
 type ThinkingSpec = { id: string; label: string; isDefault?: boolean };
 export type ModelSpec = { id: string; label: string; isDefault?: boolean; thinkingOptions?: ThinkingSpec[] };
@@ -34,6 +34,7 @@ export type Kit = {
   attention: Attention;
   ecosystem: Ecosystem;
   paseoTools: string[];
+  refused: Record<string, string>;
   sensors: Record<string, SensorSpec>;
   checks: Record<string, CheckSpec>;
 };
@@ -121,6 +122,12 @@ export function loadKit(dir: string, stateDir?: string): Kit {
     if (!harnesses[role.defaults.harness]) throw new Error(`role ${role.role} defaults to harness ${role.defaults.harness}, which has no harness/${role.defaults.harness}/harness.json`);
   }
   const loaded = roles as RoleSpec[];
+  const refused = parsed(RefusedFile, chosen(join(dir, "catalog", "refused.json"), stateDir), "refused.json");
+  for (const name of Object.keys(refused)) {
+    // A seat's own agent is started through the PATH these go first on, and its git through the shim.
+    const starts = Object.values(harnesses).find((harness) => harness.provider.env?.SEATWORKS_AGENT_BIN === name);
+    if (name === "git" || starts) throw new Error(`refused.json refuses ${name}, which ${starts ? `every ${starts.id} seat is started with` : "the kit's git shim runs"}, through the same PATH`);
+  }
   const own = stateDir ? join(stateDir, "own") : undefined;
   return {
     dir,
@@ -133,6 +140,7 @@ export function loadKit(dir: string, stateDir?: string): Kit {
     attention: { ...ATTENTION, destructive: ecosystem.watch.destructive, testPath: ecosystem.watch.testPath, suppressed: ecosystem.watch.suppressed, ...raw.attention },
     ecosystem,
     paseoTools: parsed(PaseoFile, chosen(join(dir, "catalog", "paseo.json"), stateDir), "paseo.json").tools,
+    refused,
     sensors: loadSensors(dir),
     checks: parsed(ChecksFile, join(dir, "catalog", "checks.json"), "checks.json"),
   };

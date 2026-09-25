@@ -139,6 +139,9 @@ export const RolesFile = z.strictObject({
 /** The tools Paseo gives every agent, as a list the plugin keeps in step with Paseo. */
 export const PaseoFile = z.strictObject({ tools: z.array(text).min(1) });
 
+/** Commands a seat's shell finds refused on its PATH, each with why: what a rule on the command line misses, such as `env gh`. */
+export const RefusedFile = z.record(z.string(), text).refine((list) => Object.keys(list).every((name) => /^[\w.+-]+$/.test(name)), { error: "names what is not a command's name" });
+
 const Gate = z.strictObject({
   files: z.array(text).min(1),
   script: text.optional(),

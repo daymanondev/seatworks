@@ -1,4 +1,4 @@
-import { accessSync, constants, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { accessSync, constants, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { delimiter, join } from "node:path";
 import { writeConfigAtomic } from "../core/config-file.ts";
 import { nodeBin, stateRoot } from "../core/paths.ts";
@@ -79,8 +79,10 @@ export function projectImports(harness: HarnessSpec, root: string | undefined): 
   return spec.otherwise.filter((file) => existsSync(join(root, file))).map((file) => `${spec.importAs.replace("{path}", join(root, file))}\n`).join("");
 }
 
-/** The harness's own env goes in too: Paseo may run one agent server for every seat of a harness, built from its built-in provider. */
-/** `shim` is the directory of the git launcher that goes first on the seat's PATH. */
+/**
+ * The harness's own env goes in too: Paseo may run one agent server for every seat of a harness, built from its built-in provider.
+ * `shim` is the directory `seatBin` writes, which goes first on the seat's PATH.
+ */
 export function seatEnv(kit: Kit, request: SessionOpen, seatPath: string, project: { root: string; state: string }, shim?: string): SessionOpen {
   const seat = seatOf(kit, request.provider);
   if (!seat) return request;
@@ -114,18 +116,21 @@ function realGit(skip: string): string | undefined {
 }
 
 /**
- * Writes a launcher named git that runs the kit's git shim with node, the shim and the real git by absolute path, and gives its
- * directory for a seat's PATH; nothing where this machine has no git to hand on to.
+ * Writes the directory a seat's PATH starts at, and gives it: a git that runs the kit's git shim with node, the shim and the real
+ * git by absolute path, and for each command the kit refuses one that says why and fails. Nothing where this machine has no git.
  */
-export function gitShim(kit: Kit, root = stateRoot()): string | undefined {
+export function seatBin(kit: Kit, root = stateRoot()): string | undefined {
   const dir = join(root, "bin");
   const git = realGit(dir);
   if (!git) return undefined;
-  const text = `#!/bin/sh\nexec ${quoted(nodeBin())} ${quoted(join(kit.dir, "bin", "git-shim.mjs"))} ${quoted(git)} "$@"\n`;
-  const file = join(dir, "git");
-  if (!existsSync(file) || readFileSync(file, "utf-8") !== text) {
-    mkdirSync(dir, { recursive: true });
-    writeConfigAtomic(file, text, 0o755);
+  const wanted: Record<string, string> = { git: `#!/bin/sh\nexec ${quoted(nodeBin())} ${quoted(join(kit.dir, "bin", "git-shim.mjs"))} ${quoted(git)} "$@"\n` };
+  for (const [name, why] of Object.entries(kit.refused)) wanted[name] = `#!/bin/sh\necho ${quoted(`${name}: refused: ${why}. Say what you need to whoever gave you the work.`)} >&2\nexit 1\n`;
+  mkdirSync(dir, { recursive: true });
+  // The directory is the plugin's alone: a command the kit no longer refuses must run again.
+  for (const name of readdirSync(dir)) if (!(name in wanted)) rmSync(join(dir, name), { force: true });
+  for (const [name, text] of Object.entries(wanted)) {
+    const file = join(dir, name);
+    if (!existsSync(file) || readFileSync(file, "utf-8") !== text) writeConfigAtomic(file, text, 0o755);
   }
   return dir;
 }

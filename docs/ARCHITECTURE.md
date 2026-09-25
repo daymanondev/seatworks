@@ -91,7 +91,7 @@ These are mostly absences, so the code won't show them to you.
 | `bin/` | `seat-room`, the launcher that refuses a seat the plugin did not configure |
 | `roles.json` | The SLP preset: roles, capabilities, tool sets, prompts, skills, defaults, attention values |
 | `harness/<agent>/` | How each agent is set up: `harness.json`, base and per-role settings, and per-role deltas: what a role's prompt needs said against that agent's own instructions |
-| `catalog/` | Optional MCP servers; `ecosystem.json`: gates, one-writer paths, test and docs names, the watch's patterns; `paseo.json`: the tools Paseo gives every agent; `sensor/`: where and how each sensor is asked; `checks.json`: the watch's questions |
+| `catalog/` | Optional MCP servers; `ecosystem.json`: gates, one-writer paths, test and docs names, the watch's patterns; `paseo.json`: the tools Paseo gives every agent; `refused.json`: the commands a seat's `PATH` refuses, and why; `sensor/`: where and how each sensor is asked; `checks.json`: the watch's questions |
 | `content/` | Runtime content that seats read: prompts, skills, guides. Not documentation |
 
 All paths are under `plugin/`.
@@ -111,8 +111,9 @@ All paths are under `plugin/`.
 3. **Before `agent.session_open`.** The plugin points the agent's config directory at the seat
    directory and sets `SEATWORKS_ROLE`, `SEATWORKS_PROJECT` and `SEATWORKS_STATE`, with a `git` first
    on its `PATH` that refuses the commands only the desk runs (push, merge, checkout and the like),
-   however they are spelled. It also seeds the project's records, such as `notebook.md`, and writes
-   nothing into the project's own files.
+   however they are spelled, and beside it a `gh` and a `paseo` that only refuse, since the desk
+   talks to the forge and starts agents. It also seeds the project's records, such as `notebook.md`,
+   and writes nothing into the project's own files.
 4. **`bin/seat-room`** checks the launch and then `exec`s Claude. Codex, Pi, Oh My Pi and OpenCode seats start
    through Paseo's own providers.
 
