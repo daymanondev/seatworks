@@ -74,6 +74,7 @@ test("every role builds on every agent the kit ships, each in that agent's own t
     // Mail wakes a coordinating seat; one that sleeps in its turn only holds the turn open.
     const waits = !["lead", "supervisor"].includes(role.role);
     if (harness.id === "claude") {
+      assert.ok(["Bash(git push *)", "Bash(git -C * push *)"].every((rule) => settings.permissions.deny.includes(rule)), `${where}: a seat does not push, with -C or without`);
       assert.equal(["Edit", "Write", "MultiEdit"].some((tool) => settings.permissions.deny.includes(tool)), !edits, `${where}: edits files only where the role may`);
       assert.equal(settings.permissions.deny.includes("Bash(sleep *)"), !waits, `${where}: sleeps only where the role may`);
     }

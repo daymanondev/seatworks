@@ -1,4 +1,7 @@
-import { join } from "node:path";
+import { accessSync, constants, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { delimiter, join } from "node:path";
+import { writeConfigAtomic } from "../core/config-file.ts";
+import { nodeBin, stateRoot } from "../core/paths.ts";
 import type { AgentConfig, SessionOpen } from "../core/ports.ts";
 import { type Kit, type McpServers, type RoleSpec, agentDefault, seatOf } from "./kit.ts";
 import { preapprovedFor } from "./servers.ts";
@@ -70,7 +73,8 @@ export function applyRole(kit: Kit, team: Team, config: AgentConfig, render: Ren
 }
 
 /** The harness's own env goes in too: Paseo may run one agent server for every seat of a harness, built from its built-in provider. */
-export function seatEnv(kit: Kit, request: SessionOpen, seatPath: string, project: { root: string; state: string }): SessionOpen {
+/** `shim` is the directory of the git launcher that goes first on the seat's PATH. */
+export function seatEnv(kit: Kit, request: SessionOpen, seatPath: string, project: { root: string; state: string }, shim?: string): SessionOpen {
   const seat = seatOf(kit, request.provider);
   if (!seat) return request;
   return {
@@ -82,6 +86,38 @@ export function seatEnv(kit: Kit, request: SessionOpen, seatPath: string, projec
       SEATWORKS_ROLE: seat.role.role,
       SEATWORKS_PROJECT: project.root,
       SEATWORKS_STATE: project.state,
+      ...(shim ? { PATH: [shim, request.env.PATH ?? process.env.PATH].filter(Boolean).join(delimiter) } : {}),
     },
   };
+}
+
+const quoted = (text: string) => `'${text.replaceAll("'", `'\\''`)}'`;
+
+/** The git a seat's PATH finds past the shim: the shim's directory is skipped, since what is there is named git too. */
+function realGit(skip: string): string | undefined {
+  for (const dir of (process.env.PATH ?? "").split(delimiter)) {
+    if (!dir || dir === skip) continue;
+    try {
+      accessSync(join(dir, "git"), constants.X_OK);
+      return join(dir, "git");
+    } catch {}
+  }
+  return undefined;
+}
+
+/**
+ * Writes a launcher named git that runs the kit's git shim with node, the shim and the real git by absolute path, and gives its
+ * directory for a seat's PATH; nothing where this machine has no git to hand on to.
+ */
+export function gitShim(kit: Kit, root = stateRoot()): string | undefined {
+  const dir = join(root, "bin");
+  const git = realGit(dir);
+  if (!git) return undefined;
+  const text = `#!/bin/sh\nexec ${quoted(nodeBin())} ${quoted(join(kit.dir, "bin", "git-shim.mjs"))} ${quoted(git)} "$@"\n`;
+  const file = join(dir, "git");
+  if (!existsSync(file) || readFileSync(file, "utf-8") !== text) {
+    mkdirSync(dir, { recursive: true });
+    writeConfigAtomic(file, text, 0o755);
+  }
+  return dir;
 }

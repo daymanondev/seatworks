@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadKit, providerId } from "../../server/catalog/kit.ts";
 import { applyRole, seatEnv } from "../../server/catalog/launch.ts";
@@ -103,12 +103,13 @@ test("providers outside the kit are left untouched", () => {
   assert.equal(applyRole(kit, team, { provider: "sw2-lead", cwd: "/repo" } as AgentConfig, render).model, undefined);
 });
 
-test("a seat's session gets its harness's environment, its config directory and project variables", () => {
-  const request = { agentId: "a", workspaceId: null, provider: "sw2-peer-omp", cwd: "/repo", reason: "create", purpose: "interactive", env: { KEEP: "1" } } as SessionOpen;
-  const next = seatEnv(kit, request, "/seats/peer-omp-repo", { root: "/repo", state: "/state/repo" });
+test("a seat's session gets its harness's environment, its config directory, project variables and the git launcher first on its PATH", () => {
+  const request = { agentId: "a", workspaceId: null, provider: "sw2-peer-omp", cwd: "/repo", reason: "create", purpose: "interactive", env: { KEEP: "1", PATH: "/usr/bin" } } as SessionOpen;
+  const next = seatEnv(kit, request, "/seats/peer-omp-repo", { root: "/repo", state: "/state/repo" }, "/state/bin");
   // Paseo may run one agent server for every seat of a harness, so only the session carries the seat's own environment.
   assert.deepEqual(next.env, {
     KEEP: "1",
+    PATH: `/state/bin${delimiter}/usr/bin`,
     SEATWORKS_HARNESS: "omp",
     SEATWORKS_AGENT_BIN: "omp",
     PI_CODING_AGENT_DIR: "/seats/peer-omp-repo",

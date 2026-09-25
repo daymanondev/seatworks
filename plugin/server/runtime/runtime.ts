@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { renderPrompt } from "../catalog/content.ts";
 import { type Kit, TEAM_SERVER, seatOf, watchPatterns } from "../catalog/kit.ts";
 import { type ModelCache, applyModels, fetchModels, listingProviders } from "../catalog/models.ts";
-import { applyRole, seatEnv } from "../catalog/launch.ts";
+import { applyRole, gitShim, seatEnv } from "../catalog/launch.ts";
 import { applyReconcile, reloadDaemon } from "../catalog/providers.ts";
 import { placeProjectFiles } from "../catalog/project-files.ts";
 import { placeGuides, seatDir, seedRecords, sweepSnapshots } from "../catalog/seats.ts";
@@ -265,7 +265,7 @@ export class Runtime implements HostHooks {
       console.error("seatworks-v2: could not write the team's block into the project's AGENTS.md:", error);
     }
     this.seating.ensure(seat.role.role, seat.harness, project);
-    return seatEnv(this.kit, request, seatDir(this.kit, seat.role, seat.harness, home(), project), project);
+    return seatEnv(this.kit, request, seatDir(this.kit, seat.role, seat.harness, home(), project), project, gitShim(this.kit));
   }
 
   async turnStarted(agent: HookAgent): Promise<void> {

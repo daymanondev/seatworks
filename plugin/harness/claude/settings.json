@@ -47,6 +47,7 @@
       "Bash(git cherry-pick *)",
       "Bash(git stash *)",
       "Bash(git worktree *)",
+      "Bash(git -C * push *)",
       "Bash(git -C * merge *)",
       "Bash(git -C * checkout *)",
       "Bash(git -C * reset *)",
