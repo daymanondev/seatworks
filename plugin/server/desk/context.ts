@@ -109,11 +109,7 @@ export class DeskContext {
   }
 
   event(project: Project, data: DeskEvent): void {
-    try {
-      appendRecord(project.state, "events", `${JSON.stringify({ at: new Date().toISOString(), ...data })}\n`);
-    } catch (error) {
-      console.error("seatworks-v2: events.log write failed:", error);
-    }
+    appendRecord(project.state, "events", `${JSON.stringify({ at: new Date().toISOString(), ...data })}\n`);
   }
 
   async post(to: string | undefined, letter: Letter): Promise<Posted | "nobody"> {

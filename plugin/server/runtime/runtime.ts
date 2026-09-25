@@ -323,11 +323,7 @@ export class Runtime implements HostHooks {
   }
 
   private log(project: Project, line: string): void {
-    try {
-      appendRecord(project.state, "attention", `${new Date().toISOString()}  ${line}\n`);
-    } catch (error) {
-      console.error("seatworks-v2: attention log write failed:", error);
-    }
+    appendRecord(project.state, "attention", `${new Date().toISOString()}  ${line}\n`);
   }
 
   private async compose(to: string, list: Letter[]): Promise<string> {

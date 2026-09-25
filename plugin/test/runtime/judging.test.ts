@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import type { SensorSpec } from "../../server/catalog/kit.ts";
@@ -7,6 +7,7 @@ import { stateRoot } from "../../server/core/paths.ts";
 import type { Answer, Judge, Question } from "../../server/core/ports.ts";
 import { loadConfig, saveConfig } from "../../server/desk/project.ts";
 import { contracts } from "../../shared/rpc.ts";
+import { reported } from "../console.ts";
 import { type FakeTimeline, settle } from "./fake-timeline.ts";
 import { harness, laneWithPeer } from "./harness.ts";
 
@@ -117,7 +118,7 @@ test("a review that accepts a change a risk rule reaches is asked, per invariant
   assert.deepEqual(kept(h.project.state).at(-1)!.verdicts, { review_ran_invariant__1: "no" });
 });
 
-test("nothing is asked with the watch off or a sensor without its key, and a sensor that fails leaves the case on record, unasked", async () => {
+test("nothing is asked with the watch off or a sensor without its key, and a sensor that fails leaves the case on record, unasked", async (t) => {
   const failing = sensor(new Error("503: busy"));
   const h = harness({ sensor: failing.make });
   const opened = await lane(h, "a.txt");
@@ -143,6 +144,12 @@ test("nothing is asked with the watch off or a sensor without its key, and a sen
   const [unasked] = kept(h.project.state);
   assert.deepEqual([unasked!.subject, unasked!.unasked, unasked!.answers], ["L1-T1", "503: busy", undefined]);
   assert.match(readFileSync(join(h.project.state, "events.log"), "utf-8"), /"kind":"watch\.unasked","subject":"L1-T1","by":"jev","error":"503: busy"/);
+
+  rmSync(join(h.project.state, "assessments.log"));
+  mkdirSync(join(h.project.state, "assessments.log"));
+  const said = reported(t);
+  await handBack("fourth");
+  assert.match(said(), /assessments\.log write failed/, "a record that cannot be written is reported, and the desk goes on");
 });
 
 /** A turn of the Peer's: its instruction, from whoever `from` names, then its calls, one after another. */
