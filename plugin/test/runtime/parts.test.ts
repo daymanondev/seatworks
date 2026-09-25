@@ -4,13 +4,16 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { runGate } from "../../server/core/gate.ts";
 import { issueArgs } from "../../server/desk/issue.ts";
-import { type Lane, type Task, emptyLedger, nextAskId, nextLaneId, nextTaskId } from "../../server/desk/ledger.ts";
+import { type Ask, type Lane, type Task, emptyLedger, nextAskId, nextLaneId, nextTaskId } from "../../server/desk/ledger.ts";
 import { slugify } from "../../server/core/text.ts";
 import { directive } from "../../server/desk/directive.ts";
-import { letters } from "../../server/desk/letters.ts";
+import { askLetters } from "../../server/desk/ask-letters.ts";
+import { type Letter, letters } from "../../server/desk/letters.ts";
+import { mergeLetters } from "../../server/desk/merge-letters.ts";
 import { reviewBrief, taskBrief } from "../../server/desk/briefs.ts";
 import { takeRequests, writeReply } from "../../server/runtime/spool.ts";
 import { hiddenWordsIn } from "../../server/catalog/hidden-words.ts";
+import type { Question } from "../../server/domain/question.ts";
 import { loadKit } from "../../server/catalog/kit.ts";
 import { tempDir } from "../tempdir.ts";
 
@@ -70,14 +73,54 @@ test("what a Peer and a Lead read carries none of the words hidden from them", (
   assert.ok(hides("peer").length > 0 && hides("lead").length > 0, "both roles hide words to check for");
   assert.deepEqual(hiddenWordsIn(peerText, hides("peer")), []);
   const opening = directive({ ...lane, writeSet: ["src/discounts/**"], contracts: ["src/orders.ts"] }, { gate: "npm test runs on the whole lane when you report it ready", serial: ["package-lock.json"], concept: "/state/CONTEXT.md" });
-  const leadText = [opening, ...(["left", "clean", { not: "it has uncommitted changes" }] as const).map((settling) => letters.conflict(task, ["a.js"], lane.branch, settling).text), letters.stalled(task, "bye", 2).text, letters.reconciled(lane, task, "agent-9", "stop using the old client", sending).text].join("\n");
+  const leadText = [opening, ...(["left", "clean", { not: "it has uncommitted changes" }] as const).map((settling) => mergeLetters.conflict(task, ["a.js"], lane.branch, settling).text), letters.stalled(task, "bye", 2).text, letters.reconciled(lane, task, "agent-9", "stop using the old client", sending).text].join("\n");
   assert.deepEqual(hiddenWordsIn(leadText, hides("lead")), []);
 });
 
 
 test("a hand-back names the Peer that wrote it, so its lead can read what it did", () => {
-  const named = letters.handback(task, "/state/handbacks/L1-T1.md", "Outcome: complete", "agent-7").text;
+  const named = letters.handback(task, "/state/handbacks/L1-T1.md", "Outcome: complete", "agent-7", "lead").text;
   assert.match(named, /HANDBACK L1-T1 \(Apply discount\) from agent-7/, "the lead is told which agent to read, at the moment it decides");
+});
+
+test("a letter ends with one Next line, what it asks of whoever reads it, which the desk picks from what it knows", () => {
+  const next = (letter: Letter) => {
+    const lines = letter.text.split("\n").filter((entry) => entry.startsWith("Next: "));
+    assert.equal(lines.length, 1, letter.text);
+    assert.ok(letter.text.endsWith(lines[0]!), "it is the letter's last line");
+    assert.ok(lines[0]!.split(" ").length <= 31, `at most 30 words: ${lines[0]}`);
+    return lines[0]!.slice("Next: ".length);
+  };
+  const found = { asks: [] as string[], facts: [] as string[] };
+  assert.match(next(letters.report(lane, "done", false, [], found)), /^Reply only if it needs a decision of yours/);
+  assert.match(next(letters.report(lane, "done", true, [], { ...found, gate: { ok: true, text: "passed" } })), /^land_lane it if acceptance is met and nothing carried loses or corrupts data/);
+  assert.match(next(letters.report(lane, "done", true, [], { ...found, gate: { ok: false, text: "failed" } })), /^Landing over a red gate is your call: land_lane with overGate/);
+  assert.match(next(letters.report(lane, "done", true, [], { ...found, asks: ["It changes src/auth/a.ts."] })), /then waits for the Human on the Flow tab/);
+  assert.match(next(letters.report(lane, "done", true, [], { ...found, parked: "It is on hold." })), /^Tell the Human it waits for their answer/);
+
+  const ask: Ask = { id: "A1", from: "agent-2", fromRole: "lead", to: "sup", lane: "L1", kind: "need", text: "A key for the API", status: "open", openedAt: 0, reminders: 0 };
+  assert.match(next(askLetters.askTo(ask, "the Lead of L1", "supervisor")), /^Decide and answer A1/);
+  assert.match(next(askLetters.askTo({ ...ask, kind: "question" }, "the Lead of L1", "supervisor")), /^If CONTEXT\.md settles it, answer A1; else ask the Human/);
+  assert.match(next(askLetters.askTo({ ...ask, kind: "question", task: "L1-T1" }, "the Peer on L1-T1", "supervisor")), /^Its Lead is gone: answer A1 if you can/);
+  assert.match(next(askLetters.askTo({ ...ask, kind: "question", task: "L1-T1" }, "the Peer on L1-T1", "lead")), /^Answer A1 from the brief and the code/);
+
+  const asked: Question = { id: "H1", from: "sup", question: "Delete or archive?", why: "w", options: [], recommend: "Archive", reason: "r", ifSilent: "s", class: "reversible", status: "answered", openedAt: 0, answer: { choice: "Delete", by: "panel", at: 0 } };
+  assert.match(next(askLetters.humanAnswered(asked, undefined)), /^Turn round what went ahead on your recommendation/);
+  assert.match(next(askLetters.humanAnswered({ ...asked, answer: { choice: "Archive", by: "panel", at: 0 } }, undefined)), /^Write their choice into CONTEXT\.md/);
+
+  assert.match(next(letters.handback(task, "/h.md", "Outcome: complete", "agent-7", "lead")), /^Judge it by what the work did/);
+  assert.match(next(letters.handback({ ...task, kind: "review" }, "/h.md", "Verdict: accept", "agent-7", "lead")), /^Weigh its findings, then cut it/);
+  assert.match(next(letters.handback(task, "/h.md", "Outcome: complete", "agent-7", "supervisor")), /^Its Lead is gone: replace_lead/);
+
+  const counts = { src: 10, test: 5, docs: 0, files: ["src/pricing.js"] };
+  const last = mergeLetters.merged(task, counts, [], "passed", true);
+  assert.deepEqual([last.wakes, next(last)], [undefined, "Every task of the lane is settled: if its outcome is complete, have the whole lane reviewed (start_review, no task), then report it ready."]);
+  const noted = mergeLetters.merged(task, counts, ["src/other.js"], "passed", false);
+  assert.deepEqual([noted.wakes, next(noted)], [undefined, "Act on a note only if it matters to the lane."]);
+  const started = letters.started({ ...task, after: ["L1-T0"] }, "Started L1-T1 in the lane's working copy with Peer agent-4.");
+  assert.deepEqual([started.wakes, next(started)], [false, "Nothing now: its hand-back arrives as mail."], "a task starting by itself asks nothing of its Lead");
+  const quiet = mergeLetters.merged(task, counts, [], "passed", false);
+  assert.deepEqual([quiet.wakes, next(quiet)], [false, "Nothing now: the next hand-back arrives as mail."], "a merge that asks nothing waits for the next hand-back");
 });
 
 test("issue references resolve to gh arguments", () => {

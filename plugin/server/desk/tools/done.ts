@@ -61,6 +61,12 @@ async function reminderOf(task: Task, laneBranch: string | undefined, uncommitte
   return adrift ? ` Your working copy is not on ${meant} any more, so anything you committed is on no branch and will be collected. Put it back — after a bisect that is git bisect reset — and commit there before your turn ends.` : "";
 }
 
+/** A Lead no longer seated would never read a hand-back; the level above is told instead and can seat one. */
+async function readerOf(roster: DeskServices["roster"], project: Caller["project"], lane: Lane | undefined): Promise<{ to: string | undefined; as: "lead" | "supervisor" }> {
+  if (lane?.lead && (await roster.seated(lane.lead))) return { to: lane.lead, as: "lead" };
+  return { to: await roster.supervisorFor(project, lane?.opener), as: "supervisor" };
+}
+
 /** One hand-back for tasks and reviews: the task's kind says which of the two a seat sent. */
 async function handBack({ ctx, roster }: DeskServices, caller: Caller, args: Partial<z.infer<typeof HandBack> & z.infer<typeof Verdict>>): Promise<ToolReply> {
   const { project } = caller;
@@ -103,10 +109,8 @@ async function handBack({ ctx, roster }: DeskServices, caller: Caller, args: Par
     );
   }
   const heading = review ? { ...task, title: task.of ? `review of ${task.of}` : `review: ${task.title}` } : task;
-  // A Lead no longer seated would never read it; the level above is told instead and can seat one.
-  const lead = ledger.lanes[task.lane]?.lead;
-  const reader = lead && (await roster.seated(lead)) ? lead : await roster.supervisorFor(project, ledger.lanes[task.lane]?.opener);
-  await ctx.post(reader, letters.handback(heading, file, body, caller.id));
+  const reader = await readerOf(roster, project, ledger.lanes[task.lane]);
+  await ctx.post(reader.to, letters.handback(heading, file, body, caller.id, reader.as));
   ctx.event(project, { kind: review ? "review.done" : "task.done", task: task.id, outcome, commit });
   const reminder = review ? "" : await reminderOf(task, ledger.lanes[task.lane]?.branch, work.uncommitted);
   const outside = work.outside.length > 0 ? ` You changed ${work.outside.join(", ")} outside your owned paths; your Lead sees that with the hand-back.` : "";

@@ -35,7 +35,7 @@ test("a base that conflicts with a lane is merged in as far as git goes and left
   assert.ok(underWay(h, lane.worktree!), "the conflicts wait in the lane's copy");
   assert.equal(h.ledger().lanes.L1!.ready, undefined, "what it was reported ready as is not what it holds now");
   await h.idle(lane.lead!);
-  assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /BASE CONFLICT L1 \(Cart\): main moved on, and merging it into lane\/l1-cart stopped on conflicts in a\.txt\. The merge is left in your working copy\. Give a Peer a task owning those files to settle them and commit the merge with git commit/);
+  assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /BASE CONFLICT L1 \(Cart\): main moved on, and merging it into lane\/l1-cart stopped on conflicts in a\.txt\. The merge is left in your working copy, and landing waits for it\.\n\nNext: add_tasks one task owning those files to settle them and commit the merge with git commit/);
   assert.match((await land()).text, /the merge of main into lane\/l1-cart left in its copy is not settled yet/, "a second landing leaves what is being settled alone");
   assert.ok(underWay(h, lane.worktree!));
 
@@ -80,7 +80,7 @@ test("a parallel task that conflicts with its lane has the lane brought into its
   assert.equal(h.git(lane.worktree!, "show", "HEAD:b.txt"), "lane side\n", "the lane branch is unchanged");
   assert.ok(underWay(h, task.worktree!), "the conflicts wait in the task's own copy");
   await h.idle(lane.lead!);
-  assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /MERGE CONFLICT L1-T1 \(B\) with lane\/l1-two\.\nFiles: b\.txt\nThe lane branch is unchanged\. The desk began merging lane\/l1-two into the task's branch in its own copy and left the conflicts there: send rework asking its Peer to settle them and commit the merge with git commit/);
+  assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /MERGE CONFLICT L1-T1 \(B\) with lane\/l1-two\.\nFiles: b\.txt\nThe lane branch is unchanged\. The desk began merging lane\/l1-two into the task's branch in its own copy and left the conflicts there\.\n\nNext: Send rework asking its Peer to settle them and commit the merge with git commit/);
 
   // As its Peer settles it and hands back, and its Lead accepts it again.
   writeFileSync(join(task.worktree!, "b.txt"), "both sides\n");
@@ -90,4 +90,6 @@ test("a parallel task that conflicts with its lane has the lane brought into its
   await h.runtime.desk.settled(h.project);
   assert.equal(h.ledger().tasks["L1-T1"]!.status, "merged");
   assert.equal(h.git(lane.worktree!, "show", "HEAD:b.txt"), "both sides\n");
+  await h.idle(lane.lead!);
+  assert.match(h.agents.get(lane.lead!)!.sent.at(-1) ?? "", /MERGED L1-T1 \(B\) into the lane branch\.[^]*Next: Every task of the lane is settled/, "the lane's last task merged wakes its Lead to have the lane reviewed and reported");
 });

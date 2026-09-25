@@ -282,6 +282,11 @@ export function tasksOf(ledger: Ledger, laneId: string): Task[] {
   return Object.values(ledger.tasks).filter((task) => task.lane === laneId);
 }
 
+/** The tasks of `task`'s lane other than it still to be accepted or cut. */
+export function othersLeft(ledger: Ledger, task: Task): Task[] {
+  return tasksOf(ledger, task.lane).filter((entry) => entry.id !== task.id && !SETTLED.includes(entry.status));
+}
+
 export function activeTasks(ledger: Ledger, laneId: string): Task[] {
   return tasksOf(ledger, laneId).filter((task) => ACTIVE.includes(task.status));
 }

@@ -92,9 +92,12 @@ of the same name in the state root replaces it, as `roles.json` does.
 
 ## Letters
 
-All of them are written in `desk/letters.ts`; what a seat starts from is in `desk/briefs.ts` and, for a
-Lead, `desk/directive.ts`. Each letter carries a key made of its kind and the ids that make it that
-letter, never written by hand where it is posted.
+They are written in `desk/letters.ts` and, for asks, merges and landings, in `desk/ask-letters.ts`,
+`desk/merge-letters.ts` and `desk/land-letters.ts`; what a seat starts from is in `desk/briefs.ts` and, for
+a Lead, `desk/directive.ts`. Each letter carries a key made of its kind and the ids that make it that
+letter, never written by hand where it is posted, and ends with one `Next:` line: what it asks of whoever
+reads it, which the desk picks from what it knows (a red gate, the kind of an ask, whether its reader is
+the Lead or whoever supervises because the Lead is gone, whether the task merged was the lane's last).
 
 | Kind | Letters |
 |---|---|
@@ -117,7 +120,9 @@ and left its conflicts in the copy of whoever settles them: the task's own, or t
 short where the seat's agent allows it. ARCHITECTURE, STRUGGLING and TURNING wake whoever supervises at
 the three moments SLP names, as the desk sees them: a Lead widening what a task owns; a task sent back a
 second time, or stalled; a Lead changing what a task is for. OPENED, WAITING for a lane that opened by
-itself, LANDED and SENT BACK ask nothing of the Supervisor, so they wait for the next letter that does.
+itself, LANDED and SENT BACK ask nothing of the Supervisor, and WAITING for a task that started by itself,
+LAND HELD and a MERGED with nothing to note while other tasks remain ask nothing of a Lead, so they wait
+for the next letter that does.
 
 ## Mail
 

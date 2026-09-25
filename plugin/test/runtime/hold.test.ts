@@ -13,7 +13,7 @@ test("a lane on hold stops every seat in it at once, keeps their mail and permis
 
   const held = await h.call(sup, "supervisor", "hold_lane", { lane: "L1", reason: "the migration would drop a table the Human needs." });
   assert.match(held.text, /^Lane L1 is on hold\. 2 of its seats were told to stop/);
-  assert.match(h.agents.get(lead)!.interrupted.join("\n"), /^HOLD L1 \(Build\): the owner has stopped this lane: the migration would drop a table the Human needs\.\n\nStop where you are/);
+  assert.match(h.agents.get(lead)!.interrupted.join("\n"), /^HOLD L1 \(Build\): the owner has stopped this lane: the migration would drop a table the Human needs\.\n\nNext: Stop where you are/);
   assert.match(h.agents.get(peer)!.interrupted.join("\n"), /^HOLD: the work on L1-T1 is stopped: the migration/);
   assert.match((await h.call(sup, "supervisor", "status", {})).text, /On hold for 0 min: the migration would drop a table the Human needs\. resume_lane lifts it\./);
 
@@ -33,8 +33,8 @@ test("a lane on hold stops every seat in it at once, keeps their mail and permis
   const resumed = await h.call(sup, "supervisor", "resume_lane", { lane: "L1", note: "The Human backed it up; go on." });
   assert.equal(resumed.ok, true, resumed.text);
   const toLead = h.agents.get(lead)!.sent.slice(told).join("\n");
-  assert.match(toLead, /Is the table backed up\?[^]*RESUMED L1 \(Build\): the owner lifted the hold\. Carry on from where you stopped\.\n\nThe Human backed it up; go on\./, "what waited reaches it with the resume");
-  assert.match(h.agents.get(peer)!.sent.join("\n"), /RESUMED: carry on with L1-T1 from where you stopped\./);
+  assert.match(toLead, /Is the table backed up\?[^]*RESUMED L1 \(Build\): the owner lifted the hold\.\n\nThe Human backed it up; go on\.\n\nNext: Carry on from where you stopped\./, "what waited reaches it with the resume");
+  assert.match(h.agents.get(peer)!.sent.join("\n"), /RESUMED: the work on L1-T1 goes on\.\n\nThe Human backed it up; go on\.\n\nNext: Carry on from where you stopped\./);
   assert.equal((await h.call(lead, "lead", "accept", { task: "L1-T1" })).ok, true);
   assert.match((await h.call(sup, "supervisor", "resume_lane", { lane: "L1" })).text, /Lane L1 is not on hold\./);
 });

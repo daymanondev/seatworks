@@ -73,7 +73,7 @@ test("a waiting lane whose turn comes while an open lane writes its paths is hel
   assert.match(held.held?.why ?? "", /overlaps lane L2 at b\.txt/, "checked again against the lanes open when its turn came");
   const letters = h.agents.get(sup)!.sent.filter((text) => text.startsWith("WAITING L3"));
   assert.equal(letters.length, 1);
-  assert.match(letters[0]!, /overlaps lane L2 at b\.txt\. It opens by itself once that clears; amend it, or close it to drop it\./);
+  assert.match(letters[0]!, /overlaps lane L2 at b\.txt\.\n\nNext: It opens by itself once that clears; amend it, or close it to drop it\./);
   assert.doesNotMatch(letters[0]!, /open it after L2 lands/, "not told to do what it already does");
 
   await h.tick(Date.now());
@@ -240,7 +240,7 @@ test("an amendment changes what an open lane is asked, keeps what it was asked, 
   assert.equal(h.agents.get(lane.lead!)!.sent.some((text) => text.startsWith("AMENDED")), false, "held while it is mid-turn, not pushed into it");
   await h.idle(lane.lead!);
   const letter = h.agents.get(lane.lead!)!.sent.find((text) => text.startsWith("AMENDED L1"))!;
-  assert.match(letter, /AMENDED L1 \(Build\): the Human wants an upsert too\n\nacceptance, was:\n- a\nacceptance, now:\n- a\n- upserts an item\n\nCarry it into the tasks it touches: amend_task/);
+  assert.match(letter, /AMENDED L1 \(Build\): the Human wants an upsert too\n\nacceptance, was:\n- a\nacceptance, now:\n- a\n- upserts an item\n\nA READY you reported before this no longer stands\.\n\nNext: Carry it into the tasks it touches \(amend_task/);
   assert.match(letter, /A READY you reported before this no longer stands/);
   assert.doesNotMatch(letter, /supervisor/i, "a Lead is not shown the word its role hides");
 
@@ -275,7 +275,7 @@ test("a Lead amends a task its Peer is on: the Peer is told at its next turn", a
   assert.deepEqual([task.goal, task.amended?.[0]?.was], ["upsert into the cart", { goal: "g" }]);
   await h.idle(peer);
   const letter = h.agents.get(peer)!.sent.find((text) => text.startsWith("AMENDED L1-T1"))!;
-  assert.match(letter, /goal, was:\ng\ngoal, now:\nupsert into the cart\n\nWork to it as it stands now/);
+  assert.match(letter, /goal, was:\ng\ngoal, now:\nupsert into the cart\n\nNext: Work to it as it stands now/);
   assert.doesNotMatch(letter, /seat|supervisor|paseo/i, "a Peer is not shown the words its role hides");
 
   await h.call(lane.lead!, "lead", "cut", { task: "L1-T1", reason: "done with it" });
@@ -520,7 +520,7 @@ test("a task left running with no Peer by a stop starts again if it waited, and 
   assert.ok(after["L1-T2"]!.peer, "a task that waited goes back to waiting and starts again");
   assert.equal(after["L1-T3"]!.status, "cut");
   await h.idle(lane.lead!);
-  assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /NOT STARTED L1-T3 \(Straight\): the desk stopped while its Peer was being started, so it is cut\. Start it again if you still want it/);
+  assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /NOT STARTED L1-T3 \(Straight\): the desk stopped while its Peer was being started, so it is cut\.\n\nNext: add_tasks it again if you still want it/);
 });
 
 test("a task whose Peer Paseo had started before a stop is taken on, not started twice", async () => {

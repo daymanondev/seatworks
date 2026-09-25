@@ -33,18 +33,18 @@ export class TurnRules {
     this.lastEnding.delete(agentId);
   }
 
-  async ownerOf(project: Project, agentId: string, role: RoleSpec): Promise<string | undefined> {
+  private async ownerOf(project: Project, agentId: string, role: RoleSpec): Promise<{ to: string | undefined; reader: "lead" | "supervisor" }> {
     // A Lead's owner is whoever supervises; an unreadable ledger must not stop its failures reaching anyone.
     if (can(role, "lead")) {
       let opener: string | undefined;
       try {
         opener = laneOfLead(loadLedger(project.state), agentId)?.opener;
       } catch {}
-      return this.deps.desk.supervisorFor(project, opener);
+      return { to: await this.deps.desk.supervisorFor(project, opener), reader: "supervisor" };
     }
     const ledger = loadLedger(project.state);
     const task = taskOfPeer(ledger, agentId);
-    return task ? ledger.lanes[task.lane]?.lead : undefined;
+    return { to: task ? ledger.lanes[task.lane]?.lead : undefined, reader: "lead" };
   }
 
   /** A seat stopped on a permission: refused while its lane is on hold, else its owner is told, for the Human to give it. */
@@ -68,7 +68,7 @@ export class TurnRules {
       return;
     }
     const owner = await this.ownerOf(project, agent.id, role);
-    await this.deps.desk.post(owner, letters.permission(agent.id, `${role.label} ${agent.title ?? agent.id}`, request));
+    await this.deps.desk.post(owner.to, letters.permission(agent.id, `${role.label} ${agent.title ?? agent.id}`, request, owner.reader));
   }
 
   /** The Human wrote to a Lead or Peer in its own chat: whoever supervises is told, so nothing reaches a lane past its owner unseen. */
@@ -97,7 +97,7 @@ export class TurnRules {
     this.lastEnding.set(agent.id, text);
     if (outcome.kind === "failed") {
       const owner = await this.ownerOf(project, agent.id, role);
-      await this.deps.desk.post(owner, letters.failed(agent.id, event.turnId ?? Date.now(), `${role.label} ${agent.title ?? agent.id}`, outcome.error.message));
+      await this.deps.desk.post(owner.to, letters.failed(agent.id, event.turnId ?? Date.now(), `${role.label} ${agent.title ?? agent.id}`, outcome.error.message, owner.reader));
       return;
     }
     const ledger = loadLedger(project.state);

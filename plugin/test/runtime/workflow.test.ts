@@ -801,7 +801,7 @@ test("a detour hands back to the lane that was waiting on it, and cannot be open
 
   assert.equal((await h.call(sup, "supervisor", "drop_lane", { lane: "L2", reason: "done" })).ok, true);
   await h.idle(waiting.lead!);
-  assert.match(h.agents.get(waiting.lead!)!.sent.join("\n"), /CLEARED L2[\s\S]*ask if your work needs it there/, "the lane that waited cannot see the other one, so it has to be told");
+  assert.match(h.agents.get(waiting.lead!)!.sent.join("\n"), /CLEARED L2[\s\S]*Next: Read what it did before you go on; ask if your work needs it on your branch\./, "the lane that waited cannot see the other one, so it has to be told");
 });
 
 test("a lane closed while its Lead is still writing keeps the working copy until that turn ends", async () => {
@@ -1458,7 +1458,7 @@ test("a question that would stop a seat's turn is refused with where to ask inst
   h.agents.get(peer)!.pending.push(command);
   await h.permission(peer, command);
   await h.idle(lane.lead!);
-  assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /WAITING FOR PERMISSION[^]*Bash: rm -rf build\n\nOnly the Human can answer this/);
+  assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /WAITING FOR PERMISSION[^]*Bash: rm -rf build\n\nOnly the Human can answer this[^]*\n\nNext: If it holds the lane up, ask, so the owner can tell the Human\./);
   const held = await h.call(lane.lead!, "lead", "message", { to: "L1-T1", text: "Go ahead." });
   assert.match(held.text, /stopped on a permission only the Human can give/);
   assert.equal(h.agents.get(peer)!.answered.length, 1, "the command is left for the Human");

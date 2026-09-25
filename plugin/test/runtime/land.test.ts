@@ -58,8 +58,9 @@ test("a lane touching a path the Human asked to be asked about first waits for t
   assert.equal(onMain("src/auth/login.ts"), false);
   assert.equal(h.ledger().lanes.L1!.status, "open");
   await h.idle(lane.lead!);
-  const toLead = h.agents.get(lane.lead!)!.sent.join("\n");
-  assert.match(toLead, /LAND HELD L1 \(Cart\): the Human looks at it before it lands\. It changes src\/auth\/login\.ts, under src\/auth, which the Human asked to be asked about first\. Commit nothing more on the lane until they decide/);
+  const toLead = h.heard(lane.lead!).join("\n");
+  assert.match(toLead, /LAND HELD L1 \(Cart\): the Human looks at it before it lands\. It changes src\/auth\/login\.ts, under src\/auth, which the Human asked to be asked about first\.[^]*Next: Commit nothing more on the lane until the Human decides\./);
+  assert.doesNotMatch(h.agents.get(lane.lead!)!.sent.join("\n"), /LAND HELD/, "it asks nothing of a Lead that has stopped, so it does not wake it");
   assert.doesNotMatch(toLead, /supervisor/i);
   assert.match((await land()).text, /Lane L1 still waits for the Human's approval to land, since \d+ min ago\. It changes src\/auth\/login\.ts/);
   const status = (await h.call(sup, "supervisor", "status", {})).text;
@@ -88,7 +89,7 @@ test("a landing the Human sends back leaves the lane open with their note for it
   assert.match(await decide(h, false, "put the login change behind a flag."), /Lane L1 is sent back to its Lead/);
   assert.deepEqual([h.ledger().lanes.L1!.status, h.ledger().lanes.L1!.landApproval], ["open", undefined]);
   await h.idle(lane.lead!);
-  assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /LAND SENT BACK L1 \(Cart\): put the login change behind a flag\. The lane stays open; report it ready again/);
+  assert.match(h.agents.get(lane.lead!)!.sent.join("\n"), /LAND SENT BACK L1 \(Cart\): put the login change behind a flag\. The lane stays open\.\n\nNext: Act on the note, then report the lane ready again\./);
   await h.idle(sup);
   assert.match(h.heard(sup).join("\n"), /SENT BACK L1 \(Cart\) by the Human: put the login change behind a flag/);
   assert.match((await land()).text, /waits for the Human's approval/);

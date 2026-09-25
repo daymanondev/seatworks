@@ -6,8 +6,9 @@ import { type DeskContext } from "./context.ts";
 import { errorText } from "../core/errors.ts";
 import { IN_QUEUE, TASK } from "../domain/task.ts";
 import { gateNote } from "./gates.ts";
-import { type Lane, type Task, loadLedger } from "./ledger.ts";
-import { type Letter, letters } from "./letters.ts";
+import { type Lane, type Task, loadLedger, othersLeft } from "./ledger.ts";
+import type { Letter } from "./letters.ts";
+import { mergeLetters } from "./merge-letters.ts";
 import type { Project } from "./project.ts";
 
 type Outcome = "merged" | "unmerged" | "conflict" | "fail";
@@ -85,24 +86,24 @@ export class MergeQueue {
     const { task, lane } = picked;
     const finish = (move: Outcome, letter: Letter) => this.finish(project, task, lane, move, letter);
     const cwd = lane.worktree;
-    if (!cwd) return finish("fail", letters.mergeFailed(task, "the lane has no working copy", ""));
+    if (!cwd) return finish("fail", mergeLetters.mergeFailed(task, "the lane has no working copy", ""));
     const copy = await workState(cwd);
     if (copy === "dirty") {
-      return finish("unmerged", letters.mergeFailed(task, "the lane's working copy has uncommitted changes from its current writer; accept again after that task hands back", ""));
+      return finish("unmerged", mergeLetters.mergeFailed(task, "the lane's working copy has uncommitted changes from its current writer; accept again after that task hands back", ""));
     }
     // A copy git could not read has no writer in it: it is already gone.
     if (copy === "unknown") {
-      return finish("fail", letters.mergeFailed(task, `git could not read the lane's working copy at ${cwd}`, ""));
+      return finish("fail", mergeLetters.mergeFailed(task, `git could not read the lane's working copy at ${cwd}`, ""));
     }
-    if (!task.branch) return finish("fail", letters.mergeFailed(task, "the task branch is not on record", ""));
+    if (!task.branch) return finish("fail", mergeLetters.mergeFailed(task, "the task branch is not on record", ""));
     const ahead = await commitsAhead(cwd, "HEAD", task.branch);
-    if (ahead === undefined) return finish("fail", letters.mergeFailed(task, `git could not count what ${task.branch} carries beyond the lane branch`, ""));
-    if (ahead === 0) return finish("fail", letters.mergeFailed(task, `${task.branch} has no commits beyond the lane branch`, ""));
+    if (ahead === undefined) return finish("fail", mergeLetters.mergeFailed(task, `git could not count what ${task.branch} carries beyond the lane branch`, ""));
+    if (ahead === 0) return finish("fail", mergeLetters.mergeFailed(task, `${task.branch} has no commits beyond the lane branch`, ""));
     const merged = await mergeBranch(cwd, task.branch, `Merge ${task.id}: ${task.title}`);
     if (!merged.ok) {
       return merged.conflicts.length > 0
-        ? finish("conflict", letters.conflict(task, merged.conflicts, lane.branch, await this.settleIn(task, lane)))
-        : finish("fail", letters.mergeFailed(task, "git merge failed", merged.message));
+        ? finish("conflict", mergeLetters.conflict(task, merged.conflicts, lane.branch, await this.settleIn(task, lane)))
+        : finish("fail", mergeLetters.mergeFailed(task, "git merge failed", merged.message));
     }
     await this.landed(project, task, lane, cwd, merged);
   }
@@ -124,7 +125,8 @@ export class MergeQueue {
     this.ctx.setTask(project, task.id, (entry) => {
       entry.mergeSha = merged.after;
     });
-    await this.finish(project, task, lane, "merged", letters.merged(task, counts, outsideOwned(counts?.files ?? [], task.owned), gate));
+    const last = othersLeft(loadLedger(project.state), task).length === 0;
+    await this.finish(project, task, lane, "merged", mergeLetters.merged(task, counts, outsideOwned(counts?.files ?? [], task.owned), gate, last));
   }
 
   /** The record follows what the merge did, and its Lead is told. */

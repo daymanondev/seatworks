@@ -34,12 +34,12 @@ test("a question waits on Flow, and the Human's choice there goes on the record 
   assert.deepEqual(await answer("H1", "cancel"), { error: "Only the Supervisor cancels a question; choose one of its options, or decline it." });
   assert.deepEqual(await answer("h1", "Archive", "and keep a list of them"), { answered: "H1 is answered: Archive. The Supervisor has it." });
   assert.deepEqual([h.ledger().questions.H1!.status, h.ledger().questions.H1!.answer?.by, h.ledger().questions.H1!.answer?.text], ["answered", "panel", "and keep a list of them"]);
-  assert.match(h.heard(sup).join("\n"), /HUMAN ANSWERED H1 \(Delete old invoices, or keep them archived\?\), on the panel: Archive\.\n\nTheir note, their own words:\nand keep a list of them\n\nLane L1 is still on hold for it: resume_lane it once the answer is carried into the lane\./);
+  assert.match(h.heard(sup).join("\n"), /HUMAN ANSWERED H1 \(Delete old invoices, or keep them archived\?\), on the panel: Archive\.\n\nTheir note, their own words:\nand keep a list of them\n\nLane L1 is still on hold for it\.\n\nNext: Carry their choice into the lane, and write it into CONTEXT\.md if it settles the concept; then resume_lane L1\./);
   assert.deepEqual(await answer("H1", "Delete"), { error: "H1 is already answered." });
 
   await h.call(sup, "supervisor", "ask_human", packet());
   assert.deepEqual(await answer("H2", "decline"), { answered: "H2 is declined. The Supervisor has it." });
-  assert.match(h.heard(sup).join("\n"), /HUMAN ANSWERED H2 \([^)]*\), on the panel: they declined to decide it\./);
+  assert.match(h.heard(sup).join("\n"), /HUMAN ANSWERED H2 \([^)]*\), on the panel: they declined to decide it\.\n\nNext: The call is yours now: decide it and carry that where it applies\./);
   const after = await h.rpc(contracts.flow, { project: h.project.slug });
   assert.ok("questions" in after && after.questions.length === 0, "nothing is left for them to answer");
 });

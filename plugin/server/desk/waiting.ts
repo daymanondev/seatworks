@@ -34,20 +34,24 @@ export function taskWaitsFor(ledger: Ledger, lane: string, after: string[]): Tas
   return awaiting(after, find, (task) => task.status === "merged", (task) => (task.status === "cut" ? `${task.id} was cut` : undefined), "task in this lane");
 }
 
+/** Why a lane or task cannot start yet, and what whoever it waits for can do about it; the record keeps both as one reason. */
+type Holding = { why: string; next: string; tried?: true };
+
 /** Keeps why a lane or task still waits, and tells whoever asked for it, once per reason, unless it was told already. */
-async function hold(desk: DeskServices, project: Project, entry: Lane | Task, held: NonNullable<Lane["held"]>, tell = true): Promise<void> {
+async function hold(desk: DeskServices, project: Project, entry: Lane | Task, holding: Holding, tell = true): Promise<void> {
   const task = "lane" in entry;
+  const why = `${holding.why} ${holding.next}`;
   const changed = desk.ctx.transact(project, (current) => {
     const kept = task ? current.tasks[entry.id] : current.lanes[entry.id];
-    if (!kept || kept.status !== "waiting" || kept.held?.why === held.why) return false;
-    kept.held = held;
+    if (!kept || kept.status !== "waiting" || kept.held?.why === why) return false;
+    kept.held = { why, ...(holding.tried ? { tried: true } : {}) };
     return true;
   });
   if (!changed) return;
-  desk.ctx.event(project, task ? { kind: "task.held", task: entry.id, reason: held.why } : { kind: "lane.held", lane: entry.id, reason: held.why });
+  desk.ctx.event(project, task ? { kind: "task.held", task: entry.id, reason: why } : { kind: "lane.held", lane: entry.id, reason: why });
   if (!tell) return;
   const to = task ? loadLedger(project.state).lanes[entry.lane]?.lead : await desk.roster.supervisorFor(project, entry.opener);
-  await desk.ctx.post(to, letters.held(entry, held.why));
+  await desk.ctx.post(to, letters.held(entry, holding.why, holding.next));
 }
 
 /**
@@ -60,7 +64,7 @@ export async function openWaiting(desk: DeskServices, project: Project, retryHel
   for (const waiting of Object.values(ledger.lanes).filter((lane) => lane.status === "waiting" && !lane.onHold && (retryHeld || !lane.held?.tried))) {
     const pending = waitsFor(ledger, waiting.after ?? [], waiting.onBranch === true);
     if (Array.isArray(pending) && pending.length > 0) continue;
-    const held = typeof pending === "string" ? { why: `${pending} Close this lane to drop it, or close it and open the work again without waiting.` } : await release(desk, project, waiting);
+    const held = typeof pending === "string" ? { why: pending, next: "Close this lane to drop it, or close it and open the work again without waiting." } : await release(desk, project, waiting);
     if (held) await hold(desk, project, waiting, held);
   }
 }
@@ -78,13 +82,13 @@ export async function startWaiting(desk: DeskServices, project: Project, retryHe
     const pending = taskWaitsFor(ledger, lane.id, waiting.after ?? []);
     if (Array.isArray(pending) && pending.length > 0) continue;
     const told = !answered.has(waiting.id);
-    const held = typeof pending === "string" ? { why: `${pending} Cut this task to drop it, or cut it and start the work again without waiting.` } : await releaseTask(desk, project, lane, waiting, told);
+    const held = typeof pending === "string" ? { why: pending, next: "Cut this task to drop it, or cut it and start the work again without waiting." } : await releaseTask(desk, project, lane, waiting, told);
     if (held) await hold(desk, project, waiting, held, told);
   }
 }
 
 /** As `release`, for a task: placed and claimed in one transaction, and back to waiting if its Peer cannot start. */
-async function releaseTask(desk: DeskServices, project: Project, lane: Lane, task: Task, told: boolean): Promise<Task["held"]> {
+async function releaseTask(desk: DeskServices, project: Project, lane: Lane, task: Task, told: boolean): Promise<Holding | undefined> {
   const parallel = task.mode === "parallel";
   const serial = parallel ? await serialIn(desk.ctx.kit, project, lane.worktree!) : [];
   const startSha = parallel ? undefined : await headSha(lane.worktree!);
@@ -100,18 +104,18 @@ async function releaseTask(desk: DeskServices, project: Project, lane: Lane, tas
     return { ...entry };
   });
   if (!claimed) return undefined;
-  if ("why" in claimed) return { why: `${claimed.why} It starts by itself once that clears; amend it, or cut it to drop it.` };
+  if ("why" in claimed) return { why: claimed.why, next: "It starts by itself once that clears; amend it, or cut it to drop it." };
   const started = await startPeer(desk, project, lane, claimed, { role: claimed.opening!.role, parent: lane.lead, failed: "wait" });
-  if (typeof started === "string") return { why: `${started} It is tried again when a task is accepted or cut; cut it to drop it.`, tried: true };
+  if (typeof started === "string") return { why: started, next: "It is tried again when a task is accepted or cut; cut it to drop it.", tried: true };
   desk.ctx.setTask(project, task.id, (entry) => {
     delete entry.held;
   });
-  if (told) await desk.ctx.post(lane.lead, letters.started(claimed, `Started ${task.id} ${started.where} with Peer ${started.peer}. Its hand-back arrives as mail.`));
+  if (told) await desk.ctx.post(lane.lead, letters.started(claimed, `Started ${task.id} ${started.where} with Peer ${started.peer}.`));
   return undefined;
 }
 
 /** Placed and claimed in one transaction, so a round can ask every time and nothing opens it twice or beside another in one copy. */
-async function release(desk: DeskServices, project: Project, lane: Lane): Promise<Lane["held"]> {
+async function release(desk: DeskServices, project: Project, lane: Lane): Promise<Holding | undefined> {
   const here = await currentBranch(project.root);
   const moved = lane.onBranch && here !== lane.branch
     ? `it carries on ${lane.branch}, and the project's own copy is on ${here ?? "no branch"} now.`
@@ -129,12 +133,12 @@ async function release(desk: DeskServices, project: Project, lane: Lane): Promis
     return { claimed: { ...entry }, ownCopy: where.ownCopy };
   });
   if (!placed) return undefined;
-  if (typeof placed === "string" || "why" in placed) return { why: `${typeof placed === "string" ? placed : placed.why} It opens by itself once that clears; amend it, or close it to drop it.` };
+  if (typeof placed === "string" || "why" in placed) return { why: typeof placed === "string" ? placed : placed.why, next: "It opens by itself once that clears; amend it, or close it to drop it." };
   const { claimed } = placed;
   const fetched = claimed.issue ? await fetchIssue(claimed.issue, project.root) : undefined;
   const issue = fetched && !("error" in fetched) ? fetched : undefined;
   const started = await startLead(desk, project, claimed, { ownCopy: placed.ownCopy, failed: "wait", role: claimed.opening?.role, parent: claimed.opener, issue });
-  if (typeof started === "string") return { why: `${started} It is tried again when a lane closes; close it to drop it.`, tried: true };
+  if (typeof started === "string") return { why: started, next: "It is tried again when a lane closes; close it to drop it.", tried: true };
   desk.ctx.transact(project, (ledger) => {
     const entry = ledger.lanes[lane.id];
     if (entry) delete entry.held;

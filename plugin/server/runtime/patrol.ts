@@ -203,7 +203,7 @@ export class Patrol {
           entry.remindedAt = now;
           return { ...entry };
         });
-        if (moved) await desk.post(to, askLetters.askTo(moved, ask.task ? `the Peer on ${ask.task}, whose reader is gone` : `the Lead of ${ask.lane ?? "a lane"}, whose reader is gone`));
+        if (moved) await desk.post(to, askLetters.askTo(moved, ask.task ? `the Peer on ${ask.task}, whose reader is gone` : `the Lead of ${ask.lane ?? "a lane"}, whose reader is gone`, "supervisor"));
         continue;
       }
       if (seats.get(ask.to)?.status !== "idle" || !waited(ask)) continue;
