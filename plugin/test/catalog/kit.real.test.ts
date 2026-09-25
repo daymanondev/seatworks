@@ -65,7 +65,7 @@ const SEARCHES = ["supervisor", "lead", "peer"];
 
 /** Each agent's built-in tools by its own names, every one denied a seat that touches nothing; Codex cannot take its shell away. */
 const BUILT_INS: Record<string, string[]> = {
-  claude: ["Bash", "Edit", "Write", "MultiEdit", "NotebookEdit", "NotebookRead", "Read", "Glob", "Grep", "LSP", "WebFetch", "WebSearch", "Skill", "TodoWrite", "TaskCreate", "TaskGet", "TaskList", "TaskUpdate", "AskUserQuestion"],
+  claude: ["Bash", "Edit", "Write", "MultiEdit", "NotebookEdit", "Read", "Glob", "Grep", "LSP", "WebFetch", "WebSearch", "Skill", "TodoWrite", "TaskCreate", "TaskGet", "TaskList", "TaskUpdate", "AskUserQuestion"],
   omp: ["read", "grep", "find", "glob", "lsp", "todo", "ast_grep", "ast_edit", "edit", "write", "bash", "eval", "debug", "wait", "web_search"],
   opencode: ["read", "edit", "glob", "grep", "list", "lsp", "skill", "todowrite", "webfetch", "websearch", "question", "task"],
 };
