@@ -93,3 +93,20 @@ test("a parallel task that conflicts with its lane has the lane brought into its
   await h.idle(lane.lead!);
   assert.match(h.agents.get(lane.lead!)!.sent.at(-1) ?? "", /MERGED L1-T1 \(B\) into the lane branch\.[^]*Next: Every task of the lane is settled/, "the lane's last task merged wakes its Lead to have the lane reviewed and reported");
 });
+
+test("a parallel task accepted with nothing committed merges as the nothing it is, and its Peer goes with its copy", async () => {
+  const h = harness();
+  const sup = h.add("sw2-supervisor-claude/claude-opus-5", h.root, "sup");
+  await h.call(sup, "supervisor", "open_lane", { title: "Probe", ...scope, isolate: true });
+  const lane = h.ledger().lanes.L1!;
+  await h.call(lane.lead!, "lead", "add_tasks", { tasks: [{ key: "p", title: "Look", goal: "g", acceptance: ["a"], outOfScope: ["the rest"], owned: ["b.txt"], parallel: true }] });
+  const task = h.ledger().tasks["L1-T1"]!;
+  await h.call(task.peer!, "peer", "done", { outcome: "complete", summary: "nothing needed changing" });
+  h.agents.get(task.peer!)!.status = "idle";
+  assert.equal((await h.call(lane.lead!, "lead", "accept", { task: "L1-T1" })).ok, true);
+  await h.runtime.desk.settled(h.project);
+  assert.equal(h.ledger().tasks["L1-T1"]!.status, "merged", "the Lead accepted it, and the desk does not take that back");
+  await h.idle(lane.lead!);
+  assert.match(h.agents.get(lane.lead!)!.sent.at(-1) ?? "", /MERGED L1-T1 \(Look\): it changed no files, so there was nothing to merge\./);
+  assert.ok(h.agents.get(task.peer!)!.archivedAt, "its Peer goes with its copy, as after any merge");
+});

@@ -1,4 +1,4 @@
-import { commitsAhead, diffCounts, git, mergeBranch, mergeOf, outsideOwned, pristineState } from "../core/git.ts";
+import { commitsAhead, diffCounts, git, headSha, mergeBranch, mergeOf, outsideOwned, pristineState } from "../core/git.ts";
 import { fileKinds } from "../catalog/kit.ts";
 import type { Agents } from "./agents.ts";
 import { type DeskContext } from "./context.ts";
@@ -97,7 +97,11 @@ export class MergeQueue {
     if (!task.branch) return finish("fail", mergeLetters.mergeFailed(task, "the task branch is not on record", ""));
     const ahead = await commitsAhead(cwd, "HEAD", task.branch);
     if (ahead === undefined) return finish("fail", mergeLetters.mergeFailed(task, `git could not count what ${task.branch} carries beyond the lane branch`, ""));
-    if (ahead === 0) return finish("fail", mergeLetters.mergeFailed(task, `${task.branch} has no commits beyond the lane branch`, ""));
+    // Nothing committed is a task that changed nothing, as in the lane's own copy: the Lead's accept stands.
+    if (ahead === 0) {
+      const head = await headSha(cwd);
+      return head ? this.landed(project, task, lane, cwd, { before: head, after: head }) : finish("fail", mergeLetters.mergeFailed(task, `git could not read the lane branch in ${cwd}`, ""));
+    }
     const merged = await mergeBranch(cwd, task.branch, `Merge ${task.id}: ${task.title}`);
     if (!merged.ok) {
       return merged.conflicts.length > 0
