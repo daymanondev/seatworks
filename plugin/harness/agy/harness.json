@@ -1,0 +1,41 @@
+{
+  "id": "agy",
+  "label": "Antigravity",
+  "baseProvider": "acp",
+  "profileRoot": "HOME/.agy/seats",
+  "configDirEnv": "AGY_ACP_SEAT_DIR",
+  "contextFile": "AGENTS.md",
+  "skillsDir": "skills",
+  "mcp": {
+    "file": "mcp.json",
+    "delivery": "launch",
+    "transports": [
+      "stdio",
+      "http",
+      "sse"
+    ]
+  },
+  "settings": {
+    "file": "settings.json",
+    "source": "settings.json",
+    "roleSource": "settings/ROLE.settings.json"
+  },
+  "checks": [
+    {
+      "path": "HOME/tools/agy-acp/agy_acp_server.par",
+      "help": "The official Antigravity ACP kernel the provider's PASEO_AGY_ACP_OFFICIAL_BIN points at; log in once with `npx -y paseo-agy-acp --login` outside any seat."
+    }
+  ],
+  "provider": {
+    "command": [
+      "npx",
+      "-y",
+      "paseo-agy-acp@2.4.0"
+    ],
+    "env": {
+      "SEATWORKS_HARNESS": "agy",
+      "SEATWORKS_AGENT_BIN": "npx",
+      "PASEO_AGY_ACP_OFFICIAL_BIN": "/Users/andrewpham/tools/agy-acp/agy_acp_server.par"
+    }
+  }
+}

@@ -122,6 +122,35 @@
       ]
     },
     {
+      "role": "designer",
+      "label": "Designer",
+      "description": "Read-only design lens: reviews UI changes against the approved reference screens and the project's tokens, with a designer's eye",
+      "defaults": {
+        "harness": "agy"
+      },
+      "can": [
+        "work",
+        "review"
+      ],
+      "tools": "reviewer",
+      "concern": "design",
+      "prompt": "prompts/DESIGNER.md",
+      "skills": null,
+      "extraSkills": [
+        "designer:ui-review"
+      ],
+      "paseoTools": {
+        "enabled": false
+      },
+      "hidesWords": [
+        "paseo",
+        "supervisor",
+        "seat",
+        "seats"
+      ],
+      "writes": []
+    },
+    {
       "role": "watcher",
       "label": "Watcher",
       "description": "Answers the watch's questions about one moment of the work at a time, from what the desk read then; it cannot touch the work",
